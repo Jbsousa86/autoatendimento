@@ -85,8 +85,8 @@ export const orderService = {
 
     async createOrder(orderData) {
         const newOrder = {
-            order_number: orderData.id, // Usando o ID gerado no front como numero do pedido
-            customer_name: orderData.customerName,
+            order_number: String(orderData.orderNumber), // FIX: Usar orderNumber gerado no Context
+            customer_name: orderData.customerName || "Cliente",
             total: orderData.total,
             items: orderData.items,
             status: 'pending'
