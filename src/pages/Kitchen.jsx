@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { orderService } from "../services/api"
 
+const DING_SOUND = "data:audio/mp3;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAG1xUAALDkAALDkAAAL5hTbTDKwCYQsP/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1mq4If7ktF+6EAAAAAB1xUAACw5AACw5AAAC+YU20wysAmELD/+VJBZz5T6R4AidZquCH/+VJBZz5T6R4AidZquCH/+VJBZz5T6R4AidZquCH/+VJBZz5T6R4AidZquCH+5LRfuhAAAAAAHAAaAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+
 export default function Kitchen() {
     const [orders, setOrders] = useState([])
     const knownIds = useRef(new Set()) // Rastreia IDs conhecidos
@@ -10,9 +12,13 @@ export default function Kitchen() {
     useEffect(() => {
         // Função de som
         const playNotification = () => {
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3') // Som de "Ding"
-            audio.play().catch(e => console.log("Erro som:", e))
+            const audio = new Audio(DING_SOUND)
+            audio.volume = 1.0
+            audio.play().catch(e => console.log("Erro som (clique na tela para ativar):", e))
         }
+
+        // Tornar acessível globalmente para o botão de teste
+        window.playTestSound = playNotification
 
         const loadOrders = async () => {
             const data = await orderService.getOrders()
@@ -89,6 +95,13 @@ export default function Kitchen() {
                     <span className="flex items-center gap-2 text-green-400 text-sm animate-pulse mr-4">
                         ● Conectado
                     </span>
+
+                    <button
+                        onClick={() => window.playTestSound && window.playTestSound()}
+                        className="bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 border border-blue-900 px-4 py-2 rounded text-sm font-bold transition-all"
+                    >
+                        🔊 TESTAR SOM
+                    </button>
 
                     <button
                         onClick={handleClearAll}
