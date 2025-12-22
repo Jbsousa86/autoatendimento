@@ -258,6 +258,13 @@ export default function Admin() {
                                                     value={form.price}
                                                     onChange={e => handleChange('price', e.target.value)}
                                                 />
+                                                {/* DICA DE PREÇOS PARA PIZZA */}
+                                                {(form.category === 'pizzas' || form.category === 'pizza') && form.price && (
+                                                    <div className="text-[10px] text-gray-500 mt-1 leading-tight">
+                                                        <span className="block text-red-500">P (-20%):<br /> <b>R${(form.price * 0.8).toFixed(2)}</b></span>
+                                                        <span className="block text-green-600 mt-1">G (+20%):<br /> <b>R${(form.price * 1.2).toFixed(2)}</b></span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-4">
                                                 <select
