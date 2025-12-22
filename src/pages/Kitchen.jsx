@@ -4,62 +4,36 @@ import { orderService } from "../services/api"
 export default function Kitchen() {
     const [orders, setOrders] = useState([])
 
-    // Simulating fetching orders (in a real app, this would be a WebSocket or polling)
+    // Carregar pedidos e assinar atualizações em tempo real
     useEffect(() => {
-        // Load initial orders from Service
         const loadOrders = async () => {
             const data = await orderService.getOrders()
-            // Garantir que é um array, caso localStorage esteja corrompido ou API falhe
+            // Garantir que é um array
             setOrders(Array.isArray(data) ? data : [])
         }
+
         loadOrders()
 
-        // Listener for new orders via LocalStorage (Cross-tab communication)
-        const handleStorageChange = (e) => {
-            if (e.key === 'kitchenOrders') {
-                const newOrders = JSON.parse(e.newValue || '[]')
-                setOrders(newOrders)
-            }
-        }
-
-        // Also support custom event for single-tab testing
-        const handleLocalEvent = (event) => {
-            const newOrder = event.detail
-            setOrders(prev => {
-                const exists = prev.find(o => o.orderNumber === newOrder.orderNumber)
-                if (exists) return prev
-
-                // For local event, we update UI optimistically.
-                // The persistence is handled by the event emitter (Finish.jsx)
-                // so we don't double-save here.
-                return [...prev, { ...newOrder, status: 'pending', timestamp: new Date() }]
-            })
-        }
-
-        window.addEventListener('storage', handleStorageChange)
-        window.addEventListener('new-order-placed', handleLocalEvent)
+        // INSCRIÇÃO REALTIME (O Segredo!)
+        const subscription = orderService.subscribeToOrders(() => {
+            // Sempre que algo mudar no banco, recarregamos a lista
+            loadOrders()
+        })
 
         return () => {
-            window.removeEventListener('storage', handleStorageChange)
-            window.removeEventListener('new-order-placed', handleLocalEvent)
+            // Limpar inscrição ao sair
+            if (subscription) subscription.unsubscribe()
         }
     }, [])
 
-    const updateStatus = async (orderId, newStatus) => {
+    const handleStatusChange = async (orderId, newStatus) => {
         // 1. Optimistic Update (UI fica rápida)
         setOrders(prev => prev.map(order =>
-            order.orderNumber === orderId ? { ...order, status: newStatus } : order
+            String(order.order_number) === String(orderId) ? { ...order, status: newStatus } : order
         ))
 
         // 2. Persistir via Service
-        await orderService.updateStatus(orderId, newStatus)
-    }
-
-    const clearHistory = () => {
-        if (confirm("Limpar todo o histórico de pedidos da cozinha?")) {
-            setOrders([])
-            localStorage.removeItem('kitchenOrders')
-        }
+        await orderService.updateStatus(String(orderId), newStatus)
     }
 
     return (
@@ -72,9 +46,9 @@ export default function Kitchen() {
                     <span className="bg-gray-800 px-4 py-2 rounded text-sm font-mono text-gray-400">
                         {orders.filter(o => o.status === 'pending').length} Pendentes
                     </span>
-                    <button onClick={clearHistory} className="text-red-400 hover:text-red-300 text-sm underline">
-                        Limpar Histórico
-                    </button>
+                    <span className="flex items-center gap-2 text-green-400 text-sm animate-pulse">
+                        ● Conectado
+                    </span>
                 </div>
             </header>
 
@@ -85,8 +59,8 @@ export default function Kitchen() {
                         <div
                             key={order.id}
                             className={`rounded-lg p-4 border-l-8 shadow-lg ${order.status === 'preparing'
-                                    ? 'bg-yellow-900 border-yellow-500'
-                                    : 'bg-gray-800 border-gray-600'
+                                ? 'bg-yellow-900 border-yellow-500'
+                                : 'bg-gray-800 border-gray-600'
                                 }`}
                         >
                             <div className="flex justify-between items-start mb-4">
