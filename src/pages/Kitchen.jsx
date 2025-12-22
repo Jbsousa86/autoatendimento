@@ -31,9 +31,16 @@ export default function Kitchen() {
             }
         })
 
+        // FALBACK: Polling a cada 5 segundos (Garante que nunca trava)
+        const intervalId = setInterval(() => {
+            console.log("⏱️ Polling de segurança...")
+            loadOrders()
+        }, 5000)
+
         return () => {
-            // Limpar inscrição ao sair
+            // Limpar inscrição e intervalo ao sair
             if (subscription) subscription.unsubscribe()
+            clearInterval(intervalId)
         }
     }, [])
 
