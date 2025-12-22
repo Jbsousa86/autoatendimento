@@ -14,8 +14,8 @@ export function Cart() {
   })
 
   return (
-    <aside className="w-1/4 bg-white border-l border-gray-200 flex flex-col h-full shadow-2xl z-50">
-      <div className="p-6 bg-gray-50 border-b border-gray-200">
+    <aside className="w-1/4 bg-white/85 backdrop-blur-3xl border-l border-white/30 flex flex-col h-full shadow-2xl z-50 transition-all">
+      <div className="p-6 bg-transparent border-b border-white/20">
         <h2 className="text-3xl font-extrabold text-gray-800 flex items-center gap-3">
           <img
             src={Logo}
@@ -90,7 +90,7 @@ export function Cart() {
       </div>
 
       {/* Footer Fixo com Z-Index altíssimo */}
-      <div className="bg-white border-t-2 border-gray-200 p-6 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] z-[100] relative">
+      <div className="bg-white/60 backdrop-blur-lg border-t border-white/30 p-6 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] z-[100] relative">
         <div className="flex justify-between items-end mb-6">
           <span className="text-gray-600 font-bold text-xl mb-1">Total a pagar:</span>
           <div className="text-right">
