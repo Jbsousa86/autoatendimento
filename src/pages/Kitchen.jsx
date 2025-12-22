@@ -14,10 +14,21 @@ export default function Kitchen() {
 
         loadOrders()
 
+        // Função de som
+        const playNotification = () => {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3') // Som de "Ding"
+            audio.play().catch(e => console.log("Erro ao tocar som (interaja com a página primeiro):", e))
+        }
+
         // INSCRIÇÃO REALTIME (O Segredo!)
-        const subscription = orderService.subscribeToOrders(() => {
+        const subscription = orderService.subscribeToOrders((payload) => {
             // Sempre que algo mudar no banco, recarregamos a lista
             loadOrders()
+
+            // Se for NOVO PEDIDO, toca o sino! 🔔
+            if (payload && payload.eventType === 'INSERT') {
+                playNotification()
+            }
         })
 
         return () => {
@@ -36,19 +47,36 @@ export default function Kitchen() {
         await orderService.updateStatus(String(orderId), newStatus)
     }
 
+    const handleClearAll = async () => {
+        if (confirm("⚠️ TEM CERTEZA? Isso apagará TODOS os pedidos do banco de dados (Zerar dia).")) {
+            if (confirm("Confirmação final: Deseja realmente zerar o sistema?")) {
+                await orderService.deleteAllOrders()
+                // Idealmente o realtime atualizaria, mas forçamos para garantir
+                setOrders([])
+            }
+        }
+    }
+
     return (
         <div className="min-h-screen bg-gray-900 text-white p-6">
             <header className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
                 <h1 className="text-4xl font-black text-yellow-500 tracking-tighter">
                     👨‍🍳 COZINHA <span className="text-gray-500 text-2xl">| Monitor de Pedidos</span>
                 </h1>
-                <div className="flex gap-4">
+                <div className="flex gap-4 items-center">
                     <span className="bg-gray-800 px-4 py-2 rounded text-sm font-mono text-gray-400">
                         {orders.filter(o => o.status === 'pending').length} Pendentes
                     </span>
-                    <span className="flex items-center gap-2 text-green-400 text-sm animate-pulse">
+                    <span className="flex items-center gap-2 text-green-400 text-sm animate-pulse mr-4">
                         ● Conectado
                     </span>
+
+                    <button
+                        onClick={handleClearAll}
+                        className="bg-red-900/30 hover:bg-red-900/50 text-red-400 hover:text-red-200 border border-red-900 px-4 py-2 rounded text-sm font-bold transition-all"
+                    >
+                        🗑️ ZERAR PEDIDOS
+                    </button>
                 </div>
             </header>
 

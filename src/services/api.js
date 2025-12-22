@@ -101,8 +101,6 @@ export const orderService = {
 
     async updateStatus(orderId, newStatus) {
         // Encontrar o pedido pelo order_number (que estamos usando como ID visual)
-        // ou pelo ID real do banco. O ideal é pelo ID do banco, mas o front usa order_number.
-        // Vamos tentar pelo order_number que é unico no nosso gerador.
         const { error } = await supabase
             .from('orders')
             .update({ status: newStatus })
@@ -111,14 +109,27 @@ export const orderService = {
         if (error) console.error("Erro ao atualizar status:", error)
     },
 
+    async deleteAllOrders() {
+        // Limpar TODOS os pedidos (Zerar o dia)
+        const { error } = await supabase
+            .from('orders')
+            .delete()
+            .gt('id', -1) // Truque para pegar todos (ID > -1)
+
+        if (error) console.error("Erro ao limpar pedidos:", error)
+    },
+
     // INSCRIÇÃO EM TEMPO REAL (Para a Cozinha!)
     subscribeToOrders(callback) {
+        console.log("🔌 Iniciando conexão Realtime com Supabase...")
         return supabase
             .channel('realtime-orders')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                console.log('Mudança detectada!', payload)
-                callback() // Avisa a quem chamou que algo mudou
+                console.log('🔔 Mudança detectada no banco!', payload)
+                callback(payload) // Passamos o payload para saber se foi INSERT
             })
-            .subscribe()
+            .subscribe((status) => {
+                console.log("📡 Status da conexão Realtime:", status)
+            })
     }
 }
