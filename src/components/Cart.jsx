@@ -14,13 +14,13 @@ export function Cart() {
   })
 
   return (
-    <aside className="w-1/4 bg-white/85 backdrop-blur-3xl border-l border-white/30 flex flex-col h-full shadow-2xl z-50 transition-all">
-      <div className="p-6 bg-transparent border-b border-white/20">
-        <h2 className="text-3xl font-extrabold text-gray-800 flex items-center gap-3">
+    <aside className="w-1/4 bg-white/40 backdrop-blur-3xl border-l border-white/20 flex flex-col h-full shadow-2xl z-50 transition-all">
+      <div className="p-6 bg-transparent border-b border-white/10">
+        <h2 className="text-3xl font-extrabold text-white flex items-center gap-3 drop-shadow-md">
           <img
             src={Logo}
             alt="Logo"
-            className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+            className="w-12 h-12 rounded-full object-cover border-2 border-white/50 shadow-sm"
           />
           <span className="tracking-tight">Seu Pedido</span>
         </h2>
@@ -28,18 +28,18 @@ export function Cart() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32"> {/* Mais padding bottom para garantir scroll */}
         {cart.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 space-y-4">
-            <p className="text-8xl">🍔</p>
-            <p className="text-xl font-medium text-center px-6">
-              Selecione produtos ao lado para começar
+          <div className="h-full flex flex-col items-center justify-center text-white/60 space-y-4 animate-pulse">
+            <p className="text-8xl drop-shadow-lg">🍔</p>
+            <p className="text-xl font-bold text-center px-6 drop-shadow-md">
+              Seu carrinho está vazio
             </p>
           </div>
         ) : (
           cart.map((item) => (
             <div
-              // FORCE RE-RENDER ON QTY CHANGE to avoid stale DOM visual bugs
+              // CARTÃO FLUTUANTE (Floating Card Style)
               key={`${item.id}-${item.qty}`}
-              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl hover:scale-105 transition-all outline outline-2 outline-transparent hover:outline-orange-400"
             >
               {/* Nome e Preço Unitário */}
               <div className="flex justify-between items-start mb-3 pb-2 border-b border-gray-100">
@@ -89,12 +89,12 @@ export function Cart() {
         )}
       </div>
 
-      {/* Footer Fixo com Z-Index altíssimo */}
-      <div className="bg-white/60 backdrop-blur-lg border-t border-white/30 p-6 shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] z-[100] relative">
+      {/* Footer Fixo (Glass Effect mais forte) */}
+      <div className="bg-white/40 backdrop-blur-xl border-t border-white/20 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-[100] relative">
         <div className="flex justify-between items-end mb-6">
-          <span className="text-gray-600 font-bold text-xl mb-1">Total a pagar:</span>
+          <span className="text-white font-bold text-xl mb-1 drop-shadow-md">Total a pagar:</span>
           <div className="text-right">
-            <span className="text-5xl font-black text-black-600 tracking-tighter drop-shadow-sm">
+            <span className="text-5xl font-black text-white tracking-tighter drop-shadow-xl" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
               {finalTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
@@ -106,7 +106,7 @@ export function Cart() {
             navigate("/finish", { state: { order } })
           }}
           disabled={cart.length === 0}
-          className="w-full h-24 bg-black text-white text-2xl font-black rounded-2xl disabled:bg-gray-300 disabled:text-gray-500 hover:bg-gray-800 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-xl flex items-center justify-center gap-3"
+          className="w-full h-24 bg-black text-white text-2xl font-black rounded-2xl disabled:bg-black/50 disabled:text-gray-400 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center gap-3"
         >
           {cart.length === 0 ? (
             "CARRINHO VAZIO"
