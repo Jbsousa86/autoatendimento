@@ -42,12 +42,13 @@ export function CartProvider({ children }) {
     return cart.reduce((sum, item) => sum + (Number(item.price) * (item.qty || 1)), 0)
   }
 
-  function finalizeOrder() {
+  function finalizeOrder(customerName = "Cliente") {
     const freshTotal = getCartTotal()
     const order = {
       items: cart,
       total: freshTotal,
       orderNumber: Math.floor(Math.random() * 900) + 100,
+      customerName: customerName || "Cliente", // Novo campo
     }
     setLastOrder(order)
     // OBS: O carrinho NÃO é limpo aqui.

@@ -1,9 +1,11 @@
+import { useState } from "react"
 import { useCart } from "../context/CartContext"
 import { useNavigate } from "react-router-dom"
 import Logo from "../assets/herosburger.jpg" // Importanto Logo
 
 export function Cart() {
   const { cart, finalizeOrder, increase, decrease } = useCart()
+  const [customerName, setCustomerName] = useState("") // Nome do cliente
   const navigate = useNavigate()
 
   // FORCE CALCULATION INLINE
@@ -91,6 +93,19 @@ export function Cart() {
 
       {/* Footer Fixo (Glass Effect mais forte) */}
       <div className="bg-white/40 backdrop-blur-xl border-t border-white/20 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-[100] relative">
+
+        {/* INPUT NOME DO CLIENTE */}
+        <div className="mb-4">
+          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1">Para quem é o pedido?</label>
+          <input
+            type="text"
+            placeholder="Digite seu nome (Opcional)"
+            className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-lg font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
+        </div>
+
         <div className="flex justify-between items-end mb-6">
           <span className="text-gray-900 font-bold text-xl mb-1 drop-shadow-sm">Total a pagar:</span>
           <div className="text-right">
@@ -102,7 +117,7 @@ export function Cart() {
 
         <button
           onClick={() => {
-            const order = finalizeOrder()
+            const order = finalizeOrder(customerName)
             navigate("/finish", { state: { order } })
           }}
           disabled={cart.length === 0}

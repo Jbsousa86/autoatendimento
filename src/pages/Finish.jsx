@@ -64,9 +64,14 @@ export default function Finish() {
         Número do pedido
       </p>
 
-      <div className="text-9xl font-black mb-12 drop-shadow-md">
+      <div className="text-9xl font-black mb-2 drop-shadow-md">
         {order.orderNumber}
       </div>
+      {order.customerName && order.customerName !== "Cliente" && (
+        <p className="text-2xl font-bold text-green-200 mb-10 uppercase tracking-wider">
+          {order.customerName}
+        </p>
+      )}
 
       <div className="bg-green-700/50 px-10 py-6 rounded-3xl backdrop-blur-sm mb-16 border border-green-500/30">
         <p className="text-sm uppercase tracking-widest font-bold text-green-200 mb-1 text-center">Valor Total</p>
@@ -103,6 +108,12 @@ export default function Finish() {
           <span>PEDIDO:</span>
           <span className="text-2xl">{order.orderNumber}</span>
         </div>
+
+        {order.customerName && (
+          <div className="mb-2 font-bold uppercase truncate">
+            CLIENTE: {order.customerName}
+          </div>
+        )}
 
         <div className="text-xs mb-2">
           Data: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}

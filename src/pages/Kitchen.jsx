@@ -143,8 +143,10 @@ export default function Kitchen() {
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h2 className="text-2xl font-black">#{order.order_number}</h2>
-                                    <p className="text-gray-300 text-sm">{order.customer_name}</p>
+                                    <h2 className="text-2xl font-black text-white">#{order.order_number}</h2>
+                                    <p className="text-yellow-400 font-bold text-lg uppercase tracking-wide truncate max-w-[150px]" title={order.customer_name}>
+                                        {order.customer_name || "Cliente"}
+                                    </p>
                                 </div>
                                 <div className="text-right">
                                     <span className="block text-xs text-gray-400">Aberto às</span>
