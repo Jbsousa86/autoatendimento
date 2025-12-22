@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
+
+/* PRINT STYLES FOR THERMAL PRINTERS */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #receipt,
+    #receipt * {
+        visibility: visible;
+    }
+
+    #receipt {
+        display: block !important;
+        /* Forces show even if class="hidden" */
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        /* Or 80mm depending on printer settings */
+        color: black;
+        background: white;
+        font-family: 'Courier New', Courier, monospace;
+        /* Thermal standard */
+    }
+
+    /* Reset generic styles */
+    @page {
+        margin: 0;
+        size: auto;
+    }
+}
+
+.screen-only {
+    display: block;
+}
+
+@media print {
+    .screen-only {
+        display: none !important;
+    }
+}
