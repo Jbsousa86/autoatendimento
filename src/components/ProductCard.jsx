@@ -40,13 +40,13 @@ export function ProductCard({ product }) {
               ...product,
               id: `${product.id}-P`,
               name: `${product.name} (P)`,
-              price: product.price * 0.8
+              price: product.price_p || (product.price * 0.8)
             })}
             className="h-16 bg-white text-orange-600 text-xl font-black rounded-xl shadow hover:bg-orange-50 active:scale-95 transition-all flex flex-col items-center justify-center leading-none"
           >
             <span>P</span>
             <span className="text-xs opacity-70">
-              R${(product.price * 0.8).toFixed(0)}
+              R${Number(product.price_p || product.price * 0.8).toFixed(0)}
             </span>
           </button>
 
@@ -72,13 +72,13 @@ export function ProductCard({ product }) {
               ...product,
               id: `${product.id}-G`,
               name: `${product.name} (G)`,
-              price: product.price * 1.2
+              price: product.price_g || (product.price * 1.2)
             })}
             className="h-16 bg-white text-orange-600 text-xl font-black rounded-xl shadow hover:bg-orange-50 active:scale-95 transition-all flex flex-col items-center justify-center leading-none"
           >
             <span>G</span>
             <span className="text-xs opacity-70">
-              R${(product.price * 1.2).toFixed(0)}
+              R${Number(product.price_g || product.price * 1.2).toFixed(0)}
             </span>
           </button>
         </div>

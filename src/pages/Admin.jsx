@@ -251,19 +251,49 @@ export default function Admin() {
                                                 />
                                             </td>
                                             <td className="p-4">
-                                                <input
-                                                    className="border p-2 rounded w-20"
-                                                    type="number"
-                                                    placeholder="0.00"
-                                                    value={form.price}
-                                                    onChange={e => handleChange('price', e.target.value)}
-                                                />
-                                                {/* DICA DE PREÇOS PARA PIZZA (Mantida!) */}
-                                                {(form.category === 'pizzas' || form.category === 'pizza') && form.price && (
-                                                    <div className="text-[10px] text-gray-500 mt-1 leading-tight">
-                                                        <span className="block text-red-500">P (-20%):<br /> <b>R${(form.price * 0.8).toFixed(2)}</b></span>
-                                                        <span className="block text-green-600 mt-1">G (+20%):<br /> <b>R${(form.price * 1.2).toFixed(2)}</b></span>
+                                                {/* SE FOR PIZZA, MOSTRA 3 CAMPOS */}
+                                                {(form.category === 'pizzas' || form.category === 'pizza') ? (
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs font-bold text-red-500 w-4">P:</span>
+                                                            <input
+                                                                className="border p-1 rounded w-20 text-sm"
+                                                                type="number"
+                                                                placeholder="Auto"
+                                                                value={form.price_p || ''}
+                                                                onChange={e => handleChange('price_p', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs font-bold text-gray-700 w-4">M:</span>
+                                                            <input
+                                                                className="border p-1 rounded w-20 text-sm font-bold"
+                                                                type="number"
+                                                                placeholder="0.00"
+                                                                value={form.price}
+                                                                onChange={e => handleChange('price', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-xs font-bold text-green-600 w-4">G:</span>
+                                                            <input
+                                                                className="border p-1 rounded w-20 text-sm"
+                                                                type="number"
+                                                                placeholder="Auto"
+                                                                value={form.price_g || ''}
+                                                                onChange={e => handleChange('price_g', e.target.value)}
+                                                            />
+                                                        </div>
                                                     </div>
+                                                ) : (
+                                                    /* OUTROS PRODUTOS (APENAS 1 PREÇO) */
+                                                    <input
+                                                        className="border p-2 rounded w-20"
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        value={form.price}
+                                                        onChange={e => handleChange('price', e.target.value)}
+                                                    />
                                                 )}
                                             </td>
                                             <td className="p-4">
