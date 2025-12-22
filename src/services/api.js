@@ -35,6 +35,9 @@ export const productService = {
         const productToSave = {
             name: product.name,
             price: parseFloat(product.price),
+            // Envia null se estiver vazio ou 0, para cair na lógica de cálculo automático
+            price_p: product.price_p ? parseFloat(product.price_p) : null,
+            price_g: product.price_g ? parseFloat(product.price_g) : null,
             description: product.description,
             image: product.image,
             category: product.category
