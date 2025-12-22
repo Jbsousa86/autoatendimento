@@ -1,44 +1,56 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { orderService } from "../services/api"
 
 export default function Kitchen() {
     const [orders, setOrders] = useState([])
+    const knownIds = useRef(new Set()) // Rastreia IDs conhecidos
+    const isFirstLoad = useRef(true)   // Evita bipar ao abrir a página
 
     // Carregar pedidos e assinar atualizações em tempo real
     useEffect(() => {
+        // Função de som
+        const playNotification = () => {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3') // Som de "Ding"
+            audio.play().catch(e => console.log("Erro som:", e))
+        }
+
         const loadOrders = async () => {
             const data = await orderService.getOrders()
-            // Garantir que é um array
-            setOrders(Array.isArray(data) ? data : [])
+            const safeData = Array.isArray(data) ? data : []
+
+            // Logica do BIP: Verificar se tem novidade
+            let hasNewOrder = false
+            safeData.forEach(order => {
+                if (!knownIds.current.has(order.id)) {
+                    knownIds.current.add(order.id)
+                    // Se não é a primeira carga e o pedido não é "Pronto" (caso de reload), marcamos novidade
+                    if (!isFirstLoad.current && order.status !== 'ready') {
+                        hasNewOrder = true
+                    }
+                }
+            })
+
+            if (hasNewOrder) {
+                playNotification()
+            }
+
+            isFirstLoad.current = false // Primeira carga concluída
+            setOrders(safeData)
         }
 
         loadOrders()
 
-        // Função de som
-        const playNotification = () => {
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3') // Som de "Ding"
-            audio.play().catch(e => console.log("Erro ao tocar som (interaja com a página primeiro):", e))
-        }
-
-        // INSCRIÇÃO REALTIME (O Segredo!)
-        const subscription = orderService.subscribeToOrders((payload) => {
-            // Sempre que algo mudar no banco, recarregamos a lista
-            loadOrders()
-
-            // Se for NOVO PEDIDO, toca o sino! 🔔
-            if (payload && payload.eventType === 'INSERT') {
-                playNotification()
-            }
+        // INSCRIÇÃO REALTIME (Dispara o loadOrders)
+        const subscription = orderService.subscribeToOrders(() => {
+            loadOrders() // A lógica do som agora está dentro do loadOrders
         })
 
-        // FALBACK: Polling a cada 5 segundos (Garante que nunca trava)
+        // FALBACK: Polling a cada 5 segundos
         const intervalId = setInterval(() => {
-            console.log("⏱️ Polling de segurança...")
             loadOrders()
         }, 5000)
 
         return () => {
-            // Limpar inscrição e intervalo ao sair
             if (subscription) subscription.unsubscribe()
             clearInterval(intervalId)
         }
