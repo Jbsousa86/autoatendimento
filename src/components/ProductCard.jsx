@@ -25,12 +25,64 @@ export function ProductCard({ product }) {
         {product.description}
       </p>
 
-      <button
-        onClick={() => addToCart(product)}
-        className="mt-auto h-16 bg-white text-orange-600 text-2xl font-black rounded-2xl shadow-lg hover:bg-orange-50 hover:scale-[1.02] active:scale-95 transition-all"
-      >
-        ADICIONAR
-      </button>
+      {!['pizzas', 'pizza'].includes(product.category.toLowerCase()) ? (
+        <button
+          onClick={() => addToCart(product)}
+          className="mt-auto h-16 bg-white text-orange-600 text-2xl font-black rounded-2xl shadow-lg hover:bg-orange-50 hover:scale-[1.02] active:scale-95 transition-all w-full"
+        >
+          ADICIONAR
+        </button>
+      ) : (
+        <div className="mt-auto grid grid-cols-3 gap-2">
+          {/* BOTÃO P */}
+          <button
+            onClick={() => addToCart({
+              ...product,
+              id: `${product.id}-P`,
+              name: `${product.name} (P)`,
+              price: product.price * 0.8
+            })}
+            className="h-16 bg-white text-orange-600 text-xl font-black rounded-xl shadow hover:bg-orange-50 active:scale-95 transition-all flex flex-col items-center justify-center leading-none"
+          >
+            <span>P</span>
+            <span className="text-xs opacity-70">
+              R${(product.price * 0.8).toFixed(0)}
+            </span>
+          </button>
+
+          {/* BOTÃO M */}
+          <button
+            onClick={() => addToCart({
+              ...product,
+              id: `${product.id}-M`,
+              name: `${product.name} (M)`,
+              price: product.price
+            })}
+            className="h-16 bg-orange-600 text-white text-2xl font-black rounded-xl shadow-lg hover:bg-orange-500 active:scale-95 transition-all flex flex-col items-center justify-center leading-none transform scale-105 z-10"
+          >
+            <span>M</span>
+            <span className="text-xs opacity-80">
+              R${Number(product.price).toFixed(0)}
+            </span>
+          </button>
+
+          {/* BOTÃO G */}
+          <button
+            onClick={() => addToCart({
+              ...product,
+              id: `${product.id}-G`,
+              name: `${product.name} (G)`,
+              price: product.price * 1.2
+            })}
+            className="h-16 bg-white text-orange-600 text-xl font-black rounded-xl shadow hover:bg-orange-50 active:scale-95 transition-all flex flex-col items-center justify-center leading-none"
+          >
+            <span>G</span>
+            <span className="text-xs opacity-70">
+              R${(product.price * 1.2).toFixed(0)}
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

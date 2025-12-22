@@ -22,7 +22,7 @@ export default function Menu() {
   )
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600">
+    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden">
 
       {/* COLUNA 1 — CATEGORIAS (Flutuantes) */}
       <aside className="w-1/5 p-6 z-10 flex flex-col justify-center space-y-4">
@@ -49,9 +49,9 @@ export default function Menu() {
         ))}
       </aside>
 
-      {/* COLUNA 2 — PRODUTOS */}
-      <main className="w-3/5 p-10">
-        <div className="grid grid-cols-2 gap-10">
+      {/* COLUNA 2 — PRODUTOS (Scrollavel) */}
+      <main className="w-3/5 p-10 h-full overflow-y-auto scrollbar-hide">
+        <div className="grid grid-cols-2 gap-10 pb-32">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
