@@ -163,7 +163,7 @@ export default function Admin() {
         )
     }
 
-    // PAINEL ADMIN
+    // PAINEL ADMIN (RESTURADO PARA TABELA - DESKTOP FIRST)
     return (
         <div className="min-h-screen bg-gray-100 p-8">
             <header className="mb-8 flex justify-between items-center">
@@ -258,7 +258,7 @@ export default function Admin() {
                                                     value={form.price}
                                                     onChange={e => handleChange('price', e.target.value)}
                                                 />
-                                                {/* DICA DE PREÇOS PARA PIZZA */}
+                                                {/* DICA DE PREÇOS PARA PIZZA (Mantida!) */}
                                                 {(form.category === 'pizzas' || form.category === 'pizza') && form.price && (
                                                     <div className="text-[10px] text-gray-500 mt-1 leading-tight">
                                                         <span className="block text-red-500">P (-20%):<br /> <b>R${(form.price * 0.8).toFixed(2)}</b></span>
