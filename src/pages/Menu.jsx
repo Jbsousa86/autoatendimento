@@ -21,8 +21,8 @@ export default function Menu() {
   return (
     <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600">
 
-      {/* COLUNA 1 — CATEGORIAS */}
-      <aside className="w-1/5 bg-white/90 backdrop-blur-sm p-6 border-r border-orange-100 shadow-xl z-10">
+      {/* COLUNA 1 — CATEGORIAS (Flutuantes) */}
+      <aside className="w-1/5 p-6 z-10 flex flex-col justify-center space-y-4">
         {categories.map((cat) => (
           <CategoryButton
             key={cat.id}
