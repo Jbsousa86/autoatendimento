@@ -92,9 +92,9 @@ export function Cart() {
       {/* Footer Fixo (Glass Effect mais forte) */}
       <div className="bg-white/40 backdrop-blur-xl border-t border-white/20 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-[100] relative">
         <div className="flex justify-between items-end mb-6">
-          <span className="text-white font-bold text-xl mb-1 drop-shadow-md">Total a pagar:</span>
+          <span className="text-gray-900 font-bold text-xl mb-1 drop-shadow-sm">Total a pagar:</span>
           <div className="text-right">
-            <span className="text-5xl font-black text-white tracking-tighter drop-shadow-xl" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
+            <span className="text-5xl font-black text-black tracking-tighter drop-shadow-sm">
               {finalTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
