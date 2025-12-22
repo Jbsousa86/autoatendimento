@@ -1,5 +1,6 @@
 import { useCart } from "../context/CartContext"
 import { useNavigate } from "react-router-dom"
+import Logo from "../assets/herosburger.jpg" // Importanto Logo
 
 export function Cart() {
   const { cart, finalizeOrder, increase, decrease } = useCart()
@@ -16,7 +17,12 @@ export function Cart() {
     <aside className="w-1/4 bg-white border-l border-gray-200 flex flex-col h-full shadow-2xl z-50">
       <div className="p-6 bg-gray-50 border-b border-gray-200">
         <h2 className="text-3xl font-extrabold text-gray-800 flex items-center gap-3">
-          🛒 <span className="tracking-tight">Seu Pedido</span>
+          <img
+            src={Logo}
+            alt="Logo"
+            className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+          />
+          <span className="tracking-tight">Seu Pedido</span>
         </h2>
       </div>
 
