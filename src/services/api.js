@@ -109,12 +109,12 @@ export const orderService = {
         if (error) console.error("Erro ao criar pedido:", error)
     },
 
-    async updateStatus(orderId, newStatus) {
-        // Encontrar o pedido pelo order_number (que estamos usando como ID visual)
+    async updateStatus(id, newStatus) {
+        // Atualiza pelo ID único (UUID) para evitar colisão de números de pedido
         const { error } = await supabase
             .from('orders')
             .update({ status: newStatus })
-            .eq('order_number', orderId)
+            .eq('id', id)
 
         if (error) console.error("Erro ao atualizar status:", error)
     },

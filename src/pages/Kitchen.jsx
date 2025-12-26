@@ -80,23 +80,17 @@ export default function Kitchen() {
         }
     }, [])
 
-    const handleStatusChange = async (orderId, newStatus) => {
+    const handleStatusChange = async (id, newStatus) => {
         // 1. Optimistic Update (UI fica rápida)
         setOrders(prev => prev.map(order =>
-            String(order.order_number) === String(orderId) ? { ...order, status: newStatus } : order
+            order.id === id ? { ...order, status: newStatus } : order
         ))
 
         // 2. Persistir via Service
-        await orderService.updateStatus(String(orderId), newStatus)
+        await orderService.updateStatus(id, newStatus)
     }
 
-    const handleClearAll = async () => {
-        if (confirm("⚠️ TEM CERTEZA? Isso arquivará os pedidos da tela, mantendo no histórico.")) {
-            await orderService.archiveAllOrders()
-            // Idealmente o realtime atualizaria, mas forçamos para garantir
-            setOrders([])
-        }
-    }
+
 
     return (
         <div className="min-h-screen bg-gray-900 text-white p-6">
@@ -119,12 +113,7 @@ export default function Kitchen() {
                         🔊 TESTAR SOM
                     </button>
 
-                    <button
-                        onClick={handleClearAll}
-                        className="bg-red-900/30 hover:bg-red-900/50 text-red-400 hover:text-red-200 border border-red-900 px-4 py-2 rounded text-sm font-bold transition-all"
-                    >
-                        🗑️ ZERAR PEDIDOS
-                    </button>
+
                 </div>
             </header>
 
@@ -165,7 +154,7 @@ export default function Kitchen() {
                             <div className="flex gap-2">
                                 {order.status === 'pending' && (
                                     <button
-                                        onClick={() => handleStatusChange(order.order_number, 'preparing')}
+                                        onClick={() => handleStatusChange(order.id, 'preparing')}
                                         className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 rounded uppercase"
                                     >
                                         👨‍🍳 Preparar
@@ -173,7 +162,7 @@ export default function Kitchen() {
                                 )}
                                 {order.status === 'preparing' && (
                                     <button
-                                        onClick={() => handleStatusChange(order.order_number, 'ready')}
+                                        onClick={() => handleStatusChange(order.id, 'ready')}
                                         className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded uppercase"
                                     >
                                         ✅ Pronto

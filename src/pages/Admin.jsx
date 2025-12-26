@@ -208,6 +208,14 @@ export default function Admin() {
         }
     }
 
+    const handleArchiveOrders = async () => {
+        if (confirm("⚠️ ISSO LIMPARÁ A TELA DA COZINHA.\n\nOs pedidos abertos serão marcados como finalizados, mas continuarão aparecendo nos relatórios.\n\nDeseja continuar?")) {
+            await orderService.archiveAllOrders()
+            alert("✅ Tela da cozinha limpa com sucesso!")
+            loadReports() // Recarrega para refletir status (se necessário)
+        }
+    }
+
     const handleSecretClick = () => {
         const newCount = titleClicks + 1
         setTitleClicks(newCount)
@@ -476,24 +484,33 @@ export default function Admin() {
                             <h2 className="text-xl font-bold text-gray-800">📅 Fluxo de Caixa</h2>
                             <p className="text-gray-500 text-sm">Selecione o período para análise.</p>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="flex flex-col">
-                                <label className="font-bold text-gray-700 text-xs text-left mb-1">De:</label>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
-                                />
-                            </div>
-                            <div className="flex flex-col">
-                                <label className="font-bold text-gray-700 text-xs text-left mb-1">Até:</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
-                                />
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                            <button
+                                onClick={handleArchiveOrders}
+                                className="bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-red-200 border border-red-200 transition-colors"
+                                title="Limpa a tela da cozinha movendo pedidos para finalizados"
+                            >
+                                🧹 Limpar Cozinha
+                            </button>
+                            <div className="flex items-center gap-4">
+                                <div className="flex flex-col">
+                                    <label className="font-bold text-gray-700 text-xs text-left mb-1">De:</label>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                    />
+                                </div>
+                                <div className="flex flex-col">
+                                    <label className="font-bold text-gray-700 text-xs text-left mb-1">Até:</label>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
