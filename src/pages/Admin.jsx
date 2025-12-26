@@ -48,24 +48,19 @@ export default function Admin() {
     useEffect(() => {
         if (isAuthenticated) {
             loadData()
-            if (activeTab === 'reports') loadReports()
             if (activeTab === 'users') loadCashiers()
         }
     }, [isAuthenticated, activeTab])
 
-    // Recalcula estatísticas quando a data ou a lista de pedidos muda
+    // Busca relatórios quando a aba é 'reports' ou as datas mudam
     useEffect(() => {
-        if (activeTab === 'reports' && allOrders.length > 0) {
-            const filtered = allOrders.filter(order => {
-                if (!order.created_at) return false
-                // Normaliza a data do pedido para YYYY-MM-DD (Local Time)
-                // O uso de 'en-CA' garante o formato YYYY-MM-DD
-                const orderDate = new Date(order.created_at).toLocaleDateString('en-CA')
-                return orderDate >= startDate && orderDate <= endDate
-            })
-            calculateStats(filtered)
+        if (isAuthenticated && activeTab === 'reports') {
+            loadReports()
         }
-    }, [startDate, endDate, allOrders, activeTab])
+    }, [isAuthenticated, activeTab, startDate, endDate])
+
+    // Recalcula estatísticas quando a data ou a lista de pedidos muda
+
 
     const loadData = async () => {
         const data = await productService.getProducts()
@@ -73,9 +68,13 @@ export default function Admin() {
     }
 
     const loadReports = async () => {
-        const orders = await orderService.getOrders()
+        // Conversão precisa considerando o fuso horário local
+        const startIso = new Date(startDate + 'T00:00:00').toISOString()
+        const endIso = new Date(endDate + 'T23:59:59.999').toISOString()
+
+        const orders = await orderService.getOrders(startIso, endIso)
         setAllOrders(orders)
-        // O useEffect vai cuidar de calcular com base na data selecionada
+        calculateStats(orders)
     }
 
     const loadCashiers = async () => {

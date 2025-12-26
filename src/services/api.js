@@ -73,11 +73,17 @@ export const productService = {
 // 🧾 SERVIÇO DE PEDIDOS
 // ==========================================
 export const orderService = {
-    async getOrders() {
-        const { data, error } = await supabase
+    async getOrders(startDate, endDate) {
+        let query = supabase
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false })
+
+        if (startDate && endDate) {
+            query = query.gte('created_at', startDate).lte('created_at', endDate)
+        }
+
+        const { data, error } = await query
 
         if (error) {
             console.error("Erro ao buscar pedidos:", error)
