@@ -97,8 +97,8 @@ export default function Finish() {
       {/* COMPROVANTE DE IMPRESSÃO (Escondido na tela, visível na impressão) */}
       <div id="receipt" className="hidden p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-sm leading-tight">
         <div className="text-center mb-4">
-          <h2 className="text-xl font-black uppercase">Lanchonete</h2>
-          <p className="text-xs">Rua Exemplo, 123</p>
+          <h2 className="text-xl font-black uppercase">Heros Burger</h2>
+          <p className="text-xs">Rua Antonio moreira, 123</p>
           <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
         </div>
 
@@ -151,7 +151,7 @@ export default function Finish() {
 
         <div className="text-center mt-6 text-xs">
           <p>Obrigado pela preferência!</p>
-          <p>Aguarde chamarmos sua senha.</p>
+          <p>Feliz Ano Novo!.</p>
         </div>
       </div>
     </div>

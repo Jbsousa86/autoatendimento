@@ -51,7 +51,7 @@ export default function Menu() {
 
       {/* COLUNA 2 — PRODUTOS (Scrollavel e Otimizada para Totem) */}
       <main className="w-3/5 h-full overflow-y-auto scrollbar-hide p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-40 max-w-[1600px] mx-auto">
+        <div className="grid grid-cols-2 gap-8 pb-40 max-w-[1600px] mx-auto">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
