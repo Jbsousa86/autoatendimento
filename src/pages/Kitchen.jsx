@@ -160,9 +160,9 @@ export default function Kitchen() {
                                 {order.status === 'pending' && (
                                     <button
                                         onClick={() => handleStatusChange(order.id, 'preparing')}
-                                        className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 rounded uppercase"
+                                        className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 rounded uppercase flex items-center justify-center gap-2"
                                     >
-                                        👨‍🍳 Preparar
+                                        <span>⏳</span> PENDENTE ➔ PREPARAR
                                     </button>
                                 )}
                                 {order.status === 'preparing' && (
