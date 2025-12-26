@@ -91,12 +91,10 @@ export default function Kitchen() {
     }
 
     const handleClearAll = async () => {
-        if (confirm("⚠️ TEM CERTEZA? Isso apagará TODOS os pedidos do banco de dados (Zerar dia).")) {
-            if (confirm("Confirmação final: Deseja realmente zerar o sistema?")) {
-                await orderService.deleteAllOrders()
-                // Idealmente o realtime atualizaria, mas forçamos para garantir
-                setOrders([])
-            }
+        if (confirm("⚠️ TEM CERTEZA? Isso arquivará os pedidos da tela, mantendo no histórico.")) {
+            await orderService.archiveAllOrders()
+            // Idealmente o realtime atualizaria, mas forçamos para garantir
+            setOrders([])
         }
     }
 
@@ -132,7 +130,7 @@ export default function Kitchen() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {orders
-                    .filter(order => order.status !== 'ready') // Mostra apenas pendentes e preparando
+                    .filter(order => ['pending', 'preparing'].includes(order.status)) // Mostra apenas pendentes e preparando
                     .map(order => (
                         <div
                             key={order.id}

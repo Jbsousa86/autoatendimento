@@ -119,14 +119,14 @@ export const orderService = {
         if (error) console.error("Erro ao atualizar status:", error)
     },
 
-    async deleteAllOrders() {
-        // Limpar TODOS os pedidos (Zerar o dia)
+    async archiveAllOrders() {
+        // Arquivar TODOS os pedidos ativos (Limpar a tela da cozinha, manter no histórico)
         const { error } = await supabase
             .from('orders')
-            .delete()
-            .gt('id', -1) // Truque para pegar todos (ID > -1)
+            .update({ status: 'finished' })
+            .in('status', ['pending', 'preparing', 'ready'])
 
-        if (error) console.error("Erro ao limpar pedidos:", error)
+        if (error) console.error("Erro ao arquivar pedidos:", error)
     },
 
     // INSCRIÇÃO EM TEMPO REAL (Para a Cozinha!)
