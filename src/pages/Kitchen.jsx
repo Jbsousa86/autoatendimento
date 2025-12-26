@@ -99,8 +99,11 @@ export default function Kitchen() {
                     👨‍🍳 COZINHA <span className="text-gray-500 text-2xl">| Monitor de Pedidos</span>
                 </h1>
                 <div className="flex gap-4 items-center">
-                    <span className="bg-gray-800 px-4 py-2 rounded text-sm font-mono text-gray-400">
-                        {orders.filter(o => o.status === 'pending').length} Pendentes
+                    <span className="bg-gray-800 px-4 py-2 rounded text-sm font-mono text-gray-400 border border-gray-700">
+                        <strong className="text-white">{orders.filter(o => o.status === 'pending').length}</strong> PENDENTES
+                    </span>
+                    <span className="bg-yellow-900/40 px-4 py-2 rounded text-sm font-mono text-yellow-500 border border-yellow-700/50">
+                        <strong className="text-white">{orders.filter(o => o.status === 'preparing').length}</strong> PREPARANDO
                     </span>
                     <span className="flex items-center gap-2 text-green-400 text-sm animate-pulse mr-4">
                         ● Conectado
@@ -138,6 +141,8 @@ export default function Kitchen() {
                                 <div className="text-right">
                                     <span className="block text-xs text-gray-400">Aberto às</span>
                                     <span className="font-mono text-lg">{formatTime(order.created_at)}</span>
+                                    {order.status === 'pending' && <span className="block mt-1 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full text-center text-black">AGUARDANDO</span>}
+                                    {order.status === 'preparing' && <span className="block mt-1 text-xs font-bold text-yellow-900 bg-yellow-500 px-2 py-0.5 rounded-full text-center animate-pulse">PREPARANDO</span>}
                                 </div>
                             </div>
 
@@ -161,12 +166,21 @@ export default function Kitchen() {
                                     </button>
                                 )}
                                 {order.status === 'preparing' && (
-                                    <button
-                                        onClick={() => handleStatusChange(order.id, 'ready')}
-                                        className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded uppercase"
-                                    >
-                                        ✅ Pronto
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => handleStatusChange(order.id, 'pending')}
+                                            className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-3 rounded-l uppercase text-xl"
+                                            title="Voltar para Pendente"
+                                        >
+                                            ↩
+                                        </button>
+                                        <button
+                                            onClick={() => handleStatusChange(order.id, 'ready')}
+                                            className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-r uppercase"
+                                        >
+                                            ✅ Pronto
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
