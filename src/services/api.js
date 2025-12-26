@@ -92,7 +92,8 @@ export const orderService = {
             customer_name: orderData.customerName || "Cliente",
             total: orderData.total,
             items: orderData.items,
-            status: 'pending'
+            status: 'pending',
+            cashier_name: orderData.cashierName || null // Novo campo para rastrear o caixa
         }
 
         const { error } = await supabase
@@ -134,5 +135,53 @@ export const orderService = {
             .subscribe((status) => {
                 console.log("📡 Status da conexão Realtime:", status)
             })
+    }
+}
+// ==========================================
+// 👤 SERVIÇO DE CAIXAS (USERS)
+// ==========================================
+export const cashierService = {
+    async getCashiers() {
+        const { data, error } = await supabase
+            .from('cashiers')
+            .select('*')
+            .order('name')
+
+        if (error) {
+            console.error("Erro ao buscar caixas:", error)
+            return []
+        }
+        return data || []
+    },
+
+    async createCashier(name, password) {
+        const { error } = await supabase
+            .from('cashiers')
+            .insert([{ name, password }])
+
+        if (error) throw error
+    },
+
+    async deleteCashier(id) {
+        const { error } = await supabase
+            .from('cashiers')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+    },
+
+    async login(name, password) {
+        const { data, error } = await supabase
+            .from('cashiers')
+            .select('*')
+            .eq('name', name)
+            .single()
+
+        if (error || !data) return null
+
+        // Em um app real, usaríamos hash (bcrypt). Aqui é comparação simples.
+        if (data.password === password) return data
+        return null
     }
 }

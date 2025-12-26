@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { productService, orderService } from "../services/api"
+import { productService, orderService, cashierService } from "../services/api"
 import { products as defaultProducts } from "../data/menu"
 
 // ==========================================
@@ -23,8 +23,17 @@ export default function Admin() {
     const [editingId, setEditingId] = useState(null)
     const [form, setForm] = useState({})
 
-    const [stats, setStats] = useState({ revenue: 0, count: 0, ticket: 0, topItems: [] })
+    const [stats, setStats] = useState({
+        revenue: 0, count: 0, ticket: 0, topItems: [],
+        revenueTotem: 0, countTotem: 0,
+        revenueCashier: 0, countCashier: 0
+    })
     const [allOrders, setAllOrders] = useState([])
+
+    // Estados dos Caixas
+    const [cashiers, setCashiers] = useState([])
+    const [newCashierName, setNewCashierName] = useState("")
+    const [newCashierPass, setNewCashierPass] = useState("")
 
     // Configura data inicial para o PRIMEIRO dia do mês atual
     const getFirstDayOfMonth = () => {
@@ -40,6 +49,7 @@ export default function Admin() {
         if (isAuthenticated) {
             loadData()
             if (activeTab === 'reports') loadReports()
+            if (activeTab === 'users') loadCashiers()
         }
     }, [isAuthenticated, activeTab])
 
@@ -68,6 +78,33 @@ export default function Admin() {
         // O useEffect vai cuidar de calcular com base na data selecionada
     }
 
+    const loadCashiers = async () => {
+        const data = await cashierService.getCashiers()
+        setCashiers(data)
+    }
+
+    const handleAddCashier = async (e) => {
+        e.preventDefault()
+        if (!newCashierName || !newCashierPass) return alert("Preencha nome e senha!")
+
+        try {
+            await cashierService.createCashier(newCashierName, newCashierPass)
+            setNewCashierName("")
+            setNewCashierPass("")
+            loadCashiers()
+            alert("Caixa adicionado!")
+        } catch (error) {
+            alert("Erro ao criar caixa.")
+        }
+    }
+
+    const handleDeleteCashier = async (id) => {
+        if (confirm("Remover este operador?")) {
+            await cashierService.deleteCashier(id)
+            loadCashiers()
+        }
+    }
+
     const calculateStats = (orders) => {
         // 1. Faturamento Total (garantindo número)
         const revenue = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0)
@@ -78,7 +115,25 @@ export default function Admin() {
         // 3. Ticket Médio
         const ticket = count > 0 ? revenue / count : 0
 
-        // 4. Itens Mais Vendidos
+        // 4. Breakdown Totem vs Caixa
+        let revenueTotem = 0
+        let countTotem = 0
+        let revenueCashier = 0
+        let countCashier = 0
+
+        orders.forEach(order => {
+            const val = Number(order.total) || 0
+            // Se tiver cashier_name, é Caixa. Senão, é Totem (cliente final direto)
+            if (order.cashier_name) {
+                revenueCashier += val
+                countCashier++
+            } else {
+                revenueTotem += val
+                countTotem++
+            }
+        })
+
+        // 5. Itens Mais Vendidos
         const itemMap = {}
         orders.forEach(order => {
             if (Array.isArray(order.items)) {
@@ -93,7 +148,11 @@ export default function Admin() {
             .sort((a, b) => b.qty - a.qty)
             .slice(0, 5) // Top 5
 
-        setStats({ revenue, count, ticket, topItems })
+        setStats({
+            revenue, count, ticket, topItems,
+            revenueTotem, countTotem,
+            revenueCashier, countCashier
+        })
     }
 
     const handleLogin = (e) => {
@@ -179,13 +238,7 @@ export default function Admin() {
                     <button className="w-full bg-black text-white py-4 rounded-lg font-bold text-xl hover:bg-gray-800 transition-colors">
                         ENTRAR
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => window.location.href = "/"}
-                        className="w-full mt-6 text-gray-500 hover:text-black underline"
-                    >
-                        Voltar ao Totem
-                    </button>
+
                 </form>
             </div>
         )
@@ -216,6 +269,12 @@ export default function Admin() {
                         >
                             📈 RELATÓRIOS
                         </button>
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === 'users' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                        >
+                            👥 EQUIPE
+                        </button>
                     </div>
                 </div>
 
@@ -239,12 +298,7 @@ export default function Admin() {
                         </>
                     )}
 
-                    <button
-                        onClick={() => window.location.href = "/"}
-                        className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700"
-                    >
-                        Voltar ao Totem
-                    </button>
+
                 </div>
             </header>
 
@@ -445,24 +499,37 @@ export default function Admin() {
                         </div>
                     </div>
 
-                    {/* CARTÕES DE KPI */}
+                    {/* CARTÕES DE KPI - RESUMO GERAL */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase mb-2">Faturamento Total</h3>
+                            <h3 className="text-gray-500 font-bold text-xs uppercase mb-2">Faturamento Total</h3>
                             <p className="text-4xl font-black text-gray-800">
                                 {stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase mb-2">Total de Pedidos</h3>
-                            <p className="text-4xl font-black text-gray-800">
-                                {stats.count}
+                            <p className="text-xs text-gray-400 mt-2">
+                                {stats.count} pedidos no total
                             </p>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
-                            <h3 className="text-gray-500 font-bold text-sm uppercase mb-2">Ticket Médio</h3>
-                            <p className="text-4xl font-black text-gray-800">
-                                {stats.ticket.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+
+                        {/* DETALHE TOTEM */}
+                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                            <h3 className="text-blue-500 font-bold text-xs uppercase mb-2">🤖 Vendas no Totem</h3>
+                            <p className="text-3xl font-black text-gray-800">
+                                {stats.revenueTotem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2">
+                                {stats.countTotem} pedidos
+                            </p>
+                        </div>
+
+                        {/* DETALHE CAIXA */}
+                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500">
+                            <h3 className="text-orange-500 font-bold text-xs uppercase mb-2">👤 Vendas no Caixa</h3>
+                            <p className="text-3xl font-black text-gray-800">
+                                {stats.revenueCashier.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2">
+                                {stats.countCashier} pedidos
                             </p>
                         </div>
                     </div>
@@ -493,6 +560,74 @@ export default function Admin() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB USUÁRIOS (CAIXAS) */}
+            {activeTab === 'users' && (
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white p-8 rounded-xl shadow-lg mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">➕ Adicionar Operador de Caixa</h2>
+                        <form onSubmit={handleAddCashier} className="flex gap-4 items-end">
+                            <div className="flex-1">
+                                <label className="block text-gray-600 text-sm font-bold mb-2">Nome do Usuário</label>
+                                <input
+                                    className="w-full border p-3 rounded-lg"
+                                    placeholder="Ex: joao.silva"
+                                    value={newCashierName}
+                                    onChange={e => setNewCashierName(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-gray-600 text-sm font-bold mb-2">Senha de Acesso</label>
+                                <input
+                                    className="w-full border p-3 rounded-lg"
+                                    type="password"
+                                    placeholder="******"
+                                    value={newCashierPass}
+                                    onChange={e => setNewCashierPass(e.target.value)}
+                                />
+                            </div>
+                            <button className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 h-[50px]">
+                                ADICIONAR
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
+                                <tr>
+                                    <th className="p-4">ID</th>
+                                    <th className="p-4">Nome</th>
+                                    <th className="p-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {cashiers.map(cashier => (
+                                    <tr key={cashier.id} className="hover:bg-gray-50">
+                                        <td className="p-4 text-gray-400 font-mono text-xs max-w-[50px] truncate">{cashier.id}</td>
+                                        <td className="p-4 font-bold">{cashier.name}</td>
+                                        <td className="p-4 text-center">
+                                            <button
+                                                onClick={() => handleDeleteCashier(cashier.id)}
+                                                className="text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded"
+                                            >
+                                                REMOVER
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {cashiers.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} className="p-8 text-center text-gray-400">
+                                            Nenhum operador cadastrado.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}

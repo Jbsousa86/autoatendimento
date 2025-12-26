@@ -4,6 +4,7 @@ import Menu from "./pages/Menu"
 import Finish from "./pages/Finish"
 import Kitchen from "./pages/Kitchen"
 import Admin from "./pages/Admin"
+import Cashier from "./pages/Cashier"
 
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
       <Route path="/finish" element={<Finish />} />
       <Route path="/kitchen" element={<Kitchen />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/caixa" element={<Cashier />} />
     </Routes>
   )
 }
