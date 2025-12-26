@@ -486,31 +486,31 @@ export default function Admin() {
                             <h2 className="text-xl font-bold text-gray-800">📅 Fluxo de Caixa</h2>
                             <p className="text-gray-500 text-sm">Selecione o período para análise.</p>
                         </div>
-                        <div className="flex flex-col md:flex-row items-center gap-4">
+                        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                             <button
                                 onClick={handleArchiveOrders}
-                                className="bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-red-200 border border-red-200 transition-colors"
+                                className="w-full md:w-auto bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-red-200 border border-red-200 transition-colors whitespace-nowrap"
                                 title="Limpa a tela da cozinha movendo pedidos para finalizados"
                             >
                                 🧹 Limpar Cozinha
                             </button>
-                            <div className="flex items-center gap-4">
-                                <div className="flex flex-col">
+                            <div className="flex flex-row gap-2 w-full md:w-auto">
+                                <div className="flex flex-col w-full md:w-auto">
                                     <label className="font-bold text-gray-700 text-xs text-left mb-1">De:</label>
                                     <input
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                        className="border-2 border-gray-300 rounded-lg p-2 text-sm md:text-lg font-mono focus:border-black focus:outline-none w-full"
                                     />
                                 </div>
-                                <div className="flex flex-col">
+                                <div className="flex flex-col w-full md:w-auto">
                                     <label className="font-bold text-gray-700 text-xs text-left mb-1">Até:</label>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                        className="border-2 border-gray-300 rounded-lg p-2 text-sm md:text-lg font-mono focus:border-black focus:outline-none w-full"
                                     />
                                 </div>
                             </div>
