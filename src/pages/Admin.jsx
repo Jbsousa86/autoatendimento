@@ -25,6 +25,9 @@ export default function Admin() {
 
     // Estados dos Relatórios
     const [stats, setStats] = useState({ revenue: 0, count: 0, ticket: 0, topItems: [] })
+    const [allOrders, setAllOrders] = useState([])
+    const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'))
+    const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'))
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -33,6 +36,17 @@ export default function Admin() {
         }
     }, [isAuthenticated, activeTab])
 
+    // Recalcula estatísticas quando a data ou a lista de pedidos muda
+    useEffect(() => {
+        if (activeTab === 'reports' && allOrders.length > 0) {
+            const filtered = allOrders.filter(order => {
+                const orderDate = new Date(order.created_at).toLocaleDateString('en-CA')
+                return orderDate >= startDate && orderDate <= endDate
+            })
+            calculateStats(filtered)
+        }
+    }, [startDate, endDate, allOrders, activeTab])
+
     const loadData = async () => {
         const data = await productService.getProducts()
         setProducts(data)
@@ -40,7 +54,11 @@ export default function Admin() {
 
     const loadReports = async () => {
         const orders = await orderService.getOrders()
+        setAllOrders(orders)
+        // O useEffect vai cuidar de calcular com base na data selecionada
+    }
 
+    const calculateStats = (orders) => {
         // 1. Faturamento Total (garantindo número)
         const revenue = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0)
 
@@ -389,6 +407,34 @@ export default function Admin() {
             {/* TAB RELATÓRIOS */}
             {activeTab === 'reports' && (
                 <div className="max-w-6xl mx-auto">
+                    {/* SELETOR DE DATA */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">📅 Fluxo de Caixa</h2>
+                            <p className="text-gray-500 text-sm">Selecione o período para análise.</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col">
+                                <label className="font-bold text-gray-700 text-xs text-left mb-1">De:</label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="font-bold text-gray-700 text-xs text-left mb-1">Até:</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="border-2 border-gray-300 rounded-lg p-2 text-lg font-mono focus:border-black focus:outline-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* CARTÕES DE KPI */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
