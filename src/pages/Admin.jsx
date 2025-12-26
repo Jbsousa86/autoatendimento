@@ -23,11 +23,18 @@ export default function Admin() {
     const [editingId, setEditingId] = useState(null)
     const [form, setForm] = useState({})
 
-    // Estados dos Relatórios
     const [stats, setStats] = useState({ revenue: 0, count: 0, ticket: 0, topItems: [] })
     const [allOrders, setAllOrders] = useState([])
-    const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'))
-    const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'))
+
+    // Configura data inicial para o PRIMEIRO dia do mês atual
+    const getFirstDayOfMonth = () => {
+        const date = new Date()
+        return new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA')
+    }
+    const getToday = () => new Date().toLocaleDateString('en-CA')
+
+    const [startDate, setStartDate] = useState(getFirstDayOfMonth())
+    const [endDate, setEndDate] = useState(getToday())
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -40,6 +47,9 @@ export default function Admin() {
     useEffect(() => {
         if (activeTab === 'reports' && allOrders.length > 0) {
             const filtered = allOrders.filter(order => {
+                if (!order.created_at) return false
+                // Normaliza a data do pedido para YYYY-MM-DD (Local Time)
+                // O uso de 'en-CA' garante o formato YYYY-MM-DD
                 const orderDate = new Date(order.created_at).toLocaleDateString('en-CA')
                 return orderDate >= startDate && orderDate <= endDate
             })
