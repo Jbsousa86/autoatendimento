@@ -17,6 +17,8 @@ export default function Cashier() {
     const [lastFinishedOrder, setLastFinishedOrder] = useState(null)
     const [mobileCartOpen, setMobileCartOpen] = useState(false) // Mobile State
 
+    const [selectedPizza, setSelectedPizza] = useState(null) // Modal de Pizza
+
     // Effects
     useEffect(() => {
         if (user) {
@@ -62,8 +64,28 @@ export default function Cashier() {
     }
 
     const addToCart = (product) => {
+        // Se for pizza, abre modal de escolha
+        if (product.category === 'pizzas' || product.category === 'pizza') {
+            setSelectedPizza(product)
+            return
+        }
+
+        // Produto normal
         const newItem = { ...product, tempId: Date.now() }
         setCart([...cart, newItem])
+    }
+
+    const handlePizzaSelection = (size, price) => {
+        if (!selectedPizza) return
+
+        const newItem = {
+            ...selectedPizza,
+            name: `${selectedPizza.name} (${size})`,
+            price: price, // Usa o preço do tamanho selecionado
+            tempId: Date.now()
+        }
+        setCart([...cart, newItem])
+        setSelectedPizza(null)
     }
 
     const removeFromCart = (tempId) => {
@@ -264,6 +286,53 @@ export default function Cashier() {
                                 <div className="text-center mt-6 text-xs">
                                     <p>Obrigado pela preferência!</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL SELEÇÃO DE TAMANHO (PIZZA) */}
+                {selectedPizza && (
+                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
+                            <h2 className="text-2xl font-black text-gray-800 mb-2">🍕 Escolha o Tamanho</h2>
+                            <p className="text-gray-500 mb-8">Selecione o tamanho para <strong>{selectedPizza.name}</strong></p>
+
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => handlePizzaSelection('P', selectedPizza.price_p)}
+                                    disabled={!selectedPizza.price_p}
+                                    className={`w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 transition ${!selectedPizza.price_p ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
+                                >
+                                    <span>PEQUENA (P)</span>
+                                    <span>{selectedPizza.price_p ? `R$ ${parseFloat(selectedPizza.price_p).toFixed(2)}` : '--'}</span>
+                                </button>
+
+                                <button
+                                    onClick={() => handlePizzaSelection('M', selectedPizza.price)}
+                                    className="w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 border-gray-800 text-gray-800 hover:bg-gray-50 transition"
+                                >
+                                    <span>MÉDIA (M)</span>
+                                    <span>R$ {parseFloat(selectedPizza.price).toFixed(2)}</span>
+                                </button>
+
+                                <button
+                                    onClick={() => handlePizzaSelection('G', selectedPizza.price_g)}
+                                    disabled={!selectedPizza.price_g}
+                                    className={`w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 transition ${!selectedPizza.price_g ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400' : 'border-green-600 text-green-600 hover:bg-green-50'}`}
+                                >
+                                    <span>GRANDE (G)</span>
+                                    <span>{selectedPizza.price_g ? `R$ ${parseFloat(selectedPizza.price_g).toFixed(2)}` : '--'}</span>
+                                </button>
+
+                                <div className="border-t border-gray-100 my-2"></div>
+
+                                <button
+                                    onClick={() => setSelectedPizza(null)}
+                                    className="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300"
+                                >
+                                    Cancelar
+                                </button>
                             </div>
                         </div>
                     </div>
