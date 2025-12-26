@@ -228,7 +228,7 @@ export default function Admin() {
     // TELA DE LOGIN
     if (!isAuthenticated) {
         return (
-            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center">
+            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center p-4">
                 <form onSubmit={handleLogin} className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md">
                     <h1 className="text-3xl font-black text-gray-800 mb-6 text-center">🔒 Acesso Restrito</h1>
                     <div className="mb-6">
@@ -253,54 +253,54 @@ export default function Admin() {
 
     // PAINEL ADMIN (RESTURADO PARA TABELA - DESKTOP FIRST)
     return (
-        <div className="min-h-screen bg-gray-100 p-8">
-            <header className="mb-8 flex justify-between items-center">
-                <div>
+        <div className="min-h-screen bg-gray-100 p-4 md:p-8">
+            <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="w-full md:w-auto">
                     <h1
-                        className="text-3xl font-bold text-gray-800 mb-2 cursor-pointer select-none"
+                        className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 cursor-pointer select-none"
                         onClick={handleSecretClick}
                         title="Dica: Clique 5 vezes aqui para opções avançadas"
                     >
-                        ⚙️ Administração {devMode && <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">MODO AVANÇADO</span>}
+                        ⚙️ Admin {devMode && <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">DEV</span>}
                     </h1>
-                    <div className="flex gap-4">
+                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-3 md:w-auto md:gap-4 scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('products')}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === 'products' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'products' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         >
                             📦 PRODUTOS
                         </button>
                         <button
                             onClick={() => setActiveTab('reports')}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === 'reports' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'reports' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         >
                             📈 RELATÓRIOS
                         </button>
                         <button
                             onClick={() => setActiveTab('users')}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${activeTab === 'users' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'users' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         >
                             👥 EQUIPE
                         </button>
                     </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-2 md:gap-4 mt-4 md:mt-0">
                     {activeTab === 'products' && (
                         <>
                             {devMode && (
                                 <button
                                     onClick={handleRestoreDefaults}
-                                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 font-bold animate-pulse"
+                                    className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 font-bold animate-pulse text-xs md:text-sm"
                                 >
-                                    ⚠️ RESETAR PADRÕES
+                                    ⚠️ RESETAR
                                 </button>
                             )}
                             <button
                                 onClick={handleAddNew}
-                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold"
+                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-xs md:text-sm whitespace-nowrap"
                             >
-                                + NOVO PRODUTO
+                                + NOVO
                             </button>
                         </>
                     )}
@@ -311,166 +311,168 @@ export default function Admin() {
 
             {/* TAB PRODUTOS */}
             {activeTab === 'products' && (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
-                            <tr>
-                                <th className="p-4">ID</th>
-                                <th className="p-4">Nome</th>
-                                <th className="p-4">Preço (R$)</th>
-                                <th className="p-4">Categoria</th>
-                                <th className="p-4">Descrição</th>
-                                <th className="p-4">Imagem (URL)</th>
-                                <th className="p-4 text-center">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {products.map(product => (
-                                <tr key={product.id} className="hover:bg-gray-50">
-                                    {editingId === product.id ? (
-                                        // MODO EDIÇÃO
-                                        <>
-                                            <td className="p-4 text-gray-400 text-xs">auto</td>
-                                            <td className="p-4">
-                                                <input
-                                                    className="border p-2 rounded w-full"
-                                                    placeholder="Nome do produto"
-                                                    value={form.name}
-                                                    onChange={e => handleChange('name', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-4">
-                                                {/* SE FOR PIZZA, MOSTRA 3 CAMPOS */}
-                                                {(form.category === 'pizzas' || form.category === 'pizza') ? (
-                                                    <div className="flex flex-col gap-2">
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-xs font-bold text-red-500 w-4">P:</span>
-                                                            <input
-                                                                className="border p-1 rounded w-20 text-sm"
-                                                                type="number"
-                                                                placeholder="Auto"
-                                                                value={form.price_p || ''}
-                                                                onChange={e => handleChange('price_p', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-xs font-bold text-gray-700 w-4">M:</span>
-                                                            <input
-                                                                className="border p-1 rounded w-20 text-sm font-bold"
-                                                                type="number"
-                                                                placeholder="0.00"
-                                                                value={form.price}
-                                                                onChange={e => handleChange('price', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-xs font-bold text-green-600 w-4">G:</span>
-                                                            <input
-                                                                className="border p-1 rounded w-20 text-sm"
-                                                                type="number"
-                                                                placeholder="Auto"
-                                                                value={form.price_g || ''}
-                                                                onChange={e => handleChange('price_g', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    /* OUTROS PRODUTOS (APENAS 1 PREÇO) */
-                                                    <input
-                                                        className="border p-2 rounded w-20"
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        value={form.price}
-                                                        onChange={e => handleChange('price', e.target.value)}
-                                                    />
-                                                )}
-                                            </td>
-                                            <td className="p-4">
-                                                <select
-                                                    className="border p-2 rounded w-full"
-                                                    value={form.category}
-                                                    onChange={e => handleChange('category', e.target.value)}
-                                                >
-                                                    <option value="burgers">Hambúrgueres</option>
-                                                    <option value="pizzas">Pizzas</option>
-                                                    <option value="drinks">Sucos</option>
-                                                    <option value="sodas">Refrigerantes</option>
-                                                </select>
-                                            </td>
-                                            <td className="p-4">
-                                                <textarea
-                                                    className="border p-2 rounded w-full text-sm"
-                                                    rows={2}
-                                                    placeholder="Descrição curta"
-                                                    value={form.description || ''}
-                                                    onChange={e => handleChange('description', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-4">
-                                                <input
-                                                    className="border p-2 rounded w-full text-xs"
-                                                    placeholder="https://..."
-                                                    value={form.image || ''}
-                                                    onChange={e => handleChange('image', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-4 text-center whitespace-nowrap">
-                                                <button
-                                                    onClick={handleSave}
-                                                    className="bg-blue-600 text-white px-3 py-1 rounded font-bold text-sm shadow hover:bg-blue-500 mr-2"
-                                                >
-                                                    SALVAR
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingId(null)
-                                                        loadData()
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-500 text-sm"
-                                                >
-                                                    Cancelar
-                                                </button>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        // MODO VISUALIZAÇÃO
-                                        <>
-                                            <td className="p-4 font-mono text-xs text-gray-400">#{product.id}</td>
-                                            <td className="p-4 font-bold text-gray-800">{product.name}</td>
-                                            <td className="p-4 text-green-600 font-bold">R$ {parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                            <td className="p-4 text-gray-500 text-xs uppercase">{product.category}</td>
-                                            <td className="p-4 text-gray-500 text-sm max-w-xs truncate" title={product.description}>
-                                                {product.description || '-'}
-                                            </td>
-                                            <td className="p-4 text-blue-500 text-xs truncate max-w-[150px]">
-                                                {product.image ? (
-                                                    <a href={product.image} target="_blank" className="hover:underline">VER IMAGEM</a>
-                                                ) : (
-                                                    <span className="text-gray-300">Sem imagem</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-center whitespace-nowrap">
-                                                <button
-                                                    onClick={() => handleEdit(product)}
-                                                    className="text-blue-600 font-bold hover:underline mr-4 text-sm"
-                                                >
-                                                    EDITAR
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(product.id)}
-                                                    className="text-red-500 font-bold hover:underline text-sm"
-                                                >
-                                                    EXCLUIR
-                                                </button>
-                                            </td>
-                                        </>
-                                    )}
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden overflow-x-auto">
+                    <div className="min-w-[800px]"> {/* Force min width for table */}
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
+                                <tr>
+                                    <th className="p-4">ID</th>
+                                    <th className="p-4">Nome</th>
+                                    <th className="p-4">Preço (R$)</th>
+                                    <th className="p-4">Categoria</th>
+                                    <th className="p-4">Descrição</th>
+                                    <th className="p-4">Imagem (URL)</th>
+                                    <th className="p-4 text-center">Ações</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <div className="mt-8 text-center text-gray-400 text-sm p-4">
-                        <p>💡 Edite os produtos aqui. As alterações aparecerão imediatamente no menu do Totem.</p>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {products.map(product => (
+                                    <tr key={product.id} className="hover:bg-gray-50">
+                                        {editingId === product.id ? (
+                                            // MODO EDIÇÃO
+                                            <>
+                                                <td className="p-4 text-gray-400 text-xs">auto</td>
+                                                <td className="p-4">
+                                                    <input
+                                                        className="border p-2 rounded w-full"
+                                                        placeholder="Nome do produto"
+                                                        value={form.name}
+                                                        onChange={e => handleChange('name', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-4">
+                                                    {/* SE FOR PIZZA, MOSTRA 3 CAMPOS */}
+                                                    {(form.category === 'pizzas' || form.category === 'pizza') ? (
+                                                        <div className="flex flex-col gap-2">
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-xs font-bold text-red-500 w-4">P:</span>
+                                                                <input
+                                                                    className="border p-1 rounded w-20 text-sm"
+                                                                    type="number"
+                                                                    placeholder="Auto"
+                                                                    value={form.price_p || ''}
+                                                                    onChange={e => handleChange('price_p', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-xs font-bold text-gray-700 w-4">M:</span>
+                                                                <input
+                                                                    className="border p-1 rounded w-20 text-sm font-bold"
+                                                                    type="number"
+                                                                    placeholder="0.00"
+                                                                    value={form.price}
+                                                                    onChange={e => handleChange('price', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-xs font-bold text-green-600 w-4">G:</span>
+                                                                <input
+                                                                    className="border p-1 rounded w-20 text-sm"
+                                                                    type="number"
+                                                                    placeholder="Auto"
+                                                                    value={form.price_g || ''}
+                                                                    onChange={e => handleChange('price_g', e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        /* OUTROS PRODUTOS (APENAS 1 PREÇO) */
+                                                        <input
+                                                            className="border p-2 rounded w-20"
+                                                            type="number"
+                                                            placeholder="0.00"
+                                                            value={form.price}
+                                                            onChange={e => handleChange('price', e.target.value)}
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <select
+                                                        className="border p-2 rounded w-full"
+                                                        value={form.category}
+                                                        onChange={e => handleChange('category', e.target.value)}
+                                                    >
+                                                        <option value="burgers">Hambúrgueres</option>
+                                                        <option value="pizzas">Pizzas</option>
+                                                        <option value="drinks">Sucos</option>
+                                                        <option value="sodas">Refrigerantes</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-4">
+                                                    <textarea
+                                                        className="border p-2 rounded w-full text-sm"
+                                                        rows={2}
+                                                        placeholder="Descrição curta"
+                                                        value={form.description || ''}
+                                                        onChange={e => handleChange('description', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-4">
+                                                    <input
+                                                        className="border p-2 rounded w-full text-xs"
+                                                        placeholder="https://..."
+                                                        value={form.image || ''}
+                                                        onChange={e => handleChange('image', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-4 text-center whitespace-nowrap">
+                                                    <button
+                                                        onClick={handleSave}
+                                                        className="bg-blue-600 text-white px-3 py-1 rounded font-bold text-sm shadow hover:bg-blue-500 mr-2"
+                                                    >
+                                                        SALVAR
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingId(null)
+                                                            loadData()
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-500 text-sm"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                </td>
+                                            </>
+                                        ) : (
+                                            // MODO VISUALIZAÇÃO
+                                            <>
+                                                <td className="p-4 font-mono text-xs text-gray-400">#{product.id}</td>
+                                                <td className="p-4 font-bold text-gray-800">{product.name}</td>
+                                                <td className="p-4 text-green-600 font-bold">R$ {parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                <td className="p-4 text-gray-500 text-xs uppercase">{product.category}</td>
+                                                <td className="p-4 text-gray-500 text-sm max-w-xs truncate" title={product.description}>
+                                                    {product.description || '-'}
+                                                </td>
+                                                <td className="p-4 text-blue-500 text-xs truncate max-w-[150px]">
+                                                    {product.image ? (
+                                                        <a href={product.image} target="_blank" className="hover:underline">VER IMAGEM</a>
+                                                    ) : (
+                                                        <span className="text-gray-300">Sem imagem</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-center whitespace-nowrap">
+                                                    <button
+                                                        onClick={() => handleEdit(product)}
+                                                        className="text-blue-600 font-bold hover:underline mr-4 text-sm"
+                                                    >
+                                                        EDITAR
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(product.id)}
+                                                        className="text-red-500 font-bold hover:underline text-sm"
+                                                    >
+                                                        EXCLUIR
+                                                    </button>
+                                                </td>
+                                            </>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <div className="mt-8 text-center text-gray-400 text-sm p-4">
+                            <p>💡 Edite os produtos aqui. As alterações aparecerão imediatamente no menu do Totem.</p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -581,72 +583,73 @@ export default function Admin() {
             )}
 
             {/* TAB USUÁRIOS (CAIXAS) */}
-            {activeTab === 'users' && (
-                <div className="max-w-4xl mx-auto">
-                    <div className="bg-white p-8 rounded-xl shadow-lg mb-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">➕ Adicionar Operador de Caixa</h2>
-                        <form onSubmit={handleAddCashier} className="flex gap-4 items-end">
-                            <div className="flex-1">
-                                <label className="block text-gray-600 text-sm font-bold mb-2">Nome do Usuário</label>
-                                <input
-                                    className="w-full border p-3 rounded-lg"
-                                    placeholder="Ex: joao.silva"
-                                    value={newCashierName}
-                                    onChange={e => setNewCashierName(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <label className="block text-gray-600 text-sm font-bold mb-2">Senha de Acesso</label>
-                                <input
-                                    className="w-full border p-3 rounded-lg"
-                                    type="password"
-                                    placeholder="******"
-                                    value={newCashierPass}
-                                    onChange={e => setNewCashierPass(e.target.value)}
-                                />
-                            </div>
-                            <button className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 h-[50px]">
-                                ADICIONAR
-                            </button>
-                        </form>
-                    </div>
+            {
+                activeTab === 'users' && (
+                    <div className="max-w-4xl mx-auto">
+                        <div className="bg-white p-8 rounded-xl shadow-lg mb-8">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">➕ Adicionar Operador de Caixa</h2>
+                            <form onSubmit={handleAddCashier} className="flex flex-col md:flex-row gap-4 md:items-end">
+                                <div className="flex-1 w-full">
+                                    <label className="block text-gray-600 text-sm font-bold mb-2">Nome do Usuário</label>
+                                    <input
+                                        className="w-full border p-3 rounded-lg"
+                                        placeholder="Ex: joao.silva"
+                                        value={newCashierName}
+                                        onChange={e => setNewCashierName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex-1 w-full">
+                                    <label className="block text-gray-600 text-sm font-bold mb-2">Senha de Acesso</label>
+                                    <input
+                                        className="w-full border p-3 rounded-lg"
+                                        type="password"
+                                        placeholder="******"
+                                        value={newCashierPass}
+                                        onChange={e => setNewCashierPass(e.target.value)}
+                                    />
+                                </div>
+                                <button className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 h-[50px] w-full md:w-auto">
+                                    ADICIONAR
+                                </button>
+                            </form>
+                        </div>
 
-                    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
-                                <tr>
-                                    <th className="p-4">ID</th>
-                                    <th className="p-4">Nome</th>
-                                    <th className="p-4 text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {cashiers.map(cashier => (
-                                    <tr key={cashier.id} className="hover:bg-gray-50">
-                                        <td className="p-4 text-gray-400 font-mono text-xs max-w-[50px] truncate">{cashier.id}</td>
-                                        <td className="p-4 font-bold">{cashier.name}</td>
-                                        <td className="p-4 text-center">
-                                            <button
-                                                onClick={() => handleDeleteCashier(cashier.id)}
-                                                className="text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded"
-                                            >
-                                                REMOVER
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {cashiers.length === 0 && (
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
                                     <tr>
-                                        <td colSpan={3} className="p-8 text-center text-gray-400">
-                                            Nenhum operador cadastrado.
-                                        </td>
+                                        <th className="p-4">ID</th>
+                                        <th className="p-4">Nome</th>
+                                        <th className="p-4 text-center">Ações</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {cashiers.map(cashier => (
+                                        <tr key={cashier.id} className="hover:bg-gray-50">
+                                            <td className="p-4 text-gray-400 font-mono text-xs max-w-[50px] truncate">{cashier.id}</td>
+                                            <td className="p-4 font-bold">{cashier.name}</td>
+                                            <td className="p-4 text-center">
+                                                <button
+                                                    onClick={() => handleDeleteCashier(cashier.id)}
+                                                    className="text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded"
+                                                >
+                                                    REMOVER
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {cashiers.length === 0 && (
+                                        <tr>
+                                            <td colSpan={3} className="p-8 text-center text-gray-400">
+                                                Nenhum operador cadastrado.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
         </div>
     )
 }

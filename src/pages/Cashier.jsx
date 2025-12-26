@@ -15,6 +15,7 @@ export default function Cashier() {
     const [dailyOrders, setDailyOrders] = useState([])
     const [selectedCategory, setSelectedCategory] = useState("burgers")
     const [lastFinishedOrder, setLastFinishedOrder] = useState(null)
+    const [mobileCartOpen, setMobileCartOpen] = useState(false) // Mobile State
 
     // Effects
     useEffect(() => {
@@ -163,18 +164,18 @@ export default function Cashier() {
                     </div>
                 </div>
 
-                <div className="flex bg-gray-800 rounded-lg p-1">
+                <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[200px] md:max-w-none">
                     <button
                         onClick={() => setActiveTab('pos')}
-                        className={`px-6 py-2 rounded-md text-sm font-bold transition ${activeTab === 'pos' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'pos' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
                     >
-                        🛒 NOVA VENDA
+                        🛒 VENDA
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
-                        className={`px-6 py-2 rounded-md text-sm font-bold transition ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
                     >
-                        📋 MEU CAIXA
+                        📋 CAIXA
                     </button>
                 </div>
 
@@ -269,16 +270,16 @@ export default function Cashier() {
                 )}
 
                 {activeTab === 'pos' && (
-                    <div className="h-full flex">
+                    <div className="h-full flex flex-col md:flex-row relative">
                         {/* COLUNA 1: PRODUTOS */}
-                        <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
+                        <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
                             {/* Categorias */}
-                            <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100">
+                            <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
                                 {categories.map(cat => (
                                     <button
                                         key={cat.id}
                                         onClick={() => setSelectedCategory(cat.id)}
-                                        className={`px-4 py-2 rounded-full whitespace-nowrap font-bold text-sm ${selectedCategory === cat.id
+                                        className={`px-4 py-2 rounded-full whitespace-nowrap font-bold text-sm flex-shrink-0 ${selectedCategory === cat.id
                                             ? 'bg-orange-600 text-white'
                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
@@ -289,20 +290,20 @@ export default function Cashier() {
                             </div>
 
                             {/* Grid Produtos */}
-                            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 pb-24 md:pb-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                                     {filteredProducts.map(product => (
                                         <div
                                             key={product.id}
                                             onClick={() => addToCart(product)}
-                                            className="bg-white p-4 rounded-lg shadow cursor-pointer hover:ring-2 ring-orange-400 transition flex flex-col items-center text-center"
+                                            className="bg-white p-3 md:p-4 rounded-lg shadow cursor-pointer active:scale-95 transition flex flex-col items-center text-center border border-gray-100"
                                         >
-                                            <div className="h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden mb-2">
+                                            <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden mb-2">
                                                 {product.image ? (
                                                     <img src={product.image} className="w-full h-full object-cover" />
                                                 ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
                                             </div>
-                                            <h3 className="font-bold text-sm text-gray-800 leading-tight mb-1">{product.name}</h3>
+                                            <h3 className="font-bold text-xs md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
                                             <p className="text-green-600 font-bold text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
                                         </div>
                                     ))}
@@ -310,14 +311,31 @@ export default function Cashier() {
                             </div>
                         </div>
 
-                        {/* COLUNA 2: CARRINHO / CHECKOUT RÁPIDO */}
-                        <div className="w-96 bg-white flex flex-col shadow-2xl z-10">
-                            <div className="p-4 bg-gray-50 border-b border-gray-200">
-                                <h2 className="font-black text-lg text-gray-700">ORDEM ATUAL</h2>
-                                <p className="text-xs text-gray-400">Cliente Balcão</p>
+                        {/* COLUNA 2: CARRINHO (RESPONSIVO) */}
+                        {/* Mobile Overlay Background */}
+                        {mobileCartOpen && (
+                            <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setMobileCartOpen(false)} />
+                        )}
+
+                        <div className={`
+                            fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out
+                            md:relative md:transform-none md:w-96 md:flex md:flex-col md:shadow-none md:z-auto
+                            ${mobileCartOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+                        `}>
+                            <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                                <div>
+                                    <h2 className="font-black text-lg text-gray-700">ORDEM ATUAL</h2>
+                                    <p className="text-xs text-gray-400">Cliente Balcão</p>
+                                </div>
+                                <button
+                                    onClick={() => setMobileCartOpen(false)}
+                                    className="md:hidden text-gray-400 hover:text-gray-600 p-2"
+                                >
+                                    ✕
+                                </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-2 h-[calc(100vh-250px)] md:h-auto">
                                 {cart.length === 0 ? (
                                     <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
                                         Nenhum item selecionado
@@ -326,12 +344,12 @@ export default function Cashier() {
                                     cart.map((item, idx) => (
                                         <div key={item.tempId} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100">
                                             <div>
-                                                <p className="font-bold text-sm text-gray-800">{item.name}</p>
+                                                <p className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</p>
                                                 <p className="text-xs text-gray-500">R$ {parseFloat(item.price).toFixed(2)}</p>
                                             </div>
                                             <button
                                                 onClick={() => removeFromCart(item.tempId)}
-                                                className="text-red-400 hover:text-red-600 font-bold px-2"
+                                                className="text-red-400 hover:text-red-600 font-bold px-2 py-2"
                                             >
                                                 ✕
                                             </button>
@@ -346,13 +364,34 @@ export default function Cashier() {
                                     <span className="text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
                                 </div>
                                 <button
-                                    onClick={handleFinishOrder}
+                                    onClick={() => {
+                                        handleFinishOrder()
+                                        setMobileCartOpen(false)
+                                    }}
                                     className="w-full bg-green-600 text-white py-4 rounded-xl font-black text-xl hover:bg-green-700 shadow-lg transition transform active:scale-95"
                                 >
                                     CONFIRMAR VENDA
                                 </button>
                             </div>
                         </div>
+
+                        {/* MOBILE BOTTOM BAR (TRIGGER) */}
+                        {!mobileCartOpen && cart.length > 0 && (
+                            <div className="fixed bottom-0 left-0 right-0 bg-gray-900 p-4 md:hidden z-20 flex items-center justify-between shadow-lg cursor-pointer" onClick={() => setMobileCartOpen(true)}>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-orange-500 text-white font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm">
+                                        {cart.length}
+                                    </div>
+                                    <div className="text-white">
+                                        <p className="text-xs text-gray-400 uppercase font-bold">Total</p>
+                                        <p className="font-bold text-lg">R$ {calculateTotal().toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                <button className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm">
+                                    VER CARRINHO
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
