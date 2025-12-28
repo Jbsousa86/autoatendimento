@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { productService, orderService, cashierService } from "../services/api"
 import { categories } from "../data/menu"
+import logo from "../assets/herosburger.jpg"
 
 export default function Cashier() {
     // Auth State
@@ -12,20 +13,42 @@ export default function Cashier() {
     const [activeTab, setActiveTab] = useState('pos') // 'pos' | 'history'
     const [products, setProducts] = useState([])
     const [cart, setCart] = useState([])
+    const [customerName, setCustomerName] = useState("") // Nome p/ o pedido
     const [dailyOrders, setDailyOrders] = useState([])
     const [selectedCategory, setSelectedCategory] = useState("burgers")
     const [lastFinishedOrder, setLastFinishedOrder] = useState(null)
     const [mobileCartOpen, setMobileCartOpen] = useState(false) // Mobile State
+    const [printerDevice, setPrinterDevice] = useState(null)
+    const [printerStatus, setPrinterStatus] = useState("disconnected") // 'disconnected' | 'connecting' | 'connected'
 
     const [selectedPizza, setSelectedPizza] = useState(null) // Modal de Pizza
+    const [selectingHalf, setSelectingHalf] = useState(null) // 'M' | 'G' | null
+    const [firstFlavor, setFirstFlavor] = useState(null)
+    const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA')) // 'YYYY-MM-DD'
 
     // Effects
     useEffect(() => {
         if (user) {
             loadProducts()
             loadDailyHistory()
+
+            // INSCRIÇÃO REALTIME: Sincroniza vendas do próprio caixa no histórico
+            const subscription = orderService.subscribeToOrders(() => {
+                loadDailyHistory()
+            })
+
+            // RETORNO AUTOMÁTICO APÓS IMPRESSÃO
+            const handleAfterPrint = () => {
+                setLastFinishedOrder(null)
+            }
+            window.addEventListener('afterprint', handleAfterPrint)
+
+            return () => {
+                if (subscription) subscription.unsubscribe()
+                window.removeEventListener('afterprint', handleAfterPrint)
+            }
         }
-    }, [user])
+    }, [user, activeTab]) // Recarrega ao logar ou mudar de aba
 
     const loadProducts = async () => {
         const data = await productService.getProducts()
@@ -34,18 +57,124 @@ export default function Cashier() {
 
     const loadDailyHistory = async () => {
         const all = await orderService.getOrders()
-        // Filtrar por hoje e por este usuário
-        // OBS: Em app real, faria filtro no backend. Aqui simulo no frontend.
-        const today = new Date().toLocaleDateString('en-CA')
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        sevenDaysAgo.setHours(0, 0, 0, 0)
 
-        const myOrders = all.filter(o => {
-            const oDate = new Date(o.created_at).toLocaleDateString('en-CA')
-            return o.cashier_name === user.name && oDate === today
+        // Filtramos os pedidos dos últimos 7 dias para dar uma visão melhor ao caixa
+        const recentOrders = all.filter(o => {
+            const oDate = new Date(o.created_at)
+            return oDate >= sevenDaysAgo
         })
-        setDailyOrders(myOrders)
+
+        // Ordenar: mais recentes primeiro
+        recentOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+        setDailyOrders(recentOrders)
     }
 
+    const [orderObservation, setOrderObservation] = useState("") // Geral
+
     // Handlers
+    const connectPrinter = async () => {
+        try {
+            setPrinterStatus("connecting")
+            // Busca dispositivos que suportam o serviço de impressão (GATT)
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+            })
+
+            const server = await device.gatt.connect()
+            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb')
+            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb')
+
+            setPrinterDevice(characteristic)
+            setPrinterStatus("connected")
+            alert("✅ Impressora conectada com sucesso!")
+
+            device.addEventListener('gattserverdisconnected', () => {
+                setPrinterStatus("disconnected")
+                setPrinterDevice(null)
+            })
+        } catch (error) {
+            console.error("Erro Bluetooth:", error)
+            setPrinterStatus("disconnected")
+            alert("❌ Não foi possível conectar à impressora Bluetooth. Verifique se ela está ligada e pareada com o tablet.")
+        }
+    }
+
+    const printBluetooth = async () => {
+        if (!printerDevice || !lastFinishedOrder) return false
+
+        try {
+            const encoder = new TextEncoder()
+            const txt = (str) => encoder.encode(str + '\n')
+
+            // ESC/POS Comandos Básicos
+            const INIT = new Uint8Array([0x1B, 0x40])
+            const CENTER = new Uint8Array([0x1B, 0x61, 0x01])
+            const LEFT = new Uint8Array([0x1B, 0x61, 0x00])
+            const BOLD_ON = new Uint8Array([0x1B, 0x45, 0x01])
+            const BOLD_OFF = new Uint8Array([0x1B, 0x45, 0x00])
+            const DOUBLE_ON = new Uint8Array([0x1B, 0x21, 0x30])
+            const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01])
+            const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03]) // Cut/Feed
+
+            let data = new Uint8Array([
+                ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HEROS BURGER"), ...DOUBLE_OFF,
+                ...txt("Comprovante de Venda"), ...BOLD_OFF,
+                ...txt("--------------------------------"),
+                ...BOLD_ON, ...txt(`PEDIDO: ${lastFinishedOrder.orderNumber}`), ...BOLD_OFF,
+                ...LEFT, ...txt(`Data: ${new Date().toLocaleString()}`),
+                ...txt(`Caixa: ${user.name}`),
+                ...txt("--------------------------------"),
+            ])
+
+            lastFinishedOrder.items.forEach(item => {
+                const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(22) + ` R$${(item.price * item.qty).toFixed(2)}`
+                data = new Uint8Array([...data, ...txt(line)])
+                if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)])
+            })
+
+            data = new Uint8Array([
+                ...data,
+                ...txt("--------------------------------"),
+                ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(lastFinishedOrder.total).toFixed(2)}`), ...BOLD_OFF,
+                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
+            ])
+
+            // Envia em chunks pequenos para evitar gargalo no buffer Bluetooth
+            const chunkSize = 20
+            for (let i = 0; i < data.length; i += chunkSize) {
+                await printerDevice.writeValue(data.slice(i, i + chunkSize))
+            }
+            return true
+        } catch (error) {
+            console.error("Erro na impressão BT:", error)
+            return false
+        }
+    }
+
+    const handleReprint = async (order) => {
+        // Normaliza o objeto para o formato esperado pelo template de impressão
+        const reprintData = {
+            orderNumber: order.order_number,
+            items: order.items,
+            total: order.total,
+            cashierName: order.cashier_name || "Totem",
+            customerName: order.customer_name || ""
+        }
+
+        setLastFinishedOrder(reprintData)
+
+        // Pequeno delay para garantir que o estado atualizou antes de imprimir
+        setTimeout(async () => {
+            const success = await printBluetooth()
+            if (!success) window.print()
+        }, 100)
+    }
+
     const handleLogin = async (e) => {
         e.preventDefault()
         try {
@@ -64,28 +193,77 @@ export default function Cashier() {
     }
 
     const addToCart = (product) => {
-        // Se for pizza, abre modal de escolha
+        // PRIORIDADE: Se estiver escolhendo a segunda metade, adiciona direto!
+        if (selectingHalf) {
+            const p1 = firstFlavor
+            const p2 = product
+            const size = selectingHalf
+
+            const price1 = size === 'M' ? Number(p1.price) : Number(p1.price_g || p1.price * 1.2)
+            const price2 = size === 'M' ? Number(p2.price) : Number(p2.price_g || p2.price * 1.2)
+            const finalPrice = Math.max(price1, price2)
+
+            const combo = {
+                ...product, // Pega a base do produto para manter IDs etc se necessário
+                name: `1/2 ${p1.name} / 1/2 ${p2.name} (${size})`,
+                price: finalPrice,
+                qty: 1,
+                category: 'pizzas',
+                tempId: Date.now(),
+                observation: ""
+            }
+
+            setCart([...cart, combo])
+            setSelectingHalf(null)
+            setFirstFlavor(null)
+            return
+        }
+
+        // Se for pizza e não estiver no modo meio-a-meio, abre modal (para escolher Inteira ou Iniciar Meio-a-Meio)
         if (product.category === 'pizzas' || product.category === 'pizza') {
             setSelectedPizza(product)
             return
         }
 
         // Produto normal
-        const newItem = { ...product, tempId: Date.now() }
+        const newItem = { ...product, tempId: Date.now(), observation: "", qty: 1 }
         setCart([...cart, newItem])
     }
 
-    const handlePizzaSelection = (size, price) => {
+    const handlePizzaSelection = (size, price, isHalf = false) => {
         if (!selectedPizza) return
+
+        if (isHalf) {
+            setSelectingHalf(size)
+            setFirstFlavor(selectedPizza)
+            setSelectedPizza(null)
+            return
+        }
 
         const newItem = {
             ...selectedPizza,
             name: `${selectedPizza.name} (${size})`,
             price: price, // Usa o preço do tamanho selecionado
-            tempId: Date.now()
+            tempId: Date.now(),
+            observation: "",
+            qty: 1
         }
         setCart([...cart, newItem])
         setSelectedPizza(null)
+    }
+
+    const updateItemObservation = (tempId, obs) => {
+        setCart(cart.map(item => item.tempId === tempId ? { ...item, observation: obs } : item))
+    }
+
+    const increaseQty = (tempId) => {
+        setCart(cart.map(item => item.tempId === tempId ? { ...item, qty: (item.qty || 1) + 1 } : item))
+    }
+
+    const decreaseQty = (tempId) => {
+        setCart(cart.map(item =>
+            item.tempId === tempId ? { ...item, qty: Math.max(1, (item.qty || 1) - 1) } : item
+        ))
     }
 
     const removeFromCart = (tempId) => {
@@ -95,75 +273,96 @@ export default function Cashier() {
     const handleFinishOrder = async () => {
         if (cart.length === 0) return alert("Carrinho vazio!")
 
-        const total = cart.reduce((acc, item) => acc + (Number(item.price) || 0), 0)
+        const total = calculateTotal()
 
         // Agrupar itens para o formato do banco
-        // O formato esperado em 'items' é [{ name, qty, price, observation... }]
-        // Vamos simplificar e agrupar por nome
+        // FIX: Agrupar por nome E observação, senão perdemos os detalhes individuais
         const itemMap = {}
         cart.forEach(p => {
-            if (!itemMap[p.name]) {
-                itemMap[p.name] = {
+            const key = `${p.name}-${p.observation || ''}`
+            if (!itemMap[key]) {
+                itemMap[key] = {
                     id: p.id,
                     name: p.name,
                     price: p.price,
-                    qty: 0
+                    qty: 0,
+                    observation: p.observation || ""
                 }
             }
-            itemMap[p.name].qty += 1
+            itemMap[key].qty += (p.qty || 1)
         })
         const finalItems = Object.values(itemMap)
 
         const orderPayload = {
-            orderNumber: Math.floor(1000 + Math.random() * 9000), // Mock number
-            customerName: "Balcão",
+            orderNumber: Math.floor(1000 + Math.random() * 9000),
+            customerName: customerName || "Balcão", // Pega do input ou usa padrão
             total: total,
             items: finalItems,
-            cashierName: user.name
+            cashierName: user.name,
+            observation: orderObservation
         }
 
         await orderService.createOrder(orderPayload)
 
         // Reset
         setCart([])
+        setCustomerName("")
+        setOrderObservation("")
         setLastFinishedOrder(orderPayload)
-        loadDailyHistory() // Atualiza relatório
-        // alert("✅ Venda Registrada!")
+        loadDailyHistory()
     }
 
-    const calculateTotal = () => cart.reduce((acc, item) => acc + (Number(item.price) || 0), 0)
+    const calculateTotal = () => cart.reduce((acc, item) => acc + (Number(item.price) * (item.qty || 1)), 0)
 
     // Render Login
     if (!user) {
         return (
-            <div className="min-h-screen bg-gray-800 flex items-center justify-center p-4">
-                <form onSubmit={handleLogin} className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-                    <h1 className="text-2xl font-black text-center mb-6 text-gray-800">🦊 Login do Caixa</h1>
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+                {/* Efeitos de fundo para dar identidade */}
+                <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-orange-600/20 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-yellow-600/10 rounded-full blur-3xl"></div>
 
-                    <label className="block text-sm font-bold text-gray-600 mb-1">Usuário</label>
-                    <input
-                        className="w-full border p-3 rounded mb-4"
-                        value={loginUser}
-                        onChange={e => setLoginUser(e.target.value)}
-                        placeholder="Ex: maria"
-                        autoFocus
-                    />
+                <form onSubmit={handleLogin} className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm relative z-10 border-t-8 border-orange-600">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-24 h-24 bg-white rounded-2xl mb-4 transform rotate-6 shadow-xl overflow-hidden border-4 border-orange-50">
+                            <img src={logo} alt="Heros Burger Logo" className="w-full h-full object-cover" />
+                        </div>
+                        <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter leading-none">
+                            Heros <span className="text-orange-600 italic">Burger</span>
+                        </h1>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] mt-2">Sistema de Gestão</p>
+                    </div>
 
-                    <label className="block text-sm font-bold text-gray-600 mb-1">Senha</label>
-                    <input
-                        className="w-full border p-3 rounded mb-6"
-                        type="password"
-                        value={loginPass}
-                        onChange={e => setLoginPass(e.target.value)}
-                        placeholder="******"
-                    />
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1 tracking-widest">Identificação</label>
+                            <input
+                                className="w-full border-2 border-gray-100 bg-gray-50 p-4 rounded-2xl text-gray-800 font-bold focus:border-orange-500 focus:bg-white focus:outline-none transition-all"
+                                value={loginUser}
+                                onChange={e => setLoginUser(e.target.value)}
+                                placeholder="Seu nome de usuário"
+                            />
+                        </div>
 
-                    <button className="w-full bg-orange-600 text-white font-bold py-3 rounded hover:bg-orange-700 transition">
-                        ENTRAR NO SISTEMA
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1 tracking-widest">Senha de Acesso</label>
+                            <input
+                                className="w-full border-2 border-gray-100 bg-gray-50 p-4 rounded-2xl text-gray-800 font-bold focus:border-orange-500 focus:bg-white focus:outline-none transition-all"
+                                type="password"
+                                value={loginPass}
+                                onChange={e => setLoginPass(e.target.value)}
+                                placeholder="••••••"
+                            />
+                        </div>
+                    </div>
+
+                    <button className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl hover:bg-orange-700 hover:shadow-lg hover:-translate-y-1 active:translate-y-0 transition-all text-lg mt-8 shadow-xl flex items-center justify-center gap-2">
+                        <span>⚡</span> ENTRAR NO SERVIÇO
                     </button>
-                    <button type="button" onClick={() => window.location.href = "/"} className="w-full mt-4 text-xs text-center text-gray-400 hover:text-white">
-                        (Voltar ao início)
-                    </button>
+
+                    <div className="mt-8 text-center">
+                        <p className="text-[10px] text-gray-300 font-medium">© 2025 HEROS BURGER • QUALIDADE HEROICA</p>
+                    </div>
                 </form>
             </div>
         )
@@ -186,27 +385,53 @@ export default function Cashier() {
                     </div>
                 </div>
 
-                <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[200px] md:max-w-none">
+                <div className="flex items-center gap-2 md:gap-4">
+                    {/* INDICADOR DE IMPRESSORA */}
                     <button
-                        onClick={() => setActiveTab('pos')}
-                        className={`px-4 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'pos' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        onClick={connectPrinter}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${printerStatus === 'connected'
+                            ? 'bg-green-600/10 border-green-500 text-green-400'
+                            : printerStatus === 'connecting'
+                                ? 'bg-yellow-600/10 border-yellow-500 text-yellow-400 animate-pulse'
+                                : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500'
+                            }`}
+                        title={printerStatus === 'connected' ? 'Impressora Conectada' : 'Clique para conectar Impressora Bluetooth'}
                     >
-                        🛒 VENDA
+                        <span className="text-sm">🖨️</span>
+                        <span className="text-[10px] font-black uppercase hidden md:inline">
+                            {printerStatus === 'connected' ? 'ONLINE' : printerStatus === 'connecting' ? 'BUSCANDO...' : 'IMPRESSORA OFF'}
+                        </span>
+                        {printerStatus === 'connected' && <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>}
                     </button>
+
+                    <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[150px] md:max-w-none">
+                        <button
+                            onClick={() => setActiveTab('pos')}
+                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'pos' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            🛒 VENDA
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            📋 CAIXA
+                        </button>
+                        <button
+                            onClick={() => window.open("/kitchen", "_blank")}
+                            className="px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap text-gray-400 hover:text-orange-400"
+                        >
+                            🧑‍🍳 COZINHA
+                        </button>
+                    </div>
+
                     <button
-                        onClick={() => setActiveTab('history')}
-                        className={`px-4 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        onClick={() => setUser(null)}
+                        className="text-red-400 hover:text-red-200 text-sm font-bold bg-red-400/10 p-2 rounded-lg"
                     >
-                        📋 CAIXA
+                        SAIR
                     </button>
                 </div>
-
-                <button
-                    onClick={() => setUser(null)}
-                    className="text-red-400 hover:text-red-200 text-sm font-bold"
-                >
-                    SAIR
-                </button>
             </header>
 
             {/* CONTENT */}
@@ -223,7 +448,10 @@ export default function Cashier() {
 
                             <div className="flex flex-col gap-3">
                                 <button
-                                    onClick={() => window.print()}
+                                    onClick={async () => {
+                                        const success = await printBluetooth()
+                                        if (!success) window.print()
+                                    }}
                                     className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2"
                                 >
                                     🖨️ IMPRIMIR RECIBO
@@ -269,7 +497,10 @@ export default function Cashier() {
                                         {lastFinishedOrder.items.map((item, i) => (
                                             <tr key={i}>
                                                 <td className="py-1 align-top w-6">{item.qty}x</td>
-                                                <td className="py-1 align-top">{item.name}</td>
+                                                <td className="py-1 align-top">
+                                                    <div>{item.name}</div>
+                                                    {item.observation && <div className="text-[10px] italic">➔ {item.observation}</div>}
+                                                </td>
                                                 <td className="py-1 align-top text-right">
                                                     {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </td>
@@ -283,6 +514,11 @@ export default function Cashier() {
                                         <span>{Number(lastFinishedOrder.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                     </div>
                                 </div>
+                                {lastFinishedOrder.observation && (
+                                    <div className="border border-black p-1 text-[10px] mb-2">
+                                        <span className="font-bold">OBS: </span> {lastFinishedOrder.observation}
+                                    </div>
+                                )}
                                 <div className="text-center mt-6 text-xs">
                                     <p>Obrigado pela preferência!</p>
                                 </div>
@@ -291,14 +527,28 @@ export default function Cashier() {
                     </div>
                 )}
 
+                {/* AVISO SELEÇÃO SEGUNDO SABOR */}
+                {selectingHalf && (
+                    <div className="absolute top-0 left-0 right-0 bg-red-600 text-white p-3 z-[60] flex justify-between items-center animate-pulse">
+                        <span className="font-bold">🍕 SELECIONANDO 2º SABOR PARA PIZZA {selectingHalf} (1º Sabor: {firstFlavor?.name})</span>
+                        <button
+                            onClick={() => { setSelectingHalf(null); setFirstFlavor(null); }}
+                            className="bg-white text-red-600 px-3 py-1 rounded text-xs font-black"
+                        >
+                            CANCELAR
+                        </button>
+                    </div>
+                )}
+
                 {/* MODAL SELEÇÃO DE TAMANHO (PIZZA) */}
                 {selectedPizza && (
                     <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
                             <h2 className="text-2xl font-black text-gray-800 mb-2">🍕 Escolha o Tamanho</h2>
-                            <p className="text-gray-500 mb-8">Selecione o tamanho para <strong>{selectedPizza.name}</strong></p>
+                            <p className="text-gray-500 mb-6">Selecione o tamanho para <strong>{selectedPizza.name}</strong></p>
 
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-4">
+                                {/* PEQUENA */}
                                 <button
                                     onClick={() => handlePizzaSelection('P', selectedPizza.price_p)}
                                     disabled={!selectedPizza.price_p}
@@ -308,28 +558,47 @@ export default function Cashier() {
                                     <span>{selectedPizza.price_p ? `R$ ${parseFloat(selectedPizza.price_p).toFixed(2)}` : '--'}</span>
                                 </button>
 
-                                <button
-                                    onClick={() => handlePizzaSelection('M', selectedPizza.price)}
-                                    className="w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 border-gray-800 text-gray-800 hover:bg-gray-50 transition"
-                                >
-                                    <span>MÉDIA (M)</span>
-                                    <span>R$ {parseFloat(selectedPizza.price).toFixed(2)}</span>
-                                </button>
+                                {/* MÉDIA */}
+                                <div className="border-2 border-gray-800 rounded-xl overflow-hidden">
+                                    <div className="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-tighter">Média (M) • R$ {parseFloat(selectedPizza.price).toFixed(2)}</div>
+                                    <div className="flex">
+                                        <button
+                                            onClick={() => handlePizzaSelection('M', selectedPizza.price)}
+                                            className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
+                                        >
+                                            INTEIRA
+                                        </button>
+                                        <button
+                                            onClick={() => handlePizzaSelection('M', selectedPizza.price, true)}
+                                            className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
+                                        >
+                                            1/2 A 1/2
+                                        </button>
+                                    </div>
+                                </div>
 
-                                <button
-                                    onClick={() => handlePizzaSelection('G', selectedPizza.price_g)}
-                                    disabled={!selectedPizza.price_g}
-                                    className={`w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 transition ${!selectedPizza.price_g ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400' : 'border-green-600 text-green-600 hover:bg-green-50'}`}
-                                >
-                                    <span>GRANDE (G)</span>
-                                    <span>{selectedPizza.price_g ? `R$ ${parseFloat(selectedPizza.price_g).toFixed(2)}` : '--'}</span>
-                                </button>
-
-                                <div className="border-t border-gray-100 my-2"></div>
+                                {/* GRANDE */}
+                                <div className={`border-2 rounded-xl overflow-hidden ${!selectedPizza.price_g ? 'opacity-50 grayscale pointer-events-none' : 'border-green-600'}`}>
+                                    <div className="bg-green-600 text-white text-xs font-bold py-1 uppercase tracking-tighter">Grande (G) • {selectedPizza.price_g ? `R$ ${parseFloat(selectedPizza.price_g).toFixed(2)}` : '--'}</div>
+                                    <div className="flex">
+                                        <button
+                                            onClick={() => handlePizzaSelection('G', selectedPizza.price_g)}
+                                            className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
+                                        >
+                                            INTEIRA
+                                        </button>
+                                        <button
+                                            onClick={() => handlePizzaSelection('G', selectedPizza.price_g, true)}
+                                            className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
+                                        >
+                                            1/2 A 1/2
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <button
                                     onClick={() => setSelectedPizza(null)}
-                                    className="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300"
+                                    className="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 mt-4"
                                 >
                                     Cancelar
                                 </button>
@@ -342,6 +611,21 @@ export default function Cashier() {
                     <div className="h-full flex flex-col md:flex-row relative">
                         {/* COLUNA 1: PRODUTOS */}
                         <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
+                            {/* MONITOR DE AUTOATENDIMENTO (TOTEM) */}
+                            <div className="bg-orange-50 p-2 border-b border-orange-100 flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                                <div className="bg-orange-600 text-white text-[9px] font-black px-2 py-1 rounded shadow-sm flex items-center gap-1">
+                                    <span className="animate-ping">●</span> TOTEM AO VIVO
+                                </div>
+                                {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').slice(0, 5).map(o => (
+                                    <div key={o.id} className="text-[11px] font-bold text-orange-900 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm transition-all hover:scale-105">
+                                        #{o.order_number} - {o.customer_name}
+                                    </div>
+                                ))}
+                                {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').length === 0 && (
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase italic ml-2">Nenhum pedido novo no autoatendimento</span>
+                                )}
+                            </div>
+
                             {/* Categorias */}
                             <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
                                 {categories.map(cat => (
@@ -391,43 +675,94 @@ export default function Cashier() {
                             md:relative md:transform-none md:w-96 md:flex md:flex-col md:shadow-none md:z-auto
                             ${mobileCartOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
                         `}>
-                            <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                                <div>
-                                    <h2 className="font-black text-lg text-gray-700">ORDEM ATUAL</h2>
-                                    <p className="text-xs text-gray-400">Cliente Balcão</p>
+                            <div className="p-4 bg-gray-50 border-b border-gray-200">
+                                <div className="flex justify-between items-center mb-3">
+                                    <div>
+                                        <h2 className="font-black text-lg text-gray-700 leading-none">ORDEM ATUAL</h2>
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">Venda de Balcão</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setMobileCartOpen(false)}
+                                        className="md:hidden text-gray-400 hover:text-gray-600 p-2"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => setMobileCartOpen(false)}
-                                    className="md:hidden text-gray-400 hover:text-gray-600 p-2"
-                                >
-                                    ✕
-                                </button>
+                                <input
+                                    type="text"
+                                    placeholder="Nome do Cliente (Opcional)"
+                                    className="w-full border-2 border-orange-200 bg-white p-2 rounded-lg text-sm font-bold focus:border-orange-500 focus:outline-none placeholder-gray-300"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                />
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-2 h-[calc(100vh-250px)] md:h-auto">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 h-[calc(100vh-320px)] md:h-auto">
                                 {cart.length === 0 ? (
                                     <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
                                         Nenhum item selecionado
                                     </div>
                                 ) : (
                                     cart.map((item, idx) => (
-                                        <div key={item.tempId} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100">
-                                            <div>
-                                                <p className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</p>
-                                                <p className="text-xs text-gray-500">R$ {parseFloat(item.price).toFixed(2)}</p>
+                                        <div key={item.tempId} className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm transition-all">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex-1">
+                                                    <p className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <div className="flex items-center bg-white border border-gray-200 rounded-md shadow-sm">
+                                                            <button
+                                                                onClick={() => decreaseQty(item.tempId)}
+                                                                className="w-8 h-8 flex items-center justify-center text-red-500 font-bold hover:bg-red-50 active:bg-red-100 transition-colors"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <span className="w-8 text-center text-xs font-black text-gray-700">
+                                                                {item.qty || 1}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => increaseQty(item.tempId)}
+                                                                className="w-8 h-8 flex items-center justify-center text-green-600 font-bold hover:bg-green-50 active:bg-green-100 transition-colors"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-xs text-green-600 font-bold ml-1">
+                                                            R$ {(Number(item.price) * (item.qty || 1)).toFixed(2)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeFromCart(item.tempId)}
+                                                    className="text-red-400 hover:text-red-600 p-1 bg-white rounded shadow-sm ml-2"
+                                                >
+                                                    ✕
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => removeFromCart(item.tempId)}
-                                                className="text-red-400 hover:text-red-600 font-bold px-2 py-2"
-                                            >
-                                                ✕
-                                            </button>
+                                            {/* OBSERVAÇÃO POR ITEM */}
+                                            <input
+                                                className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none placeholder-gray-300"
+                                                placeholder="Obs: Sem cebola, bem passado..."
+                                                value={item.observation || ""}
+                                                onChange={(e) => updateItemObservation(item.tempId, e.target.value)}
+                                            />
                                         </div>
                                     ))
                                 )}
                             </div>
 
                             <div className="p-6 bg-gray-100 border-t border-gray-200">
+                                {/* OBSERVAÇÃO GERAL */}
+                                <div className="mb-4">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Observação Geral</label>
+                                    <textarea
+                                        className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none resize-none"
+                                        rows={2}
+                                        placeholder="Clique para adicionar notas ao pedido..."
+                                        value={orderObservation}
+                                        onChange={(e) => setOrderObservation(e.target.value)}
+                                    />
+                                </div>
+
                                 <div className="flex justify-between items-center mb-6">
                                     <span className="text-gray-600 font-bold">TOTAL</span>
                                     <span className="text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
@@ -465,52 +800,143 @@ export default function Cashier() {
                 )}
 
                 {activeTab === 'history' && (
-                    <div className="max-w-4xl mx-auto p-8">
-                        <div className="bg-white p-8 rounded-xl shadow-lg">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-2">📋 Fluxo do Dia</h2>
-                            <p className="text-gray-500 mb-8">Resumo das vendas realizadas por <strong>{user.name}</strong> hoje.</p>
+                    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+                        {/* SELETOR DE DATA */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">📅 Relatórios</h2>
+                                <p className="text-xs text-gray-400 font-bold uppercase">Consulte o desempenho de qualquer dia</p>
+                            </div>
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <button
+                                    onClick={() => setReportDate(new Date().toLocaleDateString('en-CA'))}
+                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-black transition-all"
+                                >
+                                    HOJE
+                                </button>
+                                <input
+                                    type="date"
+                                    value={reportDate}
+                                    onChange={(e) => setReportDate(e.target.value)}
+                                    className="flex-1 md:w-48 border-2 border-gray-200 p-2 rounded-lg font-bold text-gray-700 focus:border-blue-500 focus:outline-none transition-all"
+                                />
+                            </div>
+                        </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
-                                    <h3 className="text-blue-600 font-bold text-sm uppercase">Total Vendido</h3>
-                                    <p className="text-3xl font-black text-blue-900">
-                                        R$ {dailyOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)}
-                                    </p>
-                                </div>
-                                <div className="bg-purple-50 p-6 rounded-lg border border-purple-100">
-                                    <h3 className="text-purple-600 font-bold text-sm uppercase">Pedidos Feitos</h3>
-                                    <p className="text-3xl font-black text-purple-900">
-                                        {dailyOrders.length}
-                                    </p>
-                                </div>
+                        {/* DESTAQUE DO DIA SELECIONADO */}
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl border border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6 text-white text-center md:text-left transition-all">
+                            <div>
+                                <h3 className="text-blue-100 font-bold text-xs uppercase tracking-[0.2em] mb-2">
+                                    {reportDate === new Date().toLocaleDateString('en-CA') ? 'Faturamento de Hoje' : `Vendas em ${new Date(reportDate + "T12:00:00").toLocaleDateString('pt-BR')}`}
+                                </h3>
+                                <p className="text-5xl font-black">
+                                    R$ {dailyOrders
+                                        .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                    }
+                                </p>
+                                <p className="text-blue-200 text-sm mt-2 font-medium">
+                                    {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length} pedidos realizados
+                                </p>
+                            </div>
+                            <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
+                                <span className="text-3xl">📊</span>
+                            </div>
+                        </div>
+
+                        {/* DETALHAMENTO DO DIA SELECIONADO */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Minhas Vendas (Data)</h3>
+                                <p className="text-2xl font-black text-blue-600">
+                                    R$ {dailyOrders
+                                        .filter(o => o.cashier_name === user.name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                    }
+                                </p>
+                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Processado por você</p>
                             </div>
 
-                            <div className="overflow-hidden border rounded-lg">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Vendas Totem (Data)</h3>
+                                <p className="text-2xl font-black text-orange-600">
+                                    R$ {dailyOrders
+                                        .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                    }
+                                </p>
+                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Autoatendimento</p>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Geral (Semana)</h3>
+                                <p className="text-2xl font-black text-green-600">
+                                    R$ {dailyOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)}
+                                </p>
+                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Acumulado 7 dias buscados</p>
+                            </div>
+                        </div>
+
+                        {/* HISTÓRICO DETALHADO — FILTRADO POR DATA */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Pedidos do Dia Selecionado</h2>
+                                <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
+                            </div>
+                            <div className="overflow-x-auto">
                                 <table className="w-full text-left">
-                                    <thead className="bg-gray-50 text-gray-600 text-xs uppercase font-bold">
+                                    <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
                                         <tr>
-                                            <th className="p-3">Hora</th>
-                                            <th className="p-3">Itens</th>
-                                            <th className="p-3 text-right">Valor</th>
+                                            <th className="p-4">Data/Hora</th>
+                                            <th className="p-4">Origem</th>
+                                            <th className="p-4">Itens</th>
+                                            <th className="p-4 text-right">Total</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {dailyOrders.map(order => (
-                                            <tr key={order.id}>
-                                                <td className="p-3 text-gray-500 font-mono text-sm">
-                                                    {new Date(order.created_at).toLocaleTimeString().slice(0, 5)}
-                                                </td>
-                                                <td className="p-3 text-sm text-gray-800">
-                                                    {order.items.length} itens <span className="text-gray-400 text-xs">#{order.order_number}</span>
-                                                </td>
-                                                <td className="p-3 text-right font-bold text-green-600">
-                                                    R$ {Number(order.total).toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {dailyOrders.length === 0 && (
+                                    <tbody className="divide-y divide-gray-50">
+                                        {dailyOrders
+                                            .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                            .map(order => (
+                                                <tr
+                                                    key={order.id}
+                                                    onClick={() => handleReprint(order)}
+                                                    className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                                                    title="Clique para Reimprimir"
+                                                >
+                                                    <td className="p-4 text-gray-500 font-mono text-[10px] leading-tight">
+                                                        <span className="block font-bold text-gray-800">{new Date(order.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {order.cashier_name ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                                <span className="text-[10px] font-black uppercase text-blue-900">{order.cashier_name}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                                                                <span className="text-[10px] font-black uppercase text-orange-900 font-mono tracking-tighter">🤖 TOTEM</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <p className="text-xs font-bold truncate max-w-[200px] md:max-w-md group-hover:text-blue-700">
+                                                            {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
+                                                        </p>
+                                                        <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="font-black text-gray-900 text-sm">R$ {Number(order.total).toFixed(2)}</span>
+                                                            <span className="text-[8px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 uppercase tracking-tighter">🖨️ REIMPRIMIR</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length === 0 && (
                                             <tr>
-                                                <td colSpan={3} className="p-6 text-center text-gray-400">Nenhuma venda hoje.</td>
+                                                <td colSpan={4} className="p-10 text-center text-gray-400 font-bold italic text-sm">Nenhum pedido encontrado nesta data.</td>
                                             </tr>
                                         )}
                                     </tbody>

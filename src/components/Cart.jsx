@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom"
 import Logo from "../assets/herosburger.jpg" // Importanto Logo
 
 export function Cart() {
-  const { cart, finalizeOrder, increase, decrease } = useCart()
+  const { cart, finalizeOrder, increase, decrease, updateObservation } = useCart()
   const [customerName, setCustomerName] = useState("") // Nome do cliente
+  const [generalObservation, setGeneralObservation] = useState("") // Obs geral
   const navigate = useNavigate()
 
   // FORCE CALCULATION INLINE
@@ -41,7 +42,7 @@ export function Cart() {
             <div
               // CARTÃO FLUTUANTE (Floating Card Style)
               key={`${item.id}-${item.qty}`}
-              className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl hover:scale-105 transition-all outline outline-2 outline-transparent hover:outline-orange-400"
+              className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl hover:scale-105 transition-all outline outline-2 outline-transparent hover:outline-orange-400 group"
             >
               {/* Nome e Preço Unitário */}
               <div className="flex justify-between items-start mb-3 pb-2 border-b border-gray-100">
@@ -57,7 +58,7 @@ export function Cart() {
               </div>
 
               {/* Controles e Total do Item */}
-              <div className="flex justify-between items-center mt-2">
+              <div className="flex justify-between items-center mt-2 mb-3">
 
                 {/* Quantidade */}
                 <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-3">
@@ -86,6 +87,24 @@ export function Cart() {
                   </span>
                 </div>
               </div>
+
+              {/* OBSERVAÇÃO DO ITEM - BOTÃO + CAMPO */}
+              <div className="mt-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Observação</span>
+                  <div className="h-[1px] flex-1 bg-gray-100"></div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ex: Sem cebola, bem passado..."
+                    className="w-full bg-gray-50 border-2 border-transparent rounded-xl p-3 pl-10 text-sm font-bold text-gray-700 placeholder-gray-300 focus:outline-none focus:border-orange-400 focus:bg-white transition-all shadow-inner"
+                    value={item.observation || ""}
+                    onChange={(e) => updateObservation(item.id, e.target.value)}
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">📝</span>
+                </div>
+              </div>
             </div>
           ))
         )}
@@ -96,20 +115,32 @@ export function Cart() {
 
         {/* INPUT NOME DO CLIENTE */}
         <div className="mb-4">
-          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1">Para quem é o pedido?</label>
+          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest text-white drop-shadow-md">Para quem é o pedido?</label>
           <input
             type="text"
             placeholder="Digite seu nome (Opcional)"
-            className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-lg font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all"
+            className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-lg font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all shadow-lg"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
           />
         </div>
 
+        {/* OBSERVAÇÃO GERAL */}
+        <div className="mb-4">
+          <label className="block text-white text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest drop-shadow-md">Observação Geral</label>
+          <textarea
+            placeholder="Ex: Embalar para viagem, molho extra..."
+            rows={2}
+            className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-sm font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all shadow-lg resize-none"
+            value={generalObservation}
+            onChange={(e) => setGeneralObservation(e.target.value)}
+          />
+        </div>
+
         <div className="flex justify-between items-end mb-6">
-          <span className="text-gray-900 font-bold text-xl mb-1 drop-shadow-sm">Total a pagar:</span>
+          <span className="text-white font-bold text-xl mb-1 drop-shadow-md">Total a pagar:</span>
           <div className="text-right">
-            <span className="text-5xl font-black text-black tracking-tighter drop-shadow-sm">
+            <span className="text-5xl font-black text-black tracking-tighter drop-shadow-md">
               {finalTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
@@ -117,17 +148,17 @@ export function Cart() {
 
         <button
           onClick={() => {
-            const order = finalizeOrder(customerName)
+            const order = finalizeOrder(customerName, generalObservation)
             navigate("/finish", { state: { order } })
           }}
           disabled={cart.length === 0}
-          className="w-full h-24 bg-black text-white text-2xl font-black rounded-2xl disabled:bg-black/50 disabled:text-gray-400 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center gap-3"
+          className="w-full h-24 bg-black text-white text-3xl font-black rounded-3xl disabled:bg-black/50 disabled:text-gray-400 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center gap-3 border-4 border-white/20"
         >
           {cart.length === 0 ? (
             "CARRINHO VAZIO"
           ) : (
             <>
-              <span>✅</span> FINALIZAR PEDIDO
+              <span className="text-4xl">✅</span> FINALIZAR PEDIDO
             </>
           )}
         </button>

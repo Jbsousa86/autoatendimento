@@ -4,9 +4,34 @@ const CartContext = createContext()
 
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([])
-  const [lastOrder, setLastOrder] = useState(null)
+  const [hfPizza, setHfPizza] = useState(null)
+  const [hfSize, setHfSize] = useState(null)
 
   function addToCart(product) {
+    if (hfPizza) {
+      const p1 = hfPizza
+      const p2 = product
+      const size = hfSize
+
+      const price1 = size === 'M' ? Number(p1.price) : Number(p1.price_g || p1.price * 1.2)
+      const price2 = size === 'M' ? Number(p2.price) : Number(p2.price_g || p2.price * 1.2)
+      const finalPrice = Math.max(price1, price2)
+
+      const combo = {
+        id: `half-${Date.now()}`,
+        name: `1/2 ${p1.name} / 1/2 ${p2.name} (${size})`,
+        price: finalPrice,
+        qty: 1,
+        category: 'pizzas',
+        observation: ""
+      }
+
+      setCart(prev => [...prev, combo])
+      setHfPizza(null)
+      setHfSize(null)
+      return
+    }
+
     setCart((prev) => {
       const existing = prev.find((p) => p.id === product.id)
 
@@ -16,8 +41,24 @@ export function CartProvider({ children }) {
         )
       }
 
-      return [...prev, { ...product, qty: 1, price: Number(product.price) }]
+      return [...prev, { ...product, qty: 1, price: Number(product.price), observation: "" }]
     })
+  }
+
+  function updateObservation(id, obs) {
+    setCart((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, observation: obs } : p))
+    )
+  }
+
+  function startHalfPizza(product, size) {
+    setHfPizza(product)
+    setHfSize(size)
+  }
+
+  function cancelHalfPizza() {
+    setHfPizza(null)
+    setHfSize(null)
   }
 
   function increase(id) {
@@ -42,19 +83,20 @@ export function CartProvider({ children }) {
     return cart.reduce((sum, item) => sum + (Number(item.price) * (item.qty || 1)), 0)
   }
 
-  function finalizeOrder(customerName = "Cliente") {
+  function finalizeOrder(customerName = "Cliente", generalObs = "") {
     const freshTotal = getCartTotal()
     const order = {
       items: cart,
       total: freshTotal,
       orderNumber: Math.floor(Math.random() * 900) + 100,
-      customerName: customerName || "Cliente", // Novo campo
+      customerName: customerName || "Cliente",
+      observation: generalObs
     }
     setLastOrder(order)
-    // OBS: O carrinho NÃO é limpo aqui.
-    // A limpeza ocorre na tela Finish para garantir transição suave.
     return order
   }
+
+  const [lastOrder, setLastOrder] = useState(null)
 
   return (
     <CartContext.Provider
@@ -65,8 +107,13 @@ export function CartProvider({ children }) {
         decrease,
         getCartTotal,
         finalizeOrder,
-        clearCart, // EXPOSTO AGORA
-        lastOrder
+        clearCart,
+        lastOrder,
+        hfPizza,
+        hfSize,
+        startHalfPizza,
+        cancelHalfPizza,
+        updateObservation
       }}
     >
       {children}

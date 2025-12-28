@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { productService, orderService, cashierService } from "../services/api"
+import { productService, orderService, cashierService, configService } from "../services/api"
 import { products as defaultProducts } from "../data/menu"
 
 // ==========================================
@@ -44,10 +44,13 @@ export default function Admin() {
 
     const [startDate, setStartDate] = useState(getFirstDayOfMonth())
     const [endDate, setEndDate] = useState(getToday())
+    const [businessHours, setBusinessHours] = useState("18:00 — 00:00")
+    const [reportFilter, setReportFilter] = useState('all') // 'all' | 'totem' | 'cashier'
 
     useEffect(() => {
         if (isAuthenticated) {
             loadData()
+            loadSettings()
             if (activeTab === 'users') loadCashiers()
         }
     }, [isAuthenticated, activeTab])
@@ -61,6 +64,21 @@ export default function Admin() {
 
     // Recalcula estatísticas quando a data ou a lista de pedidos muda
 
+
+    const loadSettings = async () => {
+        const data = await configService.getSettings()
+        const hoursConfig = data.find(c => c.key === 'hours')
+        if (hoursConfig) setBusinessHours(hoursConfig.value)
+    }
+
+    const handleSaveHours = async () => {
+        try {
+            await configService.updateSetting('hours', businessHours)
+            alert("✅ Horário de funcionamento atualizado!")
+        } catch (error) {
+            alert("❌ Erro ao salvar horário.")
+        }
+    }
 
     const loadData = async () => {
         const data = await productService.getProducts()
@@ -231,12 +249,11 @@ export default function Admin() {
             <div className="h-screen w-screen bg-gray-900 flex items-center justify-center p-4">
                 <form onSubmit={handleLogin} className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md">
                     <h1 className="text-3xl font-black text-gray-800 mb-6 text-center">🔒 Acesso Restrito</h1>
-                    <div className="mb-6">
+                    <div className="mb-6 relative z-50">
                         <label className="block text-gray-600 text-sm font-bold mb-2">Senha do Administrador</label>
                         <input
                             type="password"
-                            className="w-full border-2 border-gray-300 p-4 rounded-lg text-xl"
-                            autoFocus
+                            className="w-full border-2 border-gray-300 p-4 rounded-lg text-xl focus:border-blue-500 focus:outline-none bg-white text-black"
                             placeholder="Digite a senha..."
                             value={passwordInput}
                             onChange={(e) => setPasswordInput(e.target.value)}
@@ -263,7 +280,7 @@ export default function Admin() {
                     >
                         ⚙️ Admin {devMode && <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">DEV</span>}
                     </h1>
-                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-3 md:w-auto md:gap-4 scrollbar-hide">
+                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-4 md:w-auto md:gap-4 scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('products')}
                             className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'products' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
@@ -281,6 +298,12 @@ export default function Admin() {
                             className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'users' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         >
                             👥 EQUIPE
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('config')}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'config' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                        >
+                            ⚙️ CONFIG
                         </button>
                     </div>
                 </div>
@@ -519,65 +542,132 @@ export default function Admin() {
 
                     {/* CARTÕES DE KPI - RESUMO GERAL */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                        <div
+                            onClick={() => setReportFilter('all')}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'all' ? 'bg-green-50 border-green-600 scale-[1.02]' : 'bg-white border-green-500'}`}
+                        >
                             <h3 className="text-gray-500 font-bold text-xs uppercase mb-2">Faturamento Total</h3>
                             <p className="text-4xl font-black text-gray-800">
                                 {stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             <p className="text-xs text-gray-400 mt-2">
-                                {stats.count} pedidos no total
+                                {stats.count} pedidos no total (CLIQUAR VER TODOS)
                             </p>
                         </div>
 
                         {/* DETALHE TOTEM */}
-                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                        <div
+                            onClick={() => setReportFilter('totem')}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'totem' ? 'bg-blue-50 border-blue-600 scale-[1.02]' : 'bg-white border-blue-500'}`}
+                        >
                             <h3 className="text-blue-500 font-bold text-xs uppercase mb-2">🤖 Vendas no Totem</h3>
                             <p className="text-3xl font-black text-gray-800">
                                 {stats.revenueTotem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             <p className="text-xs text-gray-400 mt-2">
-                                {stats.countTotem} pedidos
+                                {stats.countTotem} pedidos (CLIQUE PARA FILTRAR)
                             </p>
                         </div>
 
                         {/* DETALHE CAIXA */}
-                        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500">
+                        <div
+                            onClick={() => setReportFilter('cashier')}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'cashier' ? 'bg-orange-50 border-orange-600 scale-[1.02]' : 'bg-white border-orange-500'}`}
+                        >
                             <h3 className="text-orange-500 font-bold text-xs uppercase mb-2">👤 Vendas no Caixa</h3>
                             <p className="text-3xl font-black text-gray-800">
                                 {stats.revenueCashier.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             <p className="text-xs text-gray-400 mt-2">
-                                {stats.countCashier} pedidos
+                                {stats.countCashier} pedidos (CLIQUE PARA FILTRAR)
                             </p>
                         </div>
                     </div>
 
-                    {/* VENDAS POR PRODUTO */}
-                    <div className="bg-white p-8 rounded-xl shadow-lg">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">🏆 Produtos Mais Vendidos</h2>
-                        {stats.topItems.length === 0 ? (
-                            <p className="text-gray-400 italic">Nenhum dado de venda ainda...</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {stats.topItems.map((item, idx) => (
-                                    <div key={idx} className="flex items-center">
-                                        <div className="w-8 font-bold text-gray-400 text-xl">#{idx + 1}</div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between mb-1">
-                                                <span className="font-bold text-lg">{item.name}</span>
-                                                <span className="font-mono bg-gray-100 px-2 rounded text-gray-600">{item.qty} un</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2.5">
-                                                <div
-                                                    className="bg-blue-600 h-2.5 rounded-full"
-                                                    style={{ width: `${(item.qty / stats.topItems[0].qty) * 100}%` }}
-                                                ></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* VENDAS POR PRODUTO */}
+                        <div className="bg-white p-8 rounded-xl shadow-lg">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">🏆 Ranking de Produtos</h2>
+                            {stats.topItems.length === 0 ? (
+                                <p className="text-gray-400 italic">Nenhum dado de venda ainda...</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {stats.topItems.slice(0, 10).map((item, idx) => (
+                                        <div key={idx} className="flex items-center">
+                                            <div className="w-8 font-bold text-gray-400 text-xl">#{idx + 1}</div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between mb-1">
+                                                    <span className="font-bold text-lg">{item.name}</span>
+                                                    <span className="font-mono bg-gray-100 px-2 rounded text-gray-600 text-sm">{item.qty} un</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-2.5">
+                                                    <div
+                                                        className="bg-blue-600 h-2.5 rounded-full"
+                                                        style={{ width: `${(item.qty / stats.topItems[0].qty) * 100}%` }}
+                                                    ></div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* LISTA DETALHADA DE VENDAS */}
+                        <div className="bg-white p-8 rounded-xl shadow-lg overflow-hidden flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-gray-800">📋 Detalhamento</h2>
+                                <span className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${reportFilter === 'totem' ? 'bg-blue-100 text-blue-700' :
+                                    reportFilter === 'cashier' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                                    }`}>
+                                    {reportFilter === 'totem' ? 'Apenas Totem' : reportFilter === 'cashier' ? 'Apenas Caixa' : 'Tudo'}
+                                </span>
                             </div>
-                        )}
+
+                            <div className="overflow-y-auto max-h-[500px] border rounded-lg">
+                                <table className="w-full text-left">
+                                    <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-black sticky top-0">
+                                        <tr>
+                                            <th className="p-3">#</th>
+                                            <th className="p-3">Horário</th>
+                                            <th className="p-3">Cliente</th>
+                                            <th className="p-3 text-right">Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {allOrders
+                                            .filter(o => {
+                                                if (reportFilter === 'totem') return !o.cashier_name
+                                                if (reportFilter === 'cashier') return !!o.cashier_name
+                                                return true
+                                            })
+                                            .map((order, idx) => (
+                                                <tr key={order.id} className="hover:bg-gray-50 transition-colors text-sm">
+                                                    <td className="p-3 font-mono text-gray-400 text-xs">#{order.order_number}</td>
+                                                    <td className="p-3 text-gray-500 font-mono">
+                                                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
+                                                    <td className="p-3 font-bold">
+                                                        {order.customer_name || (order.cashier_name ? `Caixa (${order.cashier_name})` : "Totem")}
+                                                    </td>
+                                                    <td className="p-3 text-right font-black text-gray-900">
+                                                        {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        {allOrders.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="p-8 text-center text-gray-400 italic">Sem registros no período.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <p className="mt-4 text-[10px] text-gray-400 font-bold uppercase text-center">
+                                Use os botões coloridos no topo para filtrar a lista
+                            </p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -650,6 +740,48 @@ export default function Admin() {
                         </div>
                     </div>
                 )}
+            {/* TAB CONFIGURAÇÕES */}
+            {activeTab === 'config' && (
+                <div className="max-w-xl mx-auto">
+                    <div className="bg-white p-8 rounded-xl shadow-lg border-t-4 border-yellow-400">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            ⚙️ Configurações do Sistema
+                        </h2>
+
+                        <div className="space-y-6">
+                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 flex items-start gap-3">
+                                <span className="text-xl">ℹ️</span>
+                                <p className="text-sm text-yellow-800 font-medium">
+                                    As alterações feitas aqui serão refletidas instantaneamente na tela principal do Totem (Menu).
+                                </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Horário de Funcionamento
+                                </label>
+                                <input
+                                    type="text"
+                                    className="w-full border-2 border-gray-200 p-4 rounded-xl text-xl font-bold text-green-600 focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                    placeholder="Ex: 18:00 — 00:00"
+                                    value={businessHours}
+                                    onChange={(e) => setBusinessHours(e.target.value)}
+                                />
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Dica: Use o formato "Abriremos às 18h" ou "18:00 às 00:00"
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={handleSaveHours}
+                                className="w-full bg-black text-white font-black py-5 rounded-2xl hover:bg-gray-800 active:scale-95 transition-all text-xl shadow-xl flex items-center justify-center gap-2"
+                            >
+                                💾 SALVAR ALTERAÇÕES
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

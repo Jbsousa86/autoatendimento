@@ -146,14 +146,29 @@ export default function Kitchen() {
                                 </div>
                             </div>
 
-                            <div className="bg-black/30 rounded p-3 mb-4 min-h-[150px]">
-                                <ul className="space-y-2">
+                            <div className="bg-black/30 rounded p-3 mb-4 min-h-[150px] flex flex-col">
+                                <ul className="flex-1 space-y-2">
                                     {Array.isArray(order.items) && order.items.map((item, idx) => (
-                                        <li key={idx} className="flex justify-between border-b border-gray-700 pb-1">
-                                            <span className="font-bold">{item.qty}x {item.name}</span>
+                                        <li key={idx} className="border-b border-gray-700/50 pb-1">
+                                            <div className="flex justify-between items-start">
+                                                <span className="font-bold text-lg">{item.qty}x {item.name}</span>
+                                            </div>
+                                            {item.observation && (
+                                                <p className="text-sm text-yellow-500 font-bold italic mt-0.5 px-2 bg-yellow-500/10 rounded">
+                                                    ➔ {item.observation}
+                                                </p>
+                                            )}
                                         </li>
                                     ))}
                                 </ul>
+
+                                {/* OBSERVAÇÃO GERAL DO PEDIDO */}
+                                {order.observation && (
+                                    <div className="mt-4 p-2 bg-red-900/30 border border-red-900/50 rounded">
+                                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Obs. Geral:</p>
+                                        <p className="text-sm font-bold text-white italic">"{order.observation}"</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-2">

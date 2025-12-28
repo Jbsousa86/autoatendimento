@@ -94,19 +94,35 @@ export const orderService = {
 
     async createOrder(orderData) {
         const newOrder = {
-            order_number: String(orderData.orderNumber), // FIX: Usar orderNumber gerado no Context
-            customer_name: orderData.customerName || "Cliente",
+            order_number: String(orderData.orderNumber),
+            customer_name: orderData.observation
+                ? `${orderData.customerName || "Cliente"} (${orderData.observation})`
+                : (orderData.customerName || "Cliente"),
             total: orderData.total,
             items: orderData.items,
             status: 'pending',
-            cashier_name: orderData.cashierName || null // Novo campo para rastrear o caixa
+            cashier_name: orderData.cashierName || null
         }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('orders')
             .insert([newOrder])
+            .select()
 
-        if (error) console.error("Erro ao criar pedido:", error)
+        if (error) {
+            console.error("Erro ao criar pedido:", error)
+            return null
+        }
+        return data ? data[0] : null
+    },
+
+    async updateOrderName(id, newName) {
+        const { error } = await supabase
+            .from('orders')
+            .update({ customer_name: newName || "Cliente" })
+            .eq('id', id)
+
+        if (error) console.error("Erro ao atualizar nome:", error)
     },
 
     async updateStatus(id, newStatus) {
@@ -189,5 +205,34 @@ export const cashierService = {
         // Em um app real, usaríamos hash (bcrypt). Aqui é comparação simples.
         if (data.password === password) return data
         return null
+    }
+}
+
+// ==========================================
+// ⚙️ SERVIÇO DE CONFIGURAÇÕES (SETTINGS)
+// ==========================================
+export const configService = {
+    async getSettings() {
+        const { data, error } = await supabase
+            .from('settings')
+            .select('*')
+
+        if (error) {
+            console.error("Erro ao buscar configurações:", error)
+            // Retorna um padrão caso a tabela não exista ou ocorra erro
+            return [{ key: 'hours', value: '18:00 — 00:00' }]
+        }
+        return data || []
+    },
+
+    async updateSetting(key, value) {
+        const { error } = await supabase
+            .from('settings')
+            .upsert({ key, value })
+
+        if (error) {
+            console.error("Erro ao atualizar configuração:", error)
+            throw error
+        }
     }
 }
