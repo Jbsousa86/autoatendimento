@@ -7,7 +7,6 @@ export default function Cashier() {
     const [user, setUser] = useState(null)
     const [loginUser, setLoginUser] = useState("")
     const [loginPass, setLoginPass] = useState("")
-
     const [activeTab, setActiveTab] = useState('pos')
     const [products, setProducts] = useState([])
     const [cart, setCart] = useState([])
@@ -18,11 +17,11 @@ export default function Cashier() {
     const [mobileCartOpen, setMobileCartOpen] = useState(false)
     const [printerDevice, setPrinterDevice] = useState(null)
     const [printerStatus, setPrinterStatus] = useState("disconnected")
-
     const [selectedPizza, setSelectedPizza] = useState(null)
     const [selectingHalf, setSelectingHalf] = useState(null)
     const [firstFlavor, setFirstFlavor] = useState(null)
     const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA'))
+    const [orderObservation, setOrderObservation] = useState("")
 
     useEffect(() => {
         if (user) {
@@ -31,6 +30,10 @@ export default function Cashier() {
             const subscription = orderService.subscribeToOrders(() => loadDailyHistory())
             const handleAfterPrint = () => setLastFinishedOrder(null)
             window.addEventListener('afterprint', handleAfterPrint)
+
+            // Auto-reconnect: tenta silenciosamente sempre que autenticado
+            if (printerStatus === 'disconnected') connectPrinter(true)
+
             return () => {
                 if (subscription) subscription.unsubscribe()
                 window.removeEventListener('afterprint', handleAfterPrint)
@@ -53,12 +56,13 @@ export default function Cashier() {
         setDailyOrders(recentOrders)
     }
 
-    const [orderObservation, setOrderObservation] = useState("") // Geral
-
     // Handlers
-    const connectPrinter = async () => {
+    const connectPrinter = async (isAuto = false) => {
+        // Garantir que isAuto seja booleano (para não confundir com o objeto de evento do onClick)
+        const auto = isAuto === true;
+
         if (!navigator.bluetooth) {
-            alert("❌ Bluetooth não suportado neste navegador.");
+            if (!auto) alert("❌ Bluetooth não suportado neste navegador.");
             return;
         }
 
@@ -71,18 +75,39 @@ export default function Cashier() {
                 '49535343-fe7d-4ae5-8fa9-9fafd205e455'
             ];
 
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                    { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
-                    { namePrefix: 'Inner' },
-                    { namePrefix: 'POS' },
-                    { namePrefix: 'MP' },
-                    { namePrefix: 'MTP' },
-                    { namePrefix: 'Goojprt' }
-                ],
-                optionalServices: commonServices
-            });
+            let device;
+
+            // Tenta recuperar dispositivos já pareados/autorizados anteriormente
+            if (navigator.bluetooth.getDevices) {
+                const availableDevices = await navigator.bluetooth.getDevices();
+                if (availableDevices.length > 0) {
+                    // Tenta achar especificamente uma impressora pelos prefixos comuns
+                    device = availableDevices.find(d =>
+                        ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT'].some(p => d.name?.toUpperCase().includes(p))
+                    ) || availableDevices[0];
+                }
+            }
+
+            // Se não encontrou nada ou não é auto-connect, força o seletor nativo
+            if (!device && !auto) {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                        { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
+                        { namePrefix: 'Inner' },
+                        { namePrefix: 'POS' },
+                        { namePrefix: 'MP' },
+                        { namePrefix: 'MTP' },
+                        { namePrefix: 'Goojprt' }
+                    ],
+                    optionalServices: commonServices
+                });
+            }
+
+            if (!device) {
+                setPrinterStatus("disconnected");
+                return;
+            }
 
             const server = await device.gatt.connect();
             let service;
@@ -102,20 +127,29 @@ export default function Cashier() {
 
             setPrinterDevice(characteristic);
             setPrinterStatus("connected");
-            alert("✅ Impressora conectada!");
+            if (!auto) alert("✅ Impressora conectada!");
 
             device.addEventListener('gattserverdisconnected', () => {
                 setPrinterStatus("disconnected");
                 setPrinterDevice(null);
+                // Tenta reconectar silenciosamente se cair
+                setTimeout(() => connectPrinter(true), 3000);
             });
         } catch (error) {
             console.error("Bluetooth Error:", error);
             setPrinterStatus("disconnected");
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' && !auto) {
                 alert(`❌ Erro: ${error.message || "Não foi possível conectar."}`);
             }
         }
     };
+
+    // Auto-reconnect on mount if browser allows
+    useEffect(() => {
+        if (user && printerStatus === 'disconnected') {
+            connectPrinter(true);
+        }
+    }, [user]);
 
     const printBluetooth = async () => {
         if (!printerDevice || !lastFinishedOrder) return false
@@ -280,43 +314,35 @@ export default function Cashier() {
     const handleFinishOrder = async () => {
         if (cart.length === 0) return alert("Carrinho vazio!")
 
-        const total = calculateTotal()
-
-        // Agrupar itens para o formato do banco
-        // FIX: Agrupar por nome E observação, senão perdemos os detalhes individuais
         const itemMap = {}
         cart.forEach(p => {
             const key = `${p.name}-${p.observation || ''}`
-            if (!itemMap[key]) {
-                itemMap[key] = {
-                    id: p.id,
-                    name: p.name,
-                    price: p.price,
-                    qty: 0,
-                    observation: p.observation || ""
-                }
-            }
+            if (!itemMap[key]) itemMap[key] = { id: p.id, name: p.name, price: p.price, qty: 0, observation: p.observation || "" }
             itemMap[key].qty += (p.qty || 1)
         })
-        const finalItems = Object.values(itemMap)
 
         const orderPayload = {
             orderNumber: Math.floor(1000 + Math.random() * 9000),
-            customerName: customerName || "Balcão", // Pega do input ou usa padrão
-            total: total,
-            items: finalItems,
+            customerName: customerName || "Balcão",
+            total: calculateTotal(),
+            items: Object.values(itemMap),
             cashierName: user.name,
             observation: orderObservation
         }
 
         await orderService.createOrder(orderPayload)
 
-        // Reset
+        // Atualiza estado e limpa carrinho
+        setLastFinishedOrder(orderPayload)
         setCart([])
         setCustomerName("")
         setOrderObservation("")
-        setLastFinishedOrder(orderPayload)
         loadDailyHistory()
+
+        // AUTO-PRINT: Se a impressora estiver ONLINE, o papel sai sozinho
+        if (printerStatus === 'connected') {
+            setTimeout(() => printBluetooth(), 500)
+        }
     }
 
     const calculateTotal = () => cart.reduce((acc, item) => acc + (Number(item.price) * (item.qty || 1)), 0)
