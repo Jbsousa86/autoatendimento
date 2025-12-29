@@ -22,6 +22,7 @@ export default function Cashier() {
     const [firstFlavor, setFirstFlavor] = useState(null)
     const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA'))
     const [orderObservation, setOrderObservation] = useState("")
+    const [isPrinting, setIsPrinting] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -268,9 +269,7 @@ export default function Cashier() {
             customerName: order.customer_name || ""
         }
         setLastFinishedOrder(reprintData)
-        setTimeout(async () => {
-            if (!(await printBluetooth(true))) window.print()
-        }, 100)
+        // No reprint manual, não disparamos nada automático para não confundir
     }
 
     const handleLogin = async (e) => {
@@ -396,8 +395,10 @@ export default function Cashier() {
         setOrderObservation("")
         loadDailyHistory()
 
-        // AUTO-PRINT: Sempre tenta imprimir se finalizou
-        setTimeout(() => printBluetooth(), 500)
+        // AUTO-PRINT: Só tenta se estiver conectado, para não abrir diálogos chatos
+        if (printerStatus === 'connected') {
+            setTimeout(() => printBluetooth(), 500)
+        }
     }
 
     const calculateTotal = () => cart.reduce((acc, item) => acc + (Number(item.price) * (item.qty || 1)), 0)
@@ -537,13 +538,28 @@ export default function Cashier() {
                             <div className="flex flex-col gap-3">
                                 <button
                                     onClick={async () => {
+                                        if (isPrinting) return
+                                        setIsPrinting(true)
                                         const success = await printBluetooth(true)
-                                        if (!success) window.print()
+                                        setIsPrinting(false)
+                                        if (success) setLastFinishedOrder(null)
+                                        else alert("⚠️ Falha ao imprimir no Bluetooth. Verifique a conexão.")
                                     }}
-                                    className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+                                    disabled={isPrinting}
+                                    className={`w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all ${isPrinting ? 'opacity-50 cursor-wait' : 'hover:bg-blue-700 active:scale-95'}`}
                                 >
-                                    🖨️ IMPRIMIR RECIBO
+                                    {isPrinting ? '⏳ IMPRIMINDO...' : '🖨️ IMPRIMIR BLUETOOTH'}
                                 </button>
+
+                                <button
+                                    onClick={() => window.print()}
+                                    className="text-gray-400 text-xs font-bold uppercase hover:text-gray-600 py-2"
+                                >
+                                    Usar Impressora Wi-Fi/Sistema
+                                </button>
+
+                                <div className="h-[1px] bg-gray-100 my-2"></div>
+
                                 <button
                                     onClick={() => setLastFinishedOrder(null)}
                                     className="w-full bg-gray-200 text-gray-700 font-bold py-4 rounded-xl hover:bg-gray-300"

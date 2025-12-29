@@ -14,6 +14,7 @@ export default function Finish() {
   const [usbPrinter, setUsbPrinter] = useState(null)
   const [bluetoothDevice, setBluetoothDevice] = useState(null)
   const [bluetoothStatus, setBluetoothStatus] = useState("disconnected")
+  const [isPrinting, setIsPrinting] = useState(false)
 
   const connectUSB = async () => {
     try {
@@ -228,6 +229,23 @@ export default function Finish() {
     // Tenta reconectar bluetooth se disponível
     if (bluetoothStatus === 'disconnected') connectBluetooth(true);
 
+    // Tenta reconectar USB silenciosamente (se já autorizado antes)
+    const autoConnectUSB = async () => {
+      if (navigator.usb && navigator.usb.getDevices) {
+        const devices = await navigator.usb.getDevices();
+        if (devices.length > 0) {
+          try {
+            const device = devices[0];
+            await device.open();
+            await device.selectConfiguration(1);
+            await device.claimInterface(device.configuration.interfaces[0].interfaceNumber);
+            setUsbPrinter(device);
+          } catch (e) { console.log("USB Auto-connect failed:", e); }
+        }
+      }
+    };
+    autoConnectUSB();
+
     const handleAfterPrint = () => handleNewOrder()
     window.addEventListener('afterprint', handleAfterPrint)
 
@@ -313,16 +331,45 @@ export default function Finish() {
       <div className="flex flex-col gap-4 w-full max-w-sm px-6">
         <button
           onClick={async () => {
-            const btSuccess = await printBluetooth(true)
-            if (btSuccess) return handleNewOrder()
+            if (isPrinting) return
+            setIsPrinting(true)
 
-            const usbSuccess = await printUSB()
-            if (usbSuccess) handleNewOrder()
-            else window.print()
+            // PRIORIDADE 1: USB (Totem)
+            if (usbPrinter) {
+              const usbSuccess = await printUSB()
+              if (usbSuccess) {
+                setIsPrinting(false)
+                return handleNewOrder()
+              }
+            }
+
+            // PRIORIDADE 2: BLUETOOTH (Mobile/Cashier)
+            const btSuccess = await printBluetooth(true)
+            if (btSuccess) {
+              setIsPrinting(false)
+              return handleNewOrder()
+            }
+
+            // FINAL: Se nada funcionar, avisa e pergunta se quer Wi-Fi
+            setIsPrinting(false)
+            if (!usbPrinter && bluetoothStatus !== 'connected') {
+              // Se não tem nenhum configurado, abre BT por padrão (mais comum em mobile)
+              // ou o usuário pode usar o link de Wi-Fi abaixo
+              alert("Nenhuma impressora configurada. Conecte no menu (clicando 7x no SUCESSO) ou use a impressora do sistema abaixo.")
+            }
           }}
-          className="w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg hover:bg-gray-50 flex items-center justify-center gap-2 screen-only"
+          disabled={isPrinting}
+          className={`w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 screen-only transition-all ${isPrinting ? 'opacity-50' : 'hover:bg-gray-50 active:scale-95'}`}
         >
-          <span>🖨️</span> {bluetoothStatus === 'connected' ? 'IMPRIMIR (BT)' : usbPrinter ? 'IMPRIMIR (USB)' : 'IMPRIMIR RECIBO'}
+          <span>{isPrinting ? '⏳' : '🖨️'}</span>
+          {isPrinting ? 'IMPRIMINDO...' : usbPrinter ? 'IMPRIMIR RECIBO (USB)' : bluetoothStatus === 'connected' ? 'IMPRIMIR RECIBO (BT)' : 'CONECTAR E IMPRIMIR'}
+        </button>
+
+        <button
+          onClick={() => window.print()}
+          className="text-white/60 text-xs font-bold uppercase hover:text-white py-1 screen-only"
+        >
+          Ou usar impressora Wi-Fi/Sistema
         </button>
 
         {showAdminConfig && (
