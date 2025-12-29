@@ -119,7 +119,7 @@ export default function Finish() {
 
       let data = new Uint8Array([
         ...INIT, ...CENTER, ...BOLD_ON, ...DBL_ON, ...txt("HERO'S BURGER"), ...DBL_OFF,
-        ...txt("CNPJ: 00.000.000/0001-00"), ...txt("Tel: (63) 99103-8781"),
+        ...txt("CNPJ: 48.507.205/0001-94"), ...txt("Tel: (63) 99103-8781"),
         ...txt("Autoatendimento"), ...BOLD_OFF, ...txt("--------------------------------"),
         ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
         ...LEFT, ...txt(`Cliente: ${tempName}`), ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
@@ -177,7 +177,7 @@ export default function Finish() {
 
       let data = new Uint8Array([
         ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
-        ...txt("CNPJ: 00.000.000/0001-00"),
+        ...txt("CNPJ: 48.507.205/0001-94"),
         ...txt("Tel: (63) 99103-8781"),
         ...txt("Autoatendimento"), ...BOLD_OFF,
         ...txt("--------------------------------"),
@@ -197,7 +197,7 @@ export default function Finish() {
         ...data,
         ...txt("--------------------------------"),
         ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
-        ...CENTER, ...txt("\nAcompanhe sua senha no painel!"), ...FEED
+        ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
       ])
 
       const endpoint = usbPrinter.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber
@@ -397,7 +397,7 @@ export default function Finish() {
       <div id="receipt" className="hidden p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
         <div className="text-center mb-4">
           <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
-          <p className="text-xs italic">CNPJ: 00.000.000/0001-00</p>
+          <p className="text-xs italic">CNPJ: 48.507.205/0001-94</p>
           <p className="text-xs">TEL: (63) 99103-8781</p>
         </div>
         <div className="border-b border-black border-dashed my-2"></div>

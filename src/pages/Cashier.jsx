@@ -207,7 +207,7 @@ export default function Cashier() {
 
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
-                ...txt("CNPJ: 00.000.000/0001-00"),
+                ...txt("CNPJ: 48.507.205/0001-94"),
                 ...txt("Tel: (63) 99103-8781"),
                 ...txt("Comprovante de Venda"), ...BOLD_OFF,
                 ...txt("--------------------------------"),
@@ -575,7 +575,7 @@ export default function Cashier() {
                                 <div className="text-center mb-4">
                                     <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
                                     <p className="text-xs">Rua Antonio moreira, 123</p>
-                                    <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
+                                    <p className="text-xs">CNPJ: 48.507.205/0001-94</p>
                                     <p className="text-xs">TEL: (63) 99103-8781</p>
                                 </div>
                                 <div className="border-b border-black border-dashed my-2"></div>
