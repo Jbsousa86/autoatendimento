@@ -77,32 +77,84 @@ export default function Cashier() {
 
     // Handlers
     const connectPrinter = async () => {
+        if (!navigator.bluetooth) {
+            alert("❌ Seu navegador não suporta Bluetooth. Use o Chrome ou Edge em Android/Desktop. (iOS Safari não suporta)");
+            return;
+        }
+
         try {
-            setPrinterStatus("connecting")
-            // Busca dispositivos que suportam o serviço de impressão (GATT)
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
-            })
+            setPrinterStatus("connecting");
 
-            const server = await device.gatt.connect()
-            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb')
-            const characteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb')
+            // Lista de UUIDs comuns em impressoras térmicas chinesas (POS-58, Goojprt, etc)
+            const commonServices = [
+                '000018f0-0000-1000-8000-00805f9b34fb', // Generica 1
+                '00004953-0000-1000-8000-00805f9b34fb', // ISSC
+                '0000e7e1-0000-1000-8000-00805f9b34fb', // Outras marcas
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Bluetooth Classic SPP Bridge (raro)
+            ];
 
-            setPrinterDevice(characteristic)
-            setPrinterStatus("connected")
-            alert("✅ Impressora conectada com sucesso!")
+            // Tenta primeiro com os filtros conhecidos
+            let device;
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                        { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
+                        { namePrefix: 'Inner' },
+                        { namePrefix: 'POS' },
+                        { namePrefix: 'MP' },
+                        { namePrefix: 'MTP' },
+                        { namePrefix: 'Goojprt' }
+                    ],
+                    optionalServices: commonServices
+                });
+            } catch (err) {
+                // Se o filtro falhar ou o usuário quiser ver todos, tentamos acceptAllDevices
+                // Nota: requestDevice só pode ser chamado uma vez por gesto do usuário, 
+                // então se falhar aqui, o usuário terá que clicar de novo.
+                throw err;
+            }
+
+            const server = await device.gatt.connect();
+
+            // Tenta encontrar o serviço correto entre os conhecidos
+            let service;
+            for (const uuid of commonServices) {
+                try {
+                    service = await server.getPrimaryService(uuid);
+                    if (service) break;
+                } catch (e) { continue; }
+            }
+
+            if (!service) throw new Error("Serviço de impressão não encontrado no dispositivo.");
+
+            // Tenta encontrar a característica de escrita (Write)
+            const characteristics = await service.getCharacteristics();
+            const characteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+
+            if (!characteristic) throw new Error("Canal de escrita não encontrado.");
+
+            setPrinterDevice(characteristic);
+            setPrinterStatus("connected");
+            alert("✅ Impressora conectada!");
 
             device.addEventListener('gattserverdisconnected', () => {
-                setPrinterStatus("disconnected")
-                setPrinterDevice(null)
-            })
+                setPrinterStatus("disconnected");
+                setPrinterDevice(null);
+            });
         } catch (error) {
-            console.error("Erro Bluetooth:", error)
-            setPrinterStatus("disconnected")
-            alert("❌ Não foi possível conectar à impressora Bluetooth. Verifique se ela está ligada e pareada com o tablet.")
+            console.error("Erro Bluetooth:", error);
+            setPrinterStatus("disconnected");
+
+            if (error.name === 'NotFoundError') {
+                alert("🔎 Nenhuma impressora encontrada. Certifique-se que ela está LIGADA e não está conectada a outro app.");
+            } else if (error.name === 'SecurityError') {
+                alert("🔒 Erro de Segurança: O Bluetooth só funciona em sites com HTTPS (Seguros).");
+            } else {
+                alert(`❌ Erro: ${error.message || "Não foi possível conectar."}`);
+            }
         }
-    }
+    };
 
     const printBluetooth = async () => {
         if (!printerDevice || !lastFinishedOrder) return false
@@ -379,9 +431,9 @@ export default function Cashier() {
                     <div className="bg-orange-600 w-10 h-10 rounded-full flex items-center justify-center font-bold">
                         {user.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                        <h1 className="font-bold text-lg leading-none">{user.name}</h1>
-                        <p className="text-xs text-gray-400">Operador de Caixa</p>
+                    <div className="hidden xs:block">
+                        <h1 className="font-bold text-sm md:text-lg leading-none">{user.name}</h1>
+                        <p className="text-[10px] text-gray-400">Operador</p>
                     </div>
                 </div>
 
@@ -404,7 +456,7 @@ export default function Cashier() {
                         {printerStatus === 'connected' && <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>}
                     </button>
 
-                    <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[150px] md:max-w-none">
+                    <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[200px] sm:max-w-[250px] md:max-w-none">
                         <button
                             onClick={() => setActiveTab('pos')}
                             className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'pos' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
@@ -613,8 +665,8 @@ export default function Cashier() {
                         <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
                             {/* MONITOR DE AUTOATENDIMENTO (TOTEM) */}
                             <div className="bg-orange-50 p-2 border-b border-orange-100 flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                                <div className="bg-orange-600 text-white text-[9px] font-black px-2 py-1 rounded shadow-sm flex items-center gap-1">
-                                    <span className="animate-ping">●</span> TOTEM AO VIVO
+                                <div className="bg-orange-600 text-white text-[8px] md:text-[9px] font-black px-1.5 py-0.5 md:px-2 md:py-1 rounded shadow-sm flex items-center gap-1 shrink-0">
+                                    <span className="animate-ping">●</span> <span className="hidden xs:inline">TOTEM AO VIVO</span><span className="xs:hidden">TOTEM</span>
                                 </div>
                                 {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').slice(0, 5).map(o => (
                                     <div key={o.id} className="text-[11px] font-bold text-orange-900 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm transition-all hover:scale-105">
@@ -633,8 +685,8 @@ export default function Cashier() {
                                         key={cat.id}
                                         onClick={() => setSelectedCategory(cat.id)}
                                         className={`px-4 py-2 rounded-full whitespace-nowrap font-bold text-sm flex-shrink-0 ${selectedCategory === cat.id
-                                            ? 'bg-orange-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-orange-600 text-white shadow-lg shadow-orange-200'
+                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                                             }`}
                                     >
                                         {cat.name}
@@ -656,8 +708,8 @@ export default function Cashier() {
                                                     <img src={product.image} className="w-full h-full object-cover" />
                                                 ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
                                             </div>
-                                            <h3 className="font-bold text-xs md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
-                                            <p className="text-green-600 font-bold text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
+                                            <h3 className="font-bold text-[11px] md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
+                                            <p className="text-green-600 font-black text-xs md:text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -883,7 +935,7 @@ export default function Cashier() {
                                 <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Pedidos do Dia Selecionado</h2>
                                 <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
                             </div>
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto hidden md:block">
                                 <table className="w-full text-left">
                                     <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
                                         <tr>
@@ -934,14 +986,49 @@ export default function Cashier() {
                                                     </td>
                                                 </tr>
                                             ))}
-                                        {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length === 0 && (
-                                            <tr>
-                                                <td colSpan={4} className="p-10 text-center text-gray-400 font-bold italic text-sm">Nenhum pedido encontrado nesta data.</td>
-                                            </tr>
-                                        )}
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* MOBILE VERSION OF HISTORY (CARD BASED) */}
+                            <div className="md:hidden divide-y divide-gray-100">
+                                {dailyOrders
+                                    .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                    .map(order => (
+                                        <div
+                                            key={order.id}
+                                            onClick={() => handleReprint(order)}
+                                            className="p-4 active:bg-blue-50 transition-colors"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <span className="text-[10px] font-black text-blue-600 block mb-1">#{order.order_number}</span>
+                                                    <span className="text-xs font-bold text-gray-800">
+                                                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-black text-gray-900">R$ {Number(order.total).toFixed(2)}</p>
+                                                    {order.cashier_name ? (
+                                                        <span className="text-[9px] font-black uppercase text-blue-500">👤 {order.cashier_name}</span>
+                                                    ) : (
+                                                        <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-gray-500 line-clamp-2 italic">
+                                                {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
+                                            </p>
+                                            <button className="w-full mt-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-blue-100">
+                                                🖨️ REIMPRIMIR COMPROVANTE
+                                            </button>
+                                        </div>
+                                    ))}
+                            </div>
+
+                            {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length === 0 && (
+                                <div className="p-10 text-center text-gray-400 font-bold italic text-sm">Nenhum pedido encontrado nesta data.</div>
+                            )}
                         </div>
                     </div>
                 )}

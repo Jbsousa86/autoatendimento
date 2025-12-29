@@ -91,7 +91,7 @@ export default function Menu() {
 
       {/* COLUNA 2 — PRODUTOS (Auto-ajustável e Inteligente) */}
       <main className="w-3/5 h-full overflow-y-auto scrollbar-hide p-6">
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-8 pb-40 max-w-[1800px] mx-auto">
+        <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8 pb-40 max-w-[1800px] mx-auto">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
