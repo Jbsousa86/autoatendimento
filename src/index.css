@@ -11,6 +11,32 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+
+    /* Mesh Gradient Animation */
+    .animate-mesh {
+        background: linear-gradient(45deg,
+                #111827,
+                #991b1b,
+                #c2410c,
+                #ca8a04,
+                #111827);
+        background-size: 400% 400%;
+        animation: mesh-flow 15s ease infinite;
+    }
+
+    @keyframes mesh-flow {
+        0% {
+            background-position: 0% 50%;
+        }
+
+        50% {
+            background-position: 100% 50%;
+        }
+
+        100% {
+            background-position: 0% 50%;
+        }
+    }
 }
 
 /* PRINT STYLES FOR THERMAL PRINTERS */
