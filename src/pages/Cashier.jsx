@@ -174,7 +174,9 @@ export default function Cashier() {
             const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03]) // Cut/Feed
 
             let data = new Uint8Array([
-                ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HEROS BURGER"), ...DOUBLE_OFF,
+                ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
+                ...txt("CNPJ: 00.000.000/0001-00"),
+                ...txt("Tel: (63) 99103-8781"),
                 ...txt("Comprovante de Venda"), ...BOLD_OFF,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`PEDIDO: ${lastFinishedOrder.orderNumber}`), ...BOLD_OFF,
@@ -521,9 +523,10 @@ export default function Cashier() {
                         <div id="receipt" className="hidden">
                             <div className="p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
                                 <div className="text-center mb-4">
-                                    <h2 className="text-xl font-black uppercase">Heros Burger</h2>
+                                    <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
                                     <p className="text-xs">Rua Antonio moreira, 123</p>
                                     <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
+                                    <p className="text-xs">TEL: (63) 99103-8781</p>
                                 </div>
                                 <div className="border-b border-black border-dashed my-2"></div>
                                 <div className="flex justify-between font-bold text-lg my-2">

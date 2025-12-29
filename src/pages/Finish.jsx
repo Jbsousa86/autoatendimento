@@ -49,6 +49,8 @@ export default function Finish() {
 
       let data = new Uint8Array([
         ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HEROS BURGER"), ...DOUBLE_OFF,
+        ...txt("CNPJ: 00.000.000/0001-00"),
+        ...txt("Tel: (63) 99103-8781"),
         ...txt("Autoatendimento"), ...BOLD_OFF,
         ...txt("--------------------------------"),
         ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
@@ -246,6 +248,8 @@ export default function Finish() {
         <div className="text-center mb-4">
           <h2 className="text-xl font-black uppercase">Heros Burger</h2>
           <p className="text-xs">Rua Antonio moreira, 123</p>
+          <p className="text-[10px] font-bold">CNPJ: 00.000.000/0001-00</p>
+          <p className="text-[10px] font-bold">TEL: (63) 99103-8781</p>
         </div>
         <div className="border-b border-black border-dashed my-2"></div>
         <div className="flex justify-between font-bold text-lg my-2">

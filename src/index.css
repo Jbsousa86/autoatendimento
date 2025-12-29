@@ -15,30 +15,57 @@
 
 /* PRINT STYLES FOR THERMAL PRINTERS */
 @media print {
-    body * {
-        visibility: hidden;
+
+    /* Reset total para garantir fundo branco e sem margens do sistema */
+    html,
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        visibility: hidden !important;
     }
 
-    #receipt,
-    #receipt * {
-        visibility: visible;
-    }
-
-    #receipt {
+    /* O container root deve estar invisível, mas permitir que o filho seja visível */
+    #root {
+        visibility: hidden !important;
         display: block !important;
-        /* Forces show even if class="hidden" */
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        /* Or 80mm depending on printer settings */
-        color: black;
-        background: white;
-        font-family: 'Courier New', Courier, monospace;
-        /* Thermal standard */
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
     }
 
-    /* Reset generic styles */
+    /* O recibo é a única coisa que deve aparecer */
+    #receipt {
+        visibility: visible !important;
+        display: block !important;
+        position: absolute !important;
+        /* Absolute é melhor que fixed para algumas versões de drivers Linux */
+        left: 0 !important;
+        right: 0 !important;
+        top: 0 !important;
+        width: 80mm !important;
+        margin: 0 auto !important;
+        padding: 5mm !important;
+        background: white !important;
+        color: black !important;
+        font-family: 'Courier New', Courier, monospace !important;
+        z-index: 999999 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    #receipt * {
+        visibility: visible !important;
+    }
+
+    /* Esconde botões e outros elementos marcados como apenas-tela */
+    .screen-only {
+        display: none !important;
+    }
+
     @page {
         margin: 0;
         size: auto;
