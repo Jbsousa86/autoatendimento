@@ -94,20 +94,22 @@ export default function Cashier() {
                 }
             }
 
-            device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                    { namePrefix: 'Inner' },
-                    { namePrefix: 'POS' },
-                    { namePrefix: 'mini' },
-                    { namePrefix: 'MP' },
-                    { namePrefix: 'MTP' },
-                    { namePrefix: 'Goojprt' },
-                    { namePrefix: 'BT' },
-                    { namePrefix: 'PRINTER' }
-                ],
-                optionalServices: commonServices
-            });
+            if (!device && !auto) {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                        { namePrefix: 'Inner' },
+                        { namePrefix: 'POS' },
+                        { namePrefix: 'mini' },
+                        { namePrefix: 'MP' },
+                        { namePrefix: 'MTP' },
+                        { namePrefix: 'Goojprt' },
+                        { namePrefix: 'BT' },
+                        { namePrefix: 'PRINTER' }
+                    ],
+                    optionalServices: commonServices
+                });
+            }
 
             if (!device) {
                 setPrinterStatus("disconnected");
@@ -228,19 +230,24 @@ export default function Cashier() {
                 ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
             ]);
 
-            // Determina o método de escrita (alguns dispositivos preferem WithoutResponse)
-            const canWriteWithout = activeDevice.properties.writeWithoutResponse;
+            // Determina o método de escrita mais compatível
+            const writeMethod = activeDevice.writeValueWithoutResponse ? 'writeValueWithoutResponse' :
+                activeDevice.writeValueWithResponse ? 'writeValueWithResponse' :
+                    'writeValue';
+
             const chunkSize = 20;
 
             for (let i = 0; i < data.length; i += chunkSize) {
                 const chunk = data.slice(i, i + chunkSize);
-                if (canWriteWithout) {
-                    await activeDevice.writeValueWithoutResponse(chunk);
-                } else {
-                    await activeDevice.writeValueWithResponse(chunk);
+                try {
+                    await activeDevice[writeMethod](chunk);
+                } catch (writeErr) {
+                    console.error("Write error, trying fallback:", writeErr);
+                    // Fallback para o método básico se o detectado falhar
+                    await (activeDevice.writeValue ? activeDevice.writeValue(chunk) : Promise.reject("Sem metodo de escrita"));
                 }
                 // Pequeno delay para não sobrecarregar o buffer da impressora
-                await new Promise(r => setTimeout(r, 10));
+                await new Promise(r => setTimeout(r, 20));
             }
             return true;
         } catch (error) {

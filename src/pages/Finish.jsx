@@ -137,11 +137,20 @@ export default function Finish() {
         ...CENTER, ...txt("\nAcompanhe sua senha no painel!"), ...FEED
       ]);
 
-      const writeType = char.properties.writeWithoutResponse ? 'writeValueWithoutResponse' : 'writeValueWithResponse';
+      const writeType = char.writeValueWithoutResponse ? 'writeValueWithoutResponse' :
+        char.writeValueWithResponse ? 'writeValueWithResponse' :
+          'writeValue';
+
       const chunkSize = 20;
       for (let i = 0; i < data.length; i += chunkSize) {
-        await char[writeType](data.slice(i, i + chunkSize));
-        await new Promise(r => setTimeout(r, 15));
+        const chunk = data.slice(i, i + chunkSize);
+        try {
+          await char[writeType](chunk);
+        } catch (writeErr) {
+          console.error("Write error:", writeErr);
+          if (char.writeValue) await char.writeValue(chunk);
+        }
+        await new Promise(r => setTimeout(r, 20));
       }
       return true;
     } catch (err) {
