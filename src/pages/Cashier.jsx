@@ -32,14 +32,21 @@ export default function Cashier() {
             window.addEventListener('afterprint', handleAfterPrint)
 
             // Auto-reconnect: tenta silenciosamente sempre que autenticado
-            if (printerStatus === 'disconnected') connectPrinter(true)
+            // Aumentamos a frequência e verificamos se realmente está desconectado
+            const reconnectTimer = setInterval(() => {
+                if (user && printerStatus === 'disconnected') {
+                    console.log("Tentativa de reconexão automática...");
+                    connectPrinter(true)
+                }
+            }, 10000);
 
             return () => {
                 if (subscription) subscription.unsubscribe()
                 window.removeEventListener('afterprint', handleAfterPrint)
+                clearInterval(reconnectTimer)
             }
         }
-    }, [user, activeTab])
+    }, [user, activeTab, printerStatus]) // Adicionado printerStatus para reagir a quedas
 
     const loadProducts = async () => {
         const data = await productService.getProducts()
@@ -58,12 +65,11 @@ export default function Cashier() {
 
     // Handlers
     const connectPrinter = async (isAuto = false) => {
-        // Garantir que isAuto seja booleano (para não confundir com o objeto de evento do onClick)
         const auto = isAuto === true;
 
         if (!navigator.bluetooth) {
             if (!auto) alert("❌ Bluetooth não suportado neste navegador.");
-            return;
+            return null;
         }
 
         try {
@@ -72,33 +78,32 @@ export default function Cashier() {
                 '000018f0-0000-1000-8000-00805f9b34fb',
                 '00004953-0000-1000-8000-00805f9b34fb',
                 '0000e7e1-0000-1000-8000-00805f9b34fb',
-                '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+                '0000ff00-0000-1000-8000-00805f9b34fb', // Adicionado
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                '0000ae30-0000-1000-8000-00805f9b34fb'  // Adicionado
             ];
 
             let device;
 
-            // Tenta recuperar dispositivos já pareados/autorizados anteriormente
             if (navigator.bluetooth.getDevices) {
                 const availableDevices = await navigator.bluetooth.getDevices();
                 if (availableDevices.length > 0) {
-                    // Tenta achar especificamente uma impressora pelos prefixos comuns
                     device = availableDevices.find(d =>
-                        ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT'].some(p => d.name?.toUpperCase().includes(p))
+                        ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT', 'PRINTER'].some(p => d.name?.toUpperCase().includes(p))
                     ) || availableDevices[0];
                 }
             }
 
-            // Se não encontrou nada ou não é auto-connect, força o seletor nativo
             if (!device && !auto) {
                 device = await navigator.bluetooth.requestDevice({
                     filters: [
                         { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                        { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
                         { namePrefix: 'Inner' },
                         { namePrefix: 'POS' },
                         { namePrefix: 'MP' },
                         { namePrefix: 'MTP' },
-                        { namePrefix: 'Goojprt' }
+                        { namePrefix: 'Goojprt' },
+                        { namePrefix: 'BT' }
                     ],
                     optionalServices: commonServices
                 });
@@ -106,16 +111,30 @@ export default function Cashier() {
 
             if (!device) {
                 setPrinterStatus("disconnected");
-                return;
+                return null;
+            }
+
+            // Se já estiver conectado, não reconecta desnecessariamente
+            if (device.gatt.connected && printerDevice) {
+                setPrinterStatus("connected");
+                return printerDevice;
             }
 
             const server = await device.gatt.connect();
             let service;
+
+            // Tenta encontrar o serviço correto entre os comuns
             for (const uuid of commonServices) {
                 try {
                     service = await server.getPrimaryService(uuid);
                     if (service) break;
                 } catch (e) { continue; }
+            }
+
+            if (!service) {
+                // Tenta pegar qualquer serviço se os comuns falharem
+                const services = await server.getPrimaryServices();
+                if (services.length > 0) service = services[0];
             }
 
             if (!service) throw new Error("Serviço de impressão não encontrado.");
@@ -127,20 +146,21 @@ export default function Cashier() {
 
             setPrinterDevice(characteristic);
             setPrinterStatus("connected");
-            if (!auto) alert("✅ Impressora conectada!");
 
             device.addEventListener('gattserverdisconnected', () => {
                 setPrinterStatus("disconnected");
                 setPrinterDevice(null);
-                // Tenta reconectar silenciosamente se cair
-                setTimeout(() => connectPrinter(true), 3000);
+                setTimeout(() => connectPrinter(true), 5000);
             });
+
+            return characteristic;
         } catch (error) {
             console.error("Bluetooth Error:", error);
             setPrinterStatus("disconnected");
             if (error.name !== 'AbortError' && !auto) {
                 alert(`❌ Erro: ${error.message || "Não foi possível conectar."}`);
             }
+            return null;
         }
     };
 
@@ -152,19 +172,35 @@ export default function Cashier() {
     }, [user]);
 
     const printBluetooth = async () => {
-        if (!printerDevice || !lastFinishedOrder) return false
-        try {
-            const encoder = new TextEncoder()
-            const txt = (str) => encoder.encode(str + '\n')
+        let activeDevice = printerDevice;
 
-            const INIT = new Uint8Array([0x1B, 0x40])
-            const CENTER = new Uint8Array([0x1B, 0x61, 0x01])
-            const LEFT = new Uint8Array([0x1B, 0x61, 0x00])
-            const BOLD_ON = new Uint8Array([0x1B, 0x45, 0x01])
-            const BOLD_OFF = new Uint8Array([0x1B, 0x45, 0x00])
-            const DOUBLE_ON = new Uint8Array([0x1B, 0x21, 0x30])
-            const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01])
-            const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03])
+        // Se não tiver dispositivo ativo, tenta reconectar silenciosamente antes de desistir
+        if (!activeDevice) {
+            activeDevice = await connectPrinter(true);
+        }
+
+        if (!activeDevice || !lastFinishedOrder) return false;
+
+        try {
+            const encoder = new TextEncoder();
+
+            // Função para limpar acentos (muitas impressoras térmicas não suportam UTF-8/acentos nativamente)
+            const cleanText = (str) => {
+                return str.normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^\x00-\x7F]/g, ""); // Remove qualquer caractere não-ASCII restante
+            };
+
+            const txt = (str) => encoder.encode(cleanText(str) + '\n');
+
+            const INIT = new Uint8Array([0x1B, 0x40]);
+            const CENTER = new Uint8Array([0x1B, 0x61, 0x01]);
+            const LEFT = new Uint8Array([0x1B, 0x61, 0x00]);
+            const BOLD_ON = new Uint8Array([0x1B, 0x45, 0x01]);
+            const BOLD_OFF = new Uint8Array([0x1B, 0x45, 0x00]);
+            const DOUBLE_ON = new Uint8Array([0x1B, 0x21, 0x30]);
+            const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01]);
+            const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
 
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
@@ -173,32 +209,46 @@ export default function Cashier() {
                 ...txt("Comprovante de Venda"), ...BOLD_OFF,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`PEDIDO: ${lastFinishedOrder.orderNumber}`), ...BOLD_OFF,
-                ...LEFT, ...txt(`Data: ${new Date().toLocaleString()}`),
-                ...txt(`Caixa: ${user.name}`),
+                ...LEFT, ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
+                ...txt(`Caixa: ${user?.name || 'Sistema'}`),
+                ...txt(`Cliente: ${lastFinishedOrder.customerName || 'Nao informado'}`),
                 ...txt("--------------------------------"),
-            ])
+            ]);
 
             lastFinishedOrder.items.forEach(item => {
-                const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(22) + ` R$${(item.price * item.qty).toFixed(2)}`
-                data = new Uint8Array([...data, ...txt(line)])
-                if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)])
-            })
+                const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(22) + ` R$${(item.price * item.qty).toFixed(2)}`;
+                data = new Uint8Array([...data, ...txt(line)]);
+                if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
+            });
 
             data = new Uint8Array([
                 ...data,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(lastFinishedOrder.total).toFixed(2)}`), ...BOLD_OFF,
-                ...CENTER, ...txt("\nObrigado pela preferência!"), ...FEED
-            ])
+                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
+            ]);
 
-            const chunkSize = 20
+            // Determina o método de escrita (alguns dispositivos preferem WithoutResponse)
+            const canWriteWithout = activeDevice.properties.writeWithoutResponse;
+            const chunkSize = 20;
+
             for (let i = 0; i < data.length; i += chunkSize) {
-                await printerDevice.writeValue(data.slice(i, i + chunkSize))
+                const chunk = data.slice(i, i + chunkSize);
+                if (canWriteWithout) {
+                    await activeDevice.writeValueWithoutResponse(chunk);
+                } else {
+                    await activeDevice.writeValueWithResponse(chunk);
+                }
+                // Pequeno delay para não sobrecarregar o buffer da impressora
+                await new Promise(r => setTimeout(r, 10));
             }
-            return true
+            return true;
         } catch (error) {
-            console.error("Print Error:", error)
-            return false
+            console.error("Print Error:", error);
+            // Se falhou por desconexão, limpa o estado
+            setPrinterStatus("disconnected");
+            setPrinterDevice(null);
+            return false;
         }
     }
 
@@ -339,10 +389,8 @@ export default function Cashier() {
         setOrderObservation("")
         loadDailyHistory()
 
-        // AUTO-PRINT: Se a impressora estiver ONLINE, o papel sai sozinho
-        if (printerStatus === 'connected') {
-            setTimeout(() => printBluetooth(), 500)
-        }
+        // AUTO-PRINT: Sempre tenta imprimir se finalizou
+        setTimeout(() => printBluetooth(), 500)
     }
 
     const calculateTotal = () => cart.reduce((acc, item) => acc + (Number(item.price) * (item.qty || 1)), 0)
