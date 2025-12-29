@@ -238,7 +238,7 @@ export default function Finish() {
             <strong>OBS:</strong> {order.observation}
           </div>
         )}
-        <div className="text-center mt-4 text-[9px]">Acompanhe sua senha no painel!</div>
+        <div className="text-center mt-4 text-[9px]">Obrigado pela preferencia!</div>
       </div>
     </div>
   )
