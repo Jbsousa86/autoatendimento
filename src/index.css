@@ -16,7 +16,6 @@
 /* PRINT STYLES FOR THERMAL PRINTERS */
 @media print {
 
-    /* Reset total para garantir fundo branco e sem margens do sistema */
     html,
     body {
         background: #fff !important;
@@ -27,7 +26,7 @@
         visibility: hidden !important;
     }
 
-    /* O container root deve estar invisível, mas permitir que o filho seja visível */
+    /* Keep root as container but invisible */
     #root {
         visibility: hidden !important;
         display: block !important;
@@ -37,7 +36,7 @@
         width: 100% !important;
     }
 
-    /* O recibo é a única coisa que deve aparecer */
+    /* Main receipt visibility and styling */
     #receipt {
         visibility: visible !important;
         display: block !important;
@@ -61,7 +60,6 @@
         visibility: visible !important;
     }
 
-    /* Esconde botões e outros elementos marcados como apenas-tela */
     .screen-only {
         display: none !important;
     }
@@ -74,10 +72,4 @@
 
 .screen-only {
     display: block;
-}
-
-@media print {
-    .screen-only {
-        display: none !important;
-    }
 }

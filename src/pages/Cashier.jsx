@@ -4,51 +4,39 @@ import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
 
 export default function Cashier() {
-    // Auth State
-    const [user, setUser] = useState(null) // { id, name }
+    const [user, setUser] = useState(null)
     const [loginUser, setLoginUser] = useState("")
     const [loginPass, setLoginPass] = useState("")
 
-    // App State
-    const [activeTab, setActiveTab] = useState('pos') // 'pos' | 'history'
+    const [activeTab, setActiveTab] = useState('pos')
     const [products, setProducts] = useState([])
     const [cart, setCart] = useState([])
-    const [customerName, setCustomerName] = useState("") // Nome p/ o pedido
+    const [customerName, setCustomerName] = useState("")
     const [dailyOrders, setDailyOrders] = useState([])
     const [selectedCategory, setSelectedCategory] = useState("burgers")
     const [lastFinishedOrder, setLastFinishedOrder] = useState(null)
-    const [mobileCartOpen, setMobileCartOpen] = useState(false) // Mobile State
+    const [mobileCartOpen, setMobileCartOpen] = useState(false)
     const [printerDevice, setPrinterDevice] = useState(null)
-    const [printerStatus, setPrinterStatus] = useState("disconnected") // 'disconnected' | 'connecting' | 'connected'
+    const [printerStatus, setPrinterStatus] = useState("disconnected")
 
-    const [selectedPizza, setSelectedPizza] = useState(null) // Modal de Pizza
-    const [selectingHalf, setSelectingHalf] = useState(null) // 'M' | 'G' | null
+    const [selectedPizza, setSelectedPizza] = useState(null)
+    const [selectingHalf, setSelectingHalf] = useState(null)
     const [firstFlavor, setFirstFlavor] = useState(null)
-    const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA')) // 'YYYY-MM-DD'
+    const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA'))
 
-    // Effects
     useEffect(() => {
         if (user) {
             loadProducts()
             loadDailyHistory()
-
-            // INSCRIÇÃO REALTIME: Sincroniza vendas do próprio caixa no histórico
-            const subscription = orderService.subscribeToOrders(() => {
-                loadDailyHistory()
-            })
-
-            // RETORNO AUTOMÁTICO APÓS IMPRESSÃO
-            const handleAfterPrint = () => {
-                setLastFinishedOrder(null)
-            }
+            const subscription = orderService.subscribeToOrders(() => loadDailyHistory())
+            const handleAfterPrint = () => setLastFinishedOrder(null)
             window.addEventListener('afterprint', handleAfterPrint)
-
             return () => {
                 if (subscription) subscription.unsubscribe()
                 window.removeEventListener('afterprint', handleAfterPrint)
             }
         }
-    }, [user, activeTab]) // Recarrega ao logar ou mudar de aba
+    }, [user, activeTab])
 
     const loadProducts = async () => {
         const data = await productService.getProducts()
@@ -60,16 +48,8 @@ export default function Cashier() {
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         sevenDaysAgo.setHours(0, 0, 0, 0)
-
-        // Filtramos os pedidos dos últimos 7 dias para dar uma visão melhor ao caixa
-        const recentOrders = all.filter(o => {
-            const oDate = new Date(o.created_at)
-            return oDate >= sevenDaysAgo
-        })
-
-        // Ordenar: mais recentes primeiro
+        const recentOrders = all.filter(o => new Date(o.created_at) >= sevenDaysAgo)
         recentOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-
         setDailyOrders(recentOrders)
     }
 
@@ -78,46 +58,33 @@ export default function Cashier() {
     // Handlers
     const connectPrinter = async () => {
         if (!navigator.bluetooth) {
-            alert("❌ Seu navegador não suporta Bluetooth. Use o Chrome ou Edge em Android/Desktop. (iOS Safari não suporta)");
+            alert("❌ Bluetooth não suportado neste navegador.");
             return;
         }
 
         try {
             setPrinterStatus("connecting");
-
-            // Lista de UUIDs comuns em impressoras térmicas chinesas (POS-58, Goojprt, etc)
             const commonServices = [
-                '000018f0-0000-1000-8000-00805f9b34fb', // Generica 1
-                '00004953-0000-1000-8000-00805f9b34fb', // ISSC
-                '0000e7e1-0000-1000-8000-00805f9b34fb', // Outras marcas
-                '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // Bluetooth Classic SPP Bridge (raro)
+                '000018f0-0000-1000-8000-00805f9b34fb',
+                '00004953-0000-1000-8000-00805f9b34fb',
+                '0000e7e1-0000-1000-8000-00805f9b34fb',
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455'
             ];
 
-            // Tenta primeiro com os filtros conhecidos
-            let device;
-            try {
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                        { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
-                        { namePrefix: 'Inner' },
-                        { namePrefix: 'POS' },
-                        { namePrefix: 'MP' },
-                        { namePrefix: 'MTP' },
-                        { namePrefix: 'Goojprt' }
-                    ],
-                    optionalServices: commonServices
-                });
-            } catch (err) {
-                // Se o filtro falhar ou o usuário quiser ver todos, tentamos acceptAllDevices
-                // Nota: requestDevice só pode ser chamado uma vez por gesto do usuário, 
-                // então se falhar aqui, o usuário terá que clicar de novo.
-                throw err;
-            }
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                    { services: ['00004953-0000-1000-8000-00805f9b34fb'] },
+                    { namePrefix: 'Inner' },
+                    { namePrefix: 'POS' },
+                    { namePrefix: 'MP' },
+                    { namePrefix: 'MTP' },
+                    { namePrefix: 'Goojprt' }
+                ],
+                optionalServices: commonServices
+            });
 
             const server = await device.gatt.connect();
-
-            // Tenta encontrar o serviço correto entre os conhecidos
             let service;
             for (const uuid of commonServices) {
                 try {
@@ -126,9 +93,8 @@ export default function Cashier() {
                 } catch (e) { continue; }
             }
 
-            if (!service) throw new Error("Serviço de impressão não encontrado no dispositivo.");
+            if (!service) throw new Error("Serviço de impressão não encontrado.");
 
-            // Tenta encontrar a característica de escrita (Write)
             const characteristics = await service.getCharacteristics();
             const characteristic = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
 
@@ -143,14 +109,9 @@ export default function Cashier() {
                 setPrinterDevice(null);
             });
         } catch (error) {
-            console.error("Erro Bluetooth:", error);
+            console.error("Bluetooth Error:", error);
             setPrinterStatus("disconnected");
-
-            if (error.name === 'NotFoundError') {
-                alert("🔎 Nenhuma impressora encontrada. Certifique-se que ela está LIGADA e não está conectada a outro app.");
-            } else if (error.name === 'SecurityError') {
-                alert("🔒 Erro de Segurança: O Bluetooth só funciona em sites com HTTPS (Seguros).");
-            } else {
+            if (error.name !== 'AbortError') {
                 alert(`❌ Erro: ${error.message || "Não foi possível conectar."}`);
             }
         }
@@ -158,12 +119,10 @@ export default function Cashier() {
 
     const printBluetooth = async () => {
         if (!printerDevice || !lastFinishedOrder) return false
-
         try {
             const encoder = new TextEncoder()
             const txt = (str) => encoder.encode(str + '\n')
 
-            // ESC/POS Comandos Básicos
             const INIT = new Uint8Array([0x1B, 0x40])
             const CENTER = new Uint8Array([0x1B, 0x61, 0x01])
             const LEFT = new Uint8Array([0x1B, 0x61, 0x00])
@@ -171,7 +130,7 @@ export default function Cashier() {
             const BOLD_OFF = new Uint8Array([0x1B, 0x45, 0x00])
             const DOUBLE_ON = new Uint8Array([0x1B, 0x21, 0x30])
             const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01])
-            const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03]) // Cut/Feed
+            const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03])
 
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
@@ -195,23 +154,21 @@ export default function Cashier() {
                 ...data,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(lastFinishedOrder.total).toFixed(2)}`), ...BOLD_OFF,
-                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
+                ...CENTER, ...txt("\nObrigado pela preferência!"), ...FEED
             ])
 
-            // Envia em chunks pequenos para evitar gargalo no buffer Bluetooth
             const chunkSize = 20
             for (let i = 0; i < data.length; i += chunkSize) {
                 await printerDevice.writeValue(data.slice(i, i + chunkSize))
             }
             return true
         } catch (error) {
-            console.error("Erro na impressão BT:", error)
+            console.error("Print Error:", error)
             return false
         }
     }
 
     const handleReprint = async (order) => {
-        // Normaliza o objeto para o formato esperado pelo template de impressão
         const reprintData = {
             orderNumber: order.order_number,
             items: order.items,
@@ -219,13 +176,9 @@ export default function Cashier() {
             cashierName: order.cashier_name || "Totem",
             customerName: order.customer_name || ""
         }
-
         setLastFinishedOrder(reprintData)
-
-        // Pequeno delay para garantir que o estado atualizou antes de imprimir
         setTimeout(async () => {
-            const success = await printBluetooth()
-            if (!success) window.print()
+            if (!(await printBluetooth())) window.print()
         }, 100)
     }
 

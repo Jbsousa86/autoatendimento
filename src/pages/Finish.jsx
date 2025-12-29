@@ -8,12 +8,7 @@ export default function Finish() {
   const location = useLocation()
   const { lastOrder, clearCart } = useCart()
 
-  // 1. Tenta pegar do state da navegação
-  // 2. Tenta pegar do contexto
-  // 3. Se não tiver nada, retorna null
   const order = location.state?.order || lastOrder
-
-  // Estado local para o nome editável no recibo
   const [tempName, setTempName] = useState(order?.customerName || "Cliente")
   const hasProcessed = useRef(false)
   const [usbPrinter, setUsbPrinter] = useState(null)
@@ -25,10 +20,10 @@ export default function Finish() {
       await device.selectConfiguration(1)
       await device.claimInterface(device.configuration.interfaces[0].interfaceNumber)
       setUsbPrinter(device)
-      alert("✅ Impressora Epson (USB) conectada!")
+      alert("✅ Impressora conectada!")
     } catch (err) {
       console.error("Erro USB:", err)
-      alert("❌ Erro ao conectar impressora via cabo.")
+      alert("❌ Erro ao conectar impressora.")
     }
   }
 
@@ -48,7 +43,7 @@ export default function Finish() {
       const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03])
 
       let data = new Uint8Array([
-        ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HEROS BURGER"), ...DOUBLE_OFF,
+        ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
         ...txt("CNPJ: 00.000.000/0001-00"),
         ...txt("Tel: (63) 99103-8781"),
         ...txt("Autoatendimento"), ...BOLD_OFF,
@@ -72,7 +67,6 @@ export default function Finish() {
         ...CENTER, ...txt("\nAcompanhe sua senha no painel!"), ...FEED
       ])
 
-      // Epson geralmente usa o endpoint 1 para saída
       const endpoint = usbPrinter.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber
       await usbPrinter.transferOut(endpoint, data)
       return true
@@ -87,17 +81,9 @@ export default function Finish() {
       if (order && !hasProcessed.current) {
         hasProcessed.current = true
         try {
-          // Salva no banco
           const saved = await orderService.createOrder(order)
-          // Se o banco retornou ID (via select() que adicionaremos de volta na API), guardamos
-          if (saved && saved.id) {
-            order.id = saved.id
-          }
-
-          // Evento local para KDS
+          if (saved && saved.id) order.id = saved.id
           window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
-
-          // Limpa carrinho global
           clearCart()
         } catch (err) {
           console.error("Erro ao salvar pedido:", err)
@@ -107,16 +93,10 @@ export default function Finish() {
     processOrder()
     if (order?.customerName) setTempName(order.customerName)
 
-    // 🕒 AUTOMATED RETURN LOGIC (Para o Totem)
-
-    // 1. Após fechar o diálogo de impressão (Nativo)
     const handleAfterPrint = () => handleNewOrder()
     window.addEventListener('afterprint', handleAfterPrint)
 
-    // 2. Timer de segurança: Se o cliente esquecer a tela aberta, volta em 30 seg
-    const safetyTimer = setTimeout(() => {
-      handleNewOrder()
-    }, 30000)
+    const safetyTimer = setTimeout(() => handleNewOrder(), 30000)
 
     return () => {
       window.removeEventListener('afterprint', handleAfterPrint)
@@ -125,9 +105,7 @@ export default function Finish() {
   }, [order, clearCart])
 
   const handleUpdateName = async () => {
-    if (order?.id) {
-      await orderService.updateOrderName(order.id, tempName)
-    }
+    if (order?.id) await orderService.updateOrderName(order.id, tempName)
     order.customerName = tempName
   }
 
@@ -148,7 +126,6 @@ export default function Finish() {
     }
   }
 
-  // Reset do contador após 3 segundos sem cliques
   useEffect(() => {
     const timer = setTimeout(() => setConfigClickCount(0), 3000)
     return () => clearTimeout(timer)
@@ -158,11 +135,7 @@ export default function Finish() {
     return (
       <div className="h-screen w-screen bg-red-600 flex flex-col items-center justify-center text-white p-10 text-center">
         <h1 className="text-4xl font-bold mb-4">⚠️ Erro ao carregar pedido</h1>
-        <p className="mb-8">Dados não encontrados.</p>
-        <button
-          onClick={handleNewOrder}
-          className="bg-white text-red-600 px-8 py-4 rounded-xl font-bold text-xl"
-        >
+        <button onClick={handleNewOrder} className="bg-white text-red-600 px-8 py-4 rounded-xl font-bold text-xl">
           Voltar ao Início
         </button>
       </div>
@@ -171,14 +144,10 @@ export default function Finish() {
 
   return (
     <div className="min-h-screen w-screen bg-green-600 flex flex-col items-center pt-10 pb-20 text-white overflow-y-auto">
-      <h1
-        onClick={handleAdminUnlock}
-        className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none"
-      >
+      <h1 onClick={handleAdminUnlock} className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none">
         ✅ SUCESSO!
       </h1>
 
-      {/* NOME DO CLIENTE EM DESTAQUE */}
       <div className="mb-2 text-center w-full max-w-2xl px-6">
         <input
           type="text"
@@ -196,9 +165,7 @@ export default function Finish() {
 
       {order.orderObservation && (
         <div className="mb-10 bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20">
-          <p className="text-2xl italic text-white font-medium">
-            "{order.orderObservation}"
-          </p>
+          <p className="text-2xl italic text-white font-medium italic">"{order.orderObservation}"</p>
         </div>
       )}
 
@@ -212,13 +179,8 @@ export default function Finish() {
         <button
           onClick={async () => {
             const usbSuccess = await printUSB()
-            // Se imprimiu via USB com sucesso, já podemos voltar
-            if (usbSuccess) {
-              handleNewOrder()
-            } else {
-              // Se falhou USB ou não tem USB, usa o nativo (o afterprint cuidará do retorno)
-              window.print()
-            }
+            if (usbSuccess) handleNewOrder()
+            else window.print()
           }}
           className="w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg hover:bg-gray-50 flex items-center justify-center gap-2 screen-only"
         >
@@ -228,67 +190,55 @@ export default function Finish() {
         {showAdminConfig && (
           <button
             onClick={connectUSB}
-            className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700 font-bold'
-              }`}
+            className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700'}`}
           >
-            {usbPrinter ? '✅ RECONFIGURAR IMPRESSORA USB' : '🔗 CONECTAR IMPRESSORA USB (CABO)'}
+            {usbPrinter ? '✅ RECONFIGURAR IMPRESSORA USB' : '🔗 CONECTAR IMPRESSORA USB'}
           </button>
         )}
 
-        <button
-          onClick={handleNewOrder}
-          className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only"
-        >
+        <button onClick={handleNewOrder} className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
           NOVO PEDIDO
         </button>
       </div>
 
-      {/* COMPROVANTE DE IMPRESSÃO (Escondido na tela) */}
-      <div id="receipt" className="hidden p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-sm leading-tight">
+      <div id="receipt" className="hidden p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
         <div className="text-center mb-4">
-          <h2 className="text-xl font-black uppercase">Heros Burger</h2>
-          <p className="text-xs">Rua Antonio moreira, 123</p>
-          <p className="text-[10px] font-bold">CNPJ: 00.000.000/0001-00</p>
-          <p className="text-[10px] font-bold">TEL: (63) 99103-8781</p>
+          <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
+          <p className="text-xs italic">CNPJ: 00.000.000/0001-00</p>
+          <p className="text-xs">TEL: (63) 99103-8781</p>
         </div>
         <div className="border-b border-black border-dashed my-2"></div>
         <div className="flex justify-between font-bold text-lg my-2">
           <span>PEDIDO:</span>
           <span className="text-2xl">{order.orderNumber}</span>
         </div>
-        <div className="font-bold uppercase truncate">
-          CLIENTE: {tempName}
-        </div>
-        <div className="text-xs mb-2">
-          Data: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}
-        </div>
+        <div className="font-bold uppercase truncate">CLIENTE: {tempName}</div>
+        <div className="text-[10px] mb-2">Data: {new Date().toLocaleString('pt-BR')}</div>
         <div className="border-b border-black border-dashed my-2"></div>
-        <table className="w-full text-left">
+        <table className="w-full text-left font-mono text-[10px]">
           <tbody>
             {order.items?.map((item, i) => (
               <tr key={i} className="border-b border-black border-dashed">
                 <td className="py-1 w-6">{item.qty}x</td>
                 <td className="py-1">
                   <div>{item.name}</div>
-                  {item.observation && <div className="text-[10px] italic">➔ {item.observation}</div>}
+                  {item.observation && <div className="text-[9px] italic">➔ {item.observation}</div>}
                 </td>
                 <td className="py-1 text-right">{(item.price * item.qty).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="border-t border-black border-dashed pt-2 my-2 font-bold flex justify-between">
+        <div className="border-t border-black border-dashed pt-2 my-2 font-bold flex justify-between text-base">
           <span>TOTAL</span>
           <span>{Number(order.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
         </div>
         {order.observation && (
-          <div className="mt-2 text-[10px] border border-black p-1">
+          <div className="mt-2 text-[9px] border border-black p-1">
             <strong>OBS:</strong> {order.observation}
           </div>
         )}
-        <div className="text-center mt-4 text-[10px]">
-          Obrigado e volte sempre!
-        </div>
+        <div className="text-center mt-4 text-[9px]">Acompanhe sua senha no painel!</div>
       </div>
     </div>
   )
