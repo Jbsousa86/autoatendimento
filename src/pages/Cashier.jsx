@@ -723,7 +723,7 @@ export default function Cashier() {
                         )}
 
                         <div className={`
-                            fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out
+                            fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out flex flex-col
                             md:relative md:transform-none md:w-96 md:flex md:flex-col md:shadow-none md:z-auto
                             ${mobileCartOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
                         `}>
@@ -749,7 +749,7 @@ export default function Cashier() {
                                 />
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3 h-[calc(100vh-320px)] md:h-auto">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 {cart.length === 0 ? (
                                     <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
                                         Nenhum item selecionado
@@ -802,31 +802,31 @@ export default function Cashier() {
                                 )}
                             </div>
 
-                            <div className="p-6 bg-gray-100 border-t border-gray-200">
+                            <div className="p-4 md:p-6 bg-gray-100 border-t border-gray-200 safe-bottom">
                                 {/* OBSERVAÇÃO GERAL */}
-                                <div className="mb-4">
+                                <div className="mb-3 md:mb-4">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Observação Geral</label>
                                     <textarea
                                         className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none resize-none"
-                                        rows={2}
-                                        placeholder="Clique para adicionar notas ao pedido..."
+                                        rows={1}
+                                        placeholder="Notas do pedido..."
                                         value={orderObservation}
                                         onChange={(e) => setOrderObservation(e.target.value)}
                                     />
                                 </div>
 
-                                <div className="flex justify-between items-center mb-6">
-                                    <span className="text-gray-600 font-bold">TOTAL</span>
-                                    <span className="text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
+                                <div className="flex justify-between items-center mb-4 md:mb-6">
+                                    <span className="text-gray-600 font-bold text-sm">TOTAL</span>
+                                    <span className="text-2xl md:text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
                                 </div>
                                 <button
                                     onClick={() => {
                                         handleFinishOrder()
                                         setMobileCartOpen(false)
                                     }}
-                                    className="w-full bg-green-600 text-white py-4 rounded-xl font-black text-xl hover:bg-green-700 shadow-lg transition transform active:scale-95"
+                                    className="w-full bg-green-600 text-white py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl hover:bg-green-700 shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2"
                                 >
-                                    CONFIRMAR VENDA
+                                    <span>✅</span> CONFIRMAR VENDA
                                 </button>
                             </div>
                         </div>
