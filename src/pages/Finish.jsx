@@ -12,6 +12,8 @@ export default function Finish() {
   const [tempName, setTempName] = useState(order?.customerName || "Cliente")
   const hasProcessed = useRef(false)
   const [usbPrinter, setUsbPrinter] = useState(null)
+  const [bluetoothDevice, setBluetoothDevice] = useState(null)
+  const [bluetoothStatus, setBluetoothStatus] = useState("disconnected")
 
   const connectUSB = async () => {
     try {
@@ -24,6 +26,127 @@ export default function Finish() {
     } catch (err) {
       console.error("Erro USB:", err)
       alert("❌ Erro ao conectar impressora.")
+    }
+  }
+
+  const connectBluetooth = async (isAuto = false) => {
+    const auto = isAuto === true;
+    if (!navigator.bluetooth) {
+      if (!auto) alert("❌ Bluetooth não suportado.");
+      return null;
+    }
+
+    try {
+      setBluetoothStatus("connecting");
+      const services = [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '00004953-0000-1000-8000-00805f9b34fb',
+        '0000e7e1-0000-1000-8000-00805f9b34fb',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        '0000ae30-0000-1000-8000-00805f9b34fb'
+      ];
+
+      let device;
+      if (navigator.bluetooth.getDevices) {
+        const devices = await navigator.bluetooth.getDevices();
+        device = devices.find(d => ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT', 'PRINTER', 'MINI'].some(p => d.name?.toUpperCase().includes(p))) || devices[0];
+      }
+
+      if (!device && !auto) {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { namePrefix: 'POS' }, { namePrefix: 'MP' }, { namePrefix: 'MTP' },
+            { namePrefix: 'Inner' }, { namePrefix: 'Goojprt' }, { namePrefix: 'BT' },
+            { namePrefix: 'mini' }, { namePrefix: 'PRINTER' }
+          ],
+          optionalServices: services
+        });
+      }
+
+      if (!device) {
+        setBluetoothStatus("disconnected");
+        return null;
+      }
+
+      const server = await device.gatt.connect();
+      let service;
+      for (const uuid of services) {
+        try {
+          service = await server.getPrimaryService(uuid);
+          if (service) break;
+        } catch (e) { continue; }
+      }
+
+      if (!service) {
+        const all = await server.getPrimaryServices();
+        if (all.length > 0) service = all[0];
+      }
+
+      const characteristics = await service.getCharacteristics();
+      const char = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+
+      setBluetoothDevice(char);
+      setBluetoothStatus("connected");
+
+      device.addEventListener('gattserverdisconnected', () => {
+        setBluetoothStatus("disconnected");
+        setBluetoothDevice(null);
+      });
+
+      return char;
+    } catch (err) {
+      console.error(err);
+      setBluetoothStatus("disconnected");
+      return null;
+    }
+  }
+
+  const printBluetooth = async (isManual = false) => {
+    let char = bluetoothDevice;
+    if (!char) char = await connectBluetooth(!isManual);
+    if (!char || !order) return false;
+
+    try {
+      const encoder = new TextEncoder();
+      const clean = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x00-\x7F]/g, "");
+      const txt = (s) => encoder.encode(clean(s) + '\n');
+
+      const INIT = [0x1B, 0x40], CENTER = [0x1B, 0x61, 0x01], LEFT = [0x1B, 0x61, 0x00];
+      const BOLD_ON = [0x1B, 0x45, 0x01], BOLD_OFF = [0x1B, 0x45, 0x00];
+      const DBL_ON = [0x1B, 0x21, 0x30], DBL_OFF = [0x1B, 0x21, 0x01], FEED = [0x1D, 0x56, 0x41, 0x03];
+
+      let data = new Uint8Array([
+        ...INIT, ...CENTER, ...BOLD_ON, ...DBL_ON, ...txt("HERO'S BURGER"), ...DBL_OFF,
+        ...txt("CNPJ: 00.000.000/0001-00"), ...txt("Tel: (63) 99103-8781"),
+        ...txt("Autoatendimento"), ...BOLD_OFF, ...txt("--------------------------------"),
+        ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
+        ...LEFT, ...txt(`Cliente: ${tempName}`), ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
+        ...txt("--------------------------------"),
+      ]);
+
+      order.items.forEach(item => {
+        const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(22) + ` R$${(item.price * item.qty).toFixed(2)}`;
+        data = new Uint8Array([...data, ...txt(line)]);
+        if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
+      });
+
+      data = new Uint8Array([
+        ...data, ...txt("--------------------------------"),
+        ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
+        ...CENTER, ...txt("\nAcompanhe sua senha no painel!"), ...FEED
+      ]);
+
+      const writeType = char.properties.writeWithoutResponse ? 'writeValueWithoutResponse' : 'writeValueWithResponse';
+      const chunkSize = 20;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        await char[writeType](data.slice(i, i + chunkSize));
+        await new Promise(r => setTimeout(r, 15));
+      }
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
     }
   }
 
@@ -93,6 +216,9 @@ export default function Finish() {
     processOrder()
     if (order?.customerName) setTempName(order.customerName)
 
+    // Tenta reconectar bluetooth se disponível
+    if (bluetoothStatus === 'disconnected') connectBluetooth(true);
+
     const handleAfterPrint = () => handleNewOrder()
     window.addEventListener('afterprint', handleAfterPrint)
 
@@ -102,7 +228,7 @@ export default function Finish() {
       window.removeEventListener('afterprint', handleAfterPrint)
       clearTimeout(safetyTimer)
     }
-  }, [order, clearCart])
+  }, [order, clearCart, bluetoothStatus])
 
   const handleUpdateName = async () => {
     if (order?.id) await orderService.updateOrderName(order.id, tempName)
@@ -178,22 +304,33 @@ export default function Finish() {
       <div className="flex flex-col gap-4 w-full max-w-sm px-6">
         <button
           onClick={async () => {
+            const btSuccess = await printBluetooth(true)
+            if (btSuccess) return handleNewOrder()
+
             const usbSuccess = await printUSB()
             if (usbSuccess) handleNewOrder()
             else window.print()
           }}
           className="w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg hover:bg-gray-50 flex items-center justify-center gap-2 screen-only"
         >
-          <span>🖨️</span> {usbPrinter ? 'IMPRIMIR (USB)' : 'IMPRIMIR RECIBO'}
+          <span>🖨️</span> {bluetoothStatus === 'connected' ? 'IMPRIMIR (BT)' : usbPrinter ? 'IMPRIMIR (USB)' : 'IMPRIMIR RECIBO'}
         </button>
 
         {showAdminConfig && (
-          <button
-            onClick={connectUSB}
-            className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700'}`}
-          >
-            {usbPrinter ? '✅ RECONFIGURAR IMPRESSORA USB' : '🔗 CONECTAR IMPRESSORA USB'}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={connectUSB}
+              className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700'}`}
+            >
+              {usbPrinter ? '✅ RECONFIGURAR USB' : '🔗 CONECTAR USB'}
+            </button>
+            <button
+              onClick={() => connectBluetooth()}
+              className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${bluetoothStatus === 'connected' ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-orange-600/50 hover:bg-orange-600'}`}
+            >
+              {bluetoothStatus === 'connected' ? '✅ RECONFIGURAR BLUETOOTH' : '🔗 CONECTAR BLUETOOTH'}
+            </button>
+          </div>
         )}
 
         <button onClick={handleNewOrder} className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">

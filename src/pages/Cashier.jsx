@@ -89,25 +89,25 @@ export default function Cashier() {
                 const availableDevices = await navigator.bluetooth.getDevices();
                 if (availableDevices.length > 0) {
                     device = availableDevices.find(d =>
-                        ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT', 'PRINTER'].some(p => d.name?.toUpperCase().includes(p))
+                        ['POS', 'MP', 'MTP', 'Inner', 'Goojprt', 'BT', 'PRINTER', 'MINI'].some(p => d.name?.toUpperCase().includes(p))
                     ) || availableDevices[0];
                 }
             }
 
-            if (!device && !auto) {
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                        { namePrefix: 'Inner' },
-                        { namePrefix: 'POS' },
-                        { namePrefix: 'MP' },
-                        { namePrefix: 'MTP' },
-                        { namePrefix: 'Goojprt' },
-                        { namePrefix: 'BT' }
-                    ],
-                    optionalServices: commonServices
-                });
-            }
+            device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+                    { namePrefix: 'Inner' },
+                    { namePrefix: 'POS' },
+                    { namePrefix: 'mini' },
+                    { namePrefix: 'MP' },
+                    { namePrefix: 'MTP' },
+                    { namePrefix: 'Goojprt' },
+                    { namePrefix: 'BT' },
+                    { namePrefix: 'PRINTER' }
+                ],
+                optionalServices: commonServices
+            });
 
             if (!device) {
                 setPrinterStatus("disconnected");
@@ -171,12 +171,12 @@ export default function Cashier() {
         }
     }, [user]);
 
-    const printBluetooth = async () => {
+    const printBluetooth = async (isManual = false) => {
         let activeDevice = printerDevice;
 
-        // Se não tiver dispositivo ativo, tenta reconectar silenciosamente antes de desistir
+        // Se manual e não tiver dispositivo, abre o seletor nativo
         if (!activeDevice) {
-            activeDevice = await connectPrinter(true);
+            activeDevice = await connectPrinter(!isManual);
         }
 
         if (!activeDevice || !lastFinishedOrder) return false;
@@ -262,7 +262,7 @@ export default function Cashier() {
         }
         setLastFinishedOrder(reprintData)
         setTimeout(async () => {
-            if (!(await printBluetooth())) window.print()
+            if (!(await printBluetooth(true))) window.print()
         }, 100)
     }
 
@@ -530,7 +530,7 @@ export default function Cashier() {
                             <div className="flex flex-col gap-3">
                                 <button
                                     onClick={async () => {
-                                        const success = await printBluetooth()
+                                        const success = await printBluetooth(true)
                                         if (!success) window.print()
                                     }}
                                     className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2"
