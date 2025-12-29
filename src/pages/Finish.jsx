@@ -217,15 +217,9 @@ export default function Finish() {
           className={`w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 screen-only transition-all ${isPrinting ? 'opacity-50' : 'hover:bg-gray-50 active:scale-95'}`}
         >
           <span>{isPrinting ? '⏳' : '🖨️'}</span>
-          {isPrinting ? 'IMPRIMINDO...' : usbPrinter ? 'IMPRIMIR RECIBO (USB)' : 'IMPRIMIR RECIBO'}
+          {isPrinting ? 'IMPRIMINDO...' : 'IMPRIMIR RECIBO'}
         </button>
 
-        <button
-          onClick={() => window.print()}
-          className="text-white/60 text-xs font-bold uppercase hover:text-white py-1 screen-only"
-        >
-          Ou usar impressora Wi-Fi/Sistema
-        </button>
 
         {showAdminConfig && (
           <div className="flex flex-col gap-2">
@@ -233,7 +227,7 @@ export default function Finish() {
               onClick={connectUSB}
               className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700'}`}
             >
-              {usbPrinter ? '✅ RECONFIGURAR USB' : '🔗 CONECTAR USB'}
+              {usbPrinter ? '✅ RECONFIGURAR IMPRESSORA' : '🔗 CONECTAR IMPRESSORA'}
             </button>
           </div>
         )}
