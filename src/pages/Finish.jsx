@@ -11,72 +11,8 @@ export default function Finish() {
   const order = location.state?.order || lastOrder
   const [tempName, setTempName] = useState(order?.customerName || "Cliente")
   const hasProcessed = useRef(false)
-  const [usbPrinter, setUsbPrinter] = useState(null)
   const [isPrinting, setIsPrinting] = useState(false)
 
-  const connectUSB = async () => {
-    try {
-      const device = await navigator.usb.requestDevice({ filters: [] })
-      await device.open()
-      await device.selectConfiguration(1)
-      await device.claimInterface(device.configuration.interfaces[0].interfaceNumber)
-      setUsbPrinter(device)
-      alert("✅ Impressora conectada!")
-    } catch (err) {
-      console.error("Erro USB:", err)
-      alert("❌ Erro ao conectar impressora.")
-    }
-  }
-
-
-  const printUSB = async () => {
-    if (!usbPrinter || !order) return false
-    try {
-      const encoder = new TextEncoder()
-      const txt = (str) => encoder.encode(str + '\n')
-
-      const INIT = new Uint8Array([0x1B, 0x40])
-      const CENTER = new Uint8Array([0x1B, 0x61, 0x01])
-      const LEFT = new Uint8Array([0x1B, 0x61, 0x00])
-      const BOLD_ON = new Uint8Array([0x1B, 0x45, 0x01])
-      const BOLD_OFF = new Uint8Array([0x1B, 0x45, 0x00])
-      const DOUBLE_ON = new Uint8Array([0x1B, 0x21, 0x30])
-      const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01])
-      const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03])
-
-      let data = new Uint8Array([
-        ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
-        ...txt("CNPJ: 48.507.205/0001-94"),
-        ...txt("Tel: (63) 99103-8781"),
-        ...txt("Autoatendimento"), ...BOLD_OFF,
-        ...txt("--------------------------------"),
-        ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
-        ...LEFT, ...txt(`Cliente: ${tempName}`),
-        ...txt(`Data: ${new Date().toLocaleString()}`),
-        ...txt("--------------------------------"),
-      ])
-
-      order.items.forEach(item => {
-        const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(20) + ` R$${(item.price * item.qty).toFixed(2)}`
-        data = new Uint8Array([...data, ...txt(line)])
-        if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)])
-      })
-
-      data = new Uint8Array([
-        ...data,
-        ...txt("--------------------------------"),
-        ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
-        ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
-      ])
-
-      const endpoint = usbPrinter.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out').endpointNumber
-      await usbPrinter.transferOut(endpoint, data)
-      return true
-    } catch (err) {
-      console.error("Erro na impressão USB:", err)
-      return false
-    }
-  }
 
   useEffect(() => {
     const processOrder = async () => {
@@ -95,22 +31,6 @@ export default function Finish() {
     processOrder()
     if (order?.customerName) setTempName(order.customerName)
 
-    // Tenta reconectar USB silenciosamente (se já autorizado antes)
-    const autoConnectUSB = async () => {
-      if (navigator.usb && navigator.usb.getDevices) {
-        const devices = await navigator.usb.getDevices();
-        if (devices.length > 0) {
-          try {
-            const device = devices[0];
-            await device.open();
-            await device.selectConfiguration(1);
-            await device.claimInterface(device.configuration.interfaces[0].interfaceNumber);
-            setUsbPrinter(device);
-          } catch (e) { console.log("USB Auto-connect failed:", e); }
-        }
-      }
-    };
-    autoConnectUSB();
 
     const handleAfterPrint = () => handleNewOrder()
     window.addEventListener('afterprint', handleAfterPrint)
@@ -196,41 +116,16 @@ export default function Finish() {
 
       <div className="flex flex-col gap-4 w-full max-w-sm px-6">
         <button
-          onClick={async () => {
-            if (isPrinting) return
-            setIsPrinting(true)
-
-            // TENTA USB
-            if (usbPrinter) {
-              const usbSuccess = await printUSB()
-              if (usbSuccess) {
-                setIsPrinting(false)
-                return handleNewOrder()
-              }
-            }
-
-            // SE NÃO TEM USB OU FALHOU, USA O WINDOW.PRINT (SISTEMA)
-            setIsPrinting(false)
+          onClick={() => {
             window.print()
           }}
-          disabled={isPrinting}
-          className={`w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 screen-only transition-all ${isPrinting ? 'opacity-50' : 'hover:bg-gray-50 active:scale-95'}`}
+          className="w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 screen-only hover:bg-gray-50 active:scale-95 transition-all"
         >
-          <span>{isPrinting ? '⏳' : '🖨️'}</span>
-          {isPrinting ? 'IMPRIMINDO...' : 'IMPRIMIR RECIBO'}
+          <span>🖨️</span>
+          IMPRIMIR RECIBO
         </button>
 
 
-        {showAdminConfig && (
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={connectUSB}
-              className={`w-full py-2 text-white text-[10px] font-black rounded-xl border border-white/20 transition-all screen-only ${usbPrinter ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-green-700/50 hover:bg-green-700'}`}
-            >
-              {usbPrinter ? '✅ RECONFIGURAR IMPRESSORA' : '🔗 CONECTAR IMPRESSORA'}
-            </button>
-          </div>
-        )}
 
         <button onClick={handleNewOrder} className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
           NOVO PEDIDO
