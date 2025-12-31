@@ -562,7 +562,7 @@ export default function Cashier() {
                                     Usar Impressora Wi-Fi/Sistema
                                 </button>
 
-                                <div className="h-[1px] bg-gray-100 my-2"></div>
+                                <div className="h-[2px] bg-gray-100 my-6"></div>
 
                                 <button
                                     onClick={() => setLastFinishedOrder(null)}

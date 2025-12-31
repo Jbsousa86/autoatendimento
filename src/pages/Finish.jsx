@@ -114,7 +114,7 @@ export default function Finish() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-12 w-full max-w-sm px-6 screen-only">
+      <div className="flex flex-col gap-16 w-full max-w-sm px-6 screen-only">
         <button
           onClick={() => {
             window.print()
@@ -128,7 +128,7 @@ export default function Finish() {
 
 
 
-        <button onClick={handleNewOrder} className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
+        <button onClick={handleNewOrder} className="w-full py-6 mt-10 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
           NOVO PEDIDO
         </button>
       </div>
