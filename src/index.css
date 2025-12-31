@@ -46,7 +46,7 @@
 
 @media print {
 
-    /* 1. TRAVAMENTO ABSOLUTO DE LARGURA */
+    /* 1. TRAVAMENTO NO LIMITE DO SEU DRIVER (72mm) */
     @page {
         margin: 0 !important;
         size: 72mm auto !important;
@@ -60,17 +60,16 @@
         min-width: 72mm !important;
         max-width: 72mm !important;
         background: white !important;
-        display: block !important;
         overflow: visible !important;
+        display: block !important;
     }
 
-    /* 2. ESCONDER O SITE */
-    .screen-only,
-    #root>div:not(#receipt) {
+    /* 2. LIMPEZA TOTAL DA PÁGINA */
+    .screen-only {
         display: none !important;
     }
 
-    /* 3. RECIBO TRAVADO EM 72MM */
+    /* 3. RECIBO NO PONTO ZERO (Topo Esquerdo) */
     #receipt {
         display: block !important;
         visibility: visible !important;
@@ -81,10 +80,9 @@
         min-width: 72mm !important;
         max-width: 72mm !important;
         margin: 0 !important;
-        padding: 4mm !important;
-        /* Espaço interno para não encostar na borda física */
-        color: #000 !important;
+        padding: 2mm !important;
         background: white !important;
+        color: #000 !important;
         font-family: 'Courier New', Courier, monospace !important;
         font-size: 10pt !important;
         line-height: 1.1 !important;
@@ -93,6 +91,7 @@
 
     #receipt * {
         visibility: visible !important;
+        color: #000 !important;
     }
 
     /* 4. ELEMENTOS DO RECIBO */
