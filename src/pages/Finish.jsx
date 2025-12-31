@@ -133,7 +133,7 @@ export default function Finish() {
         </button>
       </div>
 
-      <div id="receipt" className="opacity-0 pointer-events-none fixed top-0 left-0 text-black bg-white font-mono">
+      <div id="receipt" className="text-black bg-white font-mono">
         <div className="text-center mb-4">
           <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
           <p className="text-xs italic">CNPJ: 48.507.205/0001-94</p>

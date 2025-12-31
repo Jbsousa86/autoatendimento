@@ -39,37 +39,46 @@
     }
 }
 
+/* Esconde o recibo da tela normal */
+#receipt {
+    display: none;
+}
+
 @media print {
 
-    /* Esconde absolutamente TUDO exceto o recibo */
-    body * {
-        visibility: hidden !important;
+    /* Esconde o site inteiro */
+    body>*:not(#receipt) {
+        display: none !important;
     }
 
-    #receipt,
-    #receipt * {
-        visibility: visible !important;
+    #root {
+        display: none !important;
     }
 
-    /* Estilo do Recibo para Impressora Térmica */
+    /* Força o recibo a aparecer */
     #receipt {
         display: block !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 72mm !important;
-        /* Segurança para papel de 80mm */
+        position: relative !important;
+        width: 100% !important;
+        max-width: 72mm !important;
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 4mm !important;
         background: white !important;
         color: black !important;
         font-family: 'Courier New', Courier, monospace !important;
-        font-size: 11pt !important;
-        line-height: 1.2 !important;
-        opacity: 1 !important;
+        font-size: 10pt !important;
     }
 
-    /* Firefox especifico: Forçar margens zero na página */
+    #receipt * {
+        display: block;
+        /* Garante que filhos não herdem display none */
+        visibility: visible !important;
+    }
+
+    table {
+        width: 100%;
+    }
+
     @page {
         margin: 0;
         size: auto;
