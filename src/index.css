@@ -71,25 +71,29 @@
         padding: 0 !important;
     }
 
-    /* 3. O RECIBO - AJUSTADO PARA 72MM */
+    /* 3. O RECIBO - AJUSTADO PARA SEGURANÇA */
     #receipt {
         display: block !important;
         visibility: visible !important;
-        width: 80mm !important;
-        /* Limite do seu driver */
+        width: 76mm !important;
+        /* Reduzido de 80mm para dar folga */
         margin: 0 !important;
-        padding: 2mm !important;
+        padding-top: 5mm !important;
+        padding-bottom: 5mm !important;
+        padding-left: 4mm !important;
+        /* EMPURRA O TEXTO PARA A DIREITA */
+        padding-right: 2mm !important;
         color: #000 !important;
         background: white !important;
         font-family: 'Courier New', Courier, monospace !important;
         font-size: 10pt !important;
         font-weight: bold !important;
         line-height: 1.1 !important;
+        box-sizing: border-box !important;
     }
 
     #receipt * {
         visibility: visible !important;
-        display: block;
     }
 
     /* 4. CABEÇALHO E NÚMERO */
