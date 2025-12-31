@@ -114,7 +114,7 @@ export default function Finish() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 w-full max-w-sm px-6 screen-only">
+      <div className="flex flex-col gap-12 w-full max-w-sm px-6 screen-only">
         <button
           onClick={() => {
             window.print()
