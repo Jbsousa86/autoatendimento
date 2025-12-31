@@ -127,12 +127,13 @@ export default function Finish() {
 
 
 
+
         <button onClick={handleNewOrder} className="w-full py-6 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
           NOVO PEDIDO
         </button>
       </div>
 
-      <div id="receipt" className="opacity-0 pointer-events-none absolute top-0 left-0 p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
+      <div id="receipt" className="opacity-0 pointer-events-none fixed top-0 left-0 text-black bg-white font-mono">
         <div className="text-center mb-4">
           <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
           <p className="text-xs italic">CNPJ: 48.507.205/0001-94</p>

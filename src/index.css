@@ -40,30 +40,36 @@
 }
 
 @media print {
-    /* Esconde absolutamente TUDO na tela */
+
+    /* Esconde absolutamente TUDO exceto o recibo */
     body * {
         visibility: hidden !important;
     }
 
-    /* Mostra APENAS o recibo e seus filhos */
-    #receipt, #receipt * {
+    #receipt,
+    #receipt * {
         visibility: visible !important;
     }
 
-    /* Posiciona o recibo no topo da página de impressão */
+    /* Estilo do Recibo para Impressora Térmica */
     #receipt {
         display: block !important;
         position: absolute !important;
         left: 0 !important;
         top: 0 !important;
-        width: 100% !important;
+        width: 72mm !important;
+        /* Segurança para papel de 80mm */
         margin: 0 !important;
         padding: 0 !important;
         background: white !important;
         color: black !important;
+        font-family: 'Courier New', Courier, monospace !important;
+        font-size: 11pt !important;
+        line-height: 1.2 !important;
+        opacity: 1 !important;
     }
 
-    /* Remove margens da página definidas pelo navegador */
+    /* Firefox especifico: Forçar margens zero na página */
     @page {
         margin: 0;
         size: auto;
