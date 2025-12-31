@@ -61,7 +61,7 @@
         background: white !important;
         margin: 0 !important;
         padding: 0 !important;
-        width: 100% !important;
+        width: 80mm !important;
         height: auto !important;
     }
 
@@ -75,7 +75,7 @@
     #receipt {
         display: block !important;
         visibility: visible !important;
-        width: 72mm !important;
+        width: 80mm !important;
         /* Limite do seu driver */
         margin: 0 !important;
         padding: 2mm !important;
