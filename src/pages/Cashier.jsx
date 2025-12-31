@@ -224,6 +224,10 @@ export default function Cashier() {
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
             });
 
+            if (lastFinishedOrder.observation) {
+                data = new Uint8Array([...data, ...txt(`OBS: ${lastFinishedOrder.observation}`)]);
+            }
+
             data = new Uint8Array([
                 ...data,
                 ...txt("--------------------------------"),
@@ -613,17 +617,18 @@ export default function Cashier() {
                                         ))}
                                     </tbody>
                                 </table>
+                                {lastFinishedOrder.observation && (
+                                    <div className="border border-black p-1 text-[10px] mb-2 mt-2">
+                                        <span className="font-bold">OBS: </span> {lastFinishedOrder.observation}
+                                    </div>
+                                )}
                                 <div className="border-t border-black border-dashed pt-2 my-2">
                                     <div className="flex justify-between font-bold text-lg">
                                         <span>TOTAL</span>
                                         <span>{Number(lastFinishedOrder.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                     </div>
                                 </div>
-                                {lastFinishedOrder.observation && (
-                                    <div className="border border-black p-1 text-[10px] mb-2">
-                                        <span className="font-bold">OBS: </span> {lastFinishedOrder.observation}
-                                    </div>
-                                )}
+
                                 <div className="text-center mt-6 text-xs">
                                     <p>Obrigado pela preferência!</p>
                                 </div>
@@ -633,459 +638,467 @@ export default function Cashier() {
                 )}
 
                 {/* AVISO SELEÇÃO SEGUNDO SABOR */}
-                {selectingHalf && (
-                    <div className="absolute top-0 left-0 right-0 bg-red-600 text-white p-3 z-[60] flex justify-between items-center animate-pulse">
-                        <span className="font-bold">🍕 SELECIONANDO 2º SABOR PARA PIZZA {selectingHalf} (1º Sabor: {firstFlavor?.name})</span>
-                        <button
-                            onClick={() => { setSelectingHalf(null); setFirstFlavor(null); }}
-                            className="bg-white text-red-600 px-3 py-1 rounded text-xs font-black"
-                        >
-                            CANCELAR
-                        </button>
-                    </div>
-                )}
+                {
+                    selectingHalf && (
+                        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white p-3 z-[60] flex justify-between items-center animate-pulse">
+                            <span className="font-bold">🍕 SELECIONANDO 2º SABOR PARA PIZZA {selectingHalf} (1º Sabor: {firstFlavor?.name})</span>
+                            <button
+                                onClick={() => { setSelectingHalf(null); setFirstFlavor(null); }}
+                                className="bg-white text-red-600 px-3 py-1 rounded text-xs font-black"
+                            >
+                                CANCELAR
+                            </button>
+                        </div>
+                    )
+                }
 
                 {/* MODAL SELEÇÃO DE TAMANHO (PIZZA) */}
-                {selectedPizza && (
-                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
-                            <h2 className="text-2xl font-black text-gray-800 mb-2">🍕 Escolha o Tamanho</h2>
-                            <p className="text-gray-500 mb-6">Selecione o tamanho para <strong>{selectedPizza.name}</strong></p>
+                {
+                    selectedPizza && (
+                        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
+                                <h2 className="text-2xl font-black text-gray-800 mb-2">🍕 Escolha o Tamanho</h2>
+                                <p className="text-gray-500 mb-6">Selecione o tamanho para <strong>{selectedPizza.name}</strong></p>
 
-                            <div className="flex flex-col gap-4">
-                                {/* PEQUENA */}
-                                <button
-                                    onClick={() => handlePizzaSelection('P', selectedPizza.price_p)}
-                                    disabled={!selectedPizza.price_p}
-                                    className={`w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 transition ${!selectedPizza.price_p ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
-                                >
-                                    <span>PEQUENA (P)</span>
-                                    <span>{selectedPizza.price_p ? `R$ ${parseFloat(selectedPizza.price_p).toFixed(2)}` : '--'}</span>
-                                </button>
+                                <div className="flex flex-col gap-4">
+                                    {/* PEQUENA */}
+                                    <button
+                                        onClick={() => handlePizzaSelection('P', selectedPizza.price_p)}
+                                        disabled={!selectedPizza.price_p}
+                                        className={`w-full py-4 rounded-xl font-bold flex justify-between px-6 border-2 transition ${!selectedPizza.price_p ? 'opacity-50 cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400' : 'border-red-500 text-red-600 hover:bg-red-50'}`}
+                                    >
+                                        <span>PEQUENA (P)</span>
+                                        <span>{selectedPizza.price_p ? `R$ ${parseFloat(selectedPizza.price_p).toFixed(2)}` : '--'}</span>
+                                    </button>
 
-                                {/* MÉDIA */}
-                                <div className="border-2 border-gray-800 rounded-xl overflow-hidden">
-                                    <div className="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-tighter">Média (M) • R$ {parseFloat(selectedPizza.price).toFixed(2)}</div>
-                                    <div className="flex">
-                                        <button
-                                            onClick={() => handlePizzaSelection('M', selectedPizza.price)}
-                                            className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
-                                        >
-                                            INTEIRA
-                                        </button>
-                                        <button
-                                            onClick={() => handlePizzaSelection('M', selectedPizza.price, true)}
-                                            className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
-                                        >
-                                            1/2 A 1/2
-                                        </button>
+                                    {/* MÉDIA */}
+                                    <div className="border-2 border-gray-800 rounded-xl overflow-hidden">
+                                        <div className="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-tighter">Média (M) • R$ {parseFloat(selectedPizza.price).toFixed(2)}</div>
+                                        <div className="flex">
+                                            <button
+                                                onClick={() => handlePizzaSelection('M', selectedPizza.price)}
+                                                className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
+                                            >
+                                                INTEIRA
+                                            </button>
+                                            <button
+                                                onClick={() => handlePizzaSelection('M', selectedPizza.price, true)}
+                                                className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
+                                            >
+                                                1/2 A 1/2
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* GRANDE */}
-                                <div className={`border-2 rounded-xl overflow-hidden ${!selectedPizza.price_g ? 'opacity-50 grayscale pointer-events-none' : 'border-green-600'}`}>
-                                    <div className="bg-green-600 text-white text-xs font-bold py-1 uppercase tracking-tighter">Grande (G) • {selectedPizza.price_g ? `R$ ${parseFloat(selectedPizza.price_g).toFixed(2)}` : '--'}</div>
-                                    <div className="flex">
-                                        <button
-                                            onClick={() => handlePizzaSelection('G', selectedPizza.price_g)}
-                                            className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
-                                        >
-                                            INTEIRA
-                                        </button>
-                                        <button
-                                            onClick={() => handlePizzaSelection('G', selectedPizza.price_g, true)}
-                                            className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
-                                        >
-                                            1/2 A 1/2
-                                        </button>
+                                    {/* GRANDE */}
+                                    <div className={`border-2 rounded-xl overflow-hidden ${!selectedPizza.price_g ? 'opacity-50 grayscale pointer-events-none' : 'border-green-600'}`}>
+                                        <div className="bg-green-600 text-white text-xs font-bold py-1 uppercase tracking-tighter">Grande (G) • {selectedPizza.price_g ? `R$ ${parseFloat(selectedPizza.price_g).toFixed(2)}` : '--'}</div>
+                                        <div className="flex">
+                                            <button
+                                                onClick={() => handlePizzaSelection('G', selectedPizza.price_g)}
+                                                className="flex-1 py-3 font-bold hover:bg-gray-100 border-r border-gray-200"
+                                            >
+                                                INTEIRA
+                                            </button>
+                                            <button
+                                                onClick={() => handlePizzaSelection('G', selectedPizza.price_g, true)}
+                                                className="flex-1 py-3 font-bold text-orange-600 hover:bg-orange-50"
+                                            >
+                                                1/2 A 1/2
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <button
-                                    onClick={() => setSelectedPizza(null)}
-                                    className="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 mt-4"
-                                >
-                                    Cancelar
-                                </button>
+                                    <button
+                                        onClick={() => setSelectedPizza(null)}
+                                        className="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-300 mt-4"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
-                {activeTab === 'pos' && (
-                    <div className="h-full flex flex-col md:flex-row relative">
-                        {/* COLUNA 1: PRODUTOS */}
-                        <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
-                            {/* MONITOR DE AUTOATENDIMENTO (TOTEM) */}
-                            <div className="bg-orange-50 p-2 border-b border-orange-100 flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                                <div className="bg-orange-600 text-white text-[8px] md:text-[9px] font-black px-1.5 py-0.5 md:px-2 md:py-1 rounded shadow-sm flex items-center gap-1 shrink-0">
-                                    <span className="animate-ping">●</span> <span className="hidden xs:inline">TOTEM AO VIVO</span><span className="xs:hidden">TOTEM</span>
-                                </div>
-                                {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').slice(0, 5).map(o => (
-                                    <div key={o.id} className="text-[11px] font-bold text-orange-900 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm transition-all hover:scale-105">
-                                        #{o.order_number} - {o.customer_name}
+                {
+                    activeTab === 'pos' && (
+                        <div className="h-full flex flex-col md:flex-row relative">
+                            {/* COLUNA 1: PRODUTOS */}
+                            <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
+                                {/* MONITOR DE AUTOATENDIMENTO (TOTEM) */}
+                                <div className="bg-orange-50 p-2 border-b border-orange-100 flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                                    <div className="bg-orange-600 text-white text-[8px] md:text-[9px] font-black px-1.5 py-0.5 md:px-2 md:py-1 rounded shadow-sm flex items-center gap-1 shrink-0">
+                                        <span className="animate-ping">●</span> <span className="hidden xs:inline">TOTEM AO VIVO</span><span className="xs:hidden">TOTEM</span>
                                     </div>
-                                ))}
-                                {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').length === 0 && (
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase italic ml-2">Nenhum pedido novo no autoatendimento</span>
-                                )}
-                            </div>
-
-                            {/* Categorias */}
-                            <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedCategory(cat.id)}
-                                        className={`px-4 py-2 rounded-full whitespace-nowrap font-bold text-sm flex-shrink-0 ${selectedCategory === cat.id
-                                            ? 'bg-orange-600 text-white shadow-lg shadow-orange-200'
-                                            : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                            }`}
-                                    >
-                                        {cat.name}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Grid Produtos */}
-                            <div className="flex-1 overflow-y-auto p-4 bg-gray-50 pb-24 md:pb-4">
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                                    {filteredProducts.map(product => (
-                                        <div
-                                            key={product.id}
-                                            onClick={() => addToCart(product)}
-                                            className="bg-white p-3 md:p-4 rounded-lg shadow cursor-pointer active:scale-95 transition flex flex-col items-center text-center border border-gray-100"
-                                        >
-                                            <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden mb-2">
-                                                {product.image ? (
-                                                    <img src={product.image} className="w-full h-full object-cover" />
-                                                ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
-                                            </div>
-                                            <h3 className="font-bold text-[11px] md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
-                                            <p className="text-green-600 font-black text-xs md:text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
+                                    {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').slice(0, 5).map(o => (
+                                        <div key={o.id} className="text-[11px] font-bold text-orange-900 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm transition-all hover:scale-105">
+                                            #{o.order_number} - {o.customer_name}
                                         </div>
                                     ))}
+                                    {dailyOrders.filter(o => !o.cashier_name && o.status === 'pending').length === 0 && (
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase italic ml-2">Nenhum pedido novo no autoatendimento</span>
+                                    )}
+                                </div>
+
+                                {/* Categorias */}
+                                <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
+                                    {categories.map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => setSelectedCategory(cat.id)}
+                                            className={`px-4 py-2 rounded-full whitespace-nowrap font-bold text-sm flex-shrink-0 ${selectedCategory === cat.id
+                                                ? 'bg-orange-600 text-white shadow-lg shadow-orange-200'
+                                                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                }`}
+                                        >
+                                            {cat.name}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Grid Produtos */}
+                                <div className="flex-1 overflow-y-auto p-4 bg-gray-50 pb-24 md:pb-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                                        {filteredProducts.map(product => (
+                                            <div
+                                                key={product.id}
+                                                onClick={() => addToCart(product)}
+                                                className="bg-white p-3 md:p-4 rounded-lg shadow cursor-pointer active:scale-95 transition flex flex-col items-center text-center border border-gray-100"
+                                            >
+                                                <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden mb-2">
+                                                    {product.image ? (
+                                                        <img src={product.image} className="w-full h-full object-cover" />
+                                                    ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
+                                                </div>
+                                                <h3 className="font-bold text-[11px] md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
+                                                <p className="text-green-600 font-black text-xs md:text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* COLUNA 2: CARRINHO (RESPONSIVO) */}
-                        {/* Mobile Overlay Background */}
-                        {mobileCartOpen && (
-                            <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setMobileCartOpen(false)} />
-                        )}
+                            {/* COLUNA 2: CARRINHO (RESPONSIVO) */}
+                            {/* Mobile Overlay Background */}
+                            {mobileCartOpen && (
+                                <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setMobileCartOpen(false)} />
+                            )}
 
-                        <div className={`
+                            <div className={`
                             fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out flex flex-col
                             md:relative md:transform-none md:w-96 md:flex md:flex-col md:shadow-none md:z-auto
                             ${mobileCartOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
                         `}>
-                            <div className="p-4 bg-gray-50 border-b border-gray-200">
-                                <div className="flex justify-between items-center mb-3">
-                                    <div>
-                                        <h2 className="font-black text-lg text-gray-700 leading-none">ORDEM ATUAL</h2>
-                                        <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">Venda de Balcão</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setMobileCartOpen(false)}
-                                        className="md:hidden text-gray-400 hover:text-gray-600 p-2"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Nome do Cliente (Opcional)"
-                                    className="w-full border-2 border-orange-200 bg-white p-2 rounded-lg text-sm font-bold focus:border-orange-500 focus:outline-none placeholder-gray-300"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                {cart.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
-                                        Nenhum item selecionado
-                                    </div>
-                                ) : (
-                                    cart.map((item, idx) => (
-                                        <div key={item.tempId} className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm transition-all">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="flex-1">
-                                                    <p className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <div className="flex items-center bg-white border border-gray-200 rounded-md shadow-sm">
-                                                            <button
-                                                                onClick={() => decreaseQty(item.tempId)}
-                                                                className="w-8 h-8 flex items-center justify-center text-red-500 font-bold hover:bg-red-50 active:bg-red-100 transition-colors"
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <span className="w-8 text-center text-xs font-black text-gray-700">
-                                                                {item.qty || 1}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => increaseQty(item.tempId)}
-                                                                className="w-8 h-8 flex items-center justify-center text-green-600 font-bold hover:bg-green-50 active:bg-green-100 transition-colors"
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                        <p className="text-xs text-green-600 font-bold ml-1">
-                                                            R$ {(Number(item.price) * (item.qty || 1)).toFixed(2)}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => removeFromCart(item.tempId)}
-                                                    className="text-red-400 hover:text-red-600 p-1 bg-white rounded shadow-sm ml-2"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            {/* OBSERVAÇÃO POR ITEM */}
-                                            <input
-                                                className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none placeholder-gray-300"
-                                                placeholder="Obs: Sem cebola, bem passado..."
-                                                value={item.observation || ""}
-                                                onChange={(e) => updateItemObservation(item.tempId, e.target.value)}
-                                            />
+                                <div className="p-4 bg-gray-50 border-b border-gray-200">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <div>
+                                            <h2 className="font-black text-lg text-gray-700 leading-none">ORDEM ATUAL</h2>
+                                            <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">Venda de Balcão</p>
                                         </div>
-                                    ))
-                                )}
-                            </div>
-
-                            <div className="p-4 md:p-6 bg-gray-100 border-t border-gray-200 safe-bottom">
-                                {/* OBSERVAÇÃO GERAL */}
-                                <div className="mb-3 md:mb-4">
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Observação Geral</label>
-                                    <textarea
-                                        className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none resize-none"
-                                        rows={1}
-                                        placeholder="Notas do pedido..."
-                                        value={orderObservation}
-                                        onChange={(e) => setOrderObservation(e.target.value)}
+                                        <button
+                                            onClick={() => setMobileCartOpen(false)}
+                                            className="md:hidden text-gray-400 hover:text-gray-600 p-2"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Nome do Cliente (Opcional)"
+                                        className="w-full border-2 border-orange-200 bg-white p-2 rounded-lg text-sm font-bold focus:border-orange-500 focus:outline-none placeholder-gray-300"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
                                     />
                                 </div>
 
-                                <div className="flex justify-between items-center mb-4 md:mb-6">
-                                    <span className="text-gray-600 font-bold text-sm">TOTAL</span>
-                                    <span className="text-2xl md:text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        handleFinishOrder()
-                                        setMobileCartOpen(false)
-                                    }}
-                                    className="w-full bg-green-600 text-white py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl hover:bg-green-700 shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <span>✅</span> CONFIRMAR VENDA
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* MOBILE BOTTOM BAR (TRIGGER) */}
-                        {!mobileCartOpen && cart.length > 0 && (
-                            <div className="fixed bottom-0 left-0 right-0 bg-gray-900 p-4 md:hidden z-20 flex items-center justify-between shadow-lg cursor-pointer" onClick={() => setMobileCartOpen(true)}>
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-orange-500 text-white font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm">
-                                        {cart.length}
-                                    </div>
-                                    <div className="text-white">
-                                        <p className="text-xs text-gray-400 uppercase font-bold">Total</p>
-                                        <p className="font-bold text-lg">R$ {calculateTotal().toFixed(2)}</p>
-                                    </div>
-                                </div>
-                                <button className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm">
-                                    VER CARRINHO
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'history' && (
-                    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
-                        {/* SELETOR DE DATA */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
-                            <div>
-                                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">📅 Relatórios</h2>
-                                <p className="text-xs text-gray-400 font-bold uppercase">Consulte o desempenho de qualquer dia</p>
-                            </div>
-                            <div className="flex items-center gap-2 w-full md:w-auto">
-                                <button
-                                    onClick={() => setReportDate(new Date().toLocaleDateString('en-CA'))}
-                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-black transition-all"
-                                >
-                                    HOJE
-                                </button>
-                                <input
-                                    type="date"
-                                    value={reportDate}
-                                    onChange={(e) => setReportDate(e.target.value)}
-                                    className="flex-1 md:w-48 border-2 border-gray-200 p-2 rounded-lg font-bold text-gray-700 focus:border-blue-500 focus:outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        {/* DESTAQUE DO DIA SELECIONADO */}
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl border border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6 text-white text-center md:text-left transition-all">
-                            <div>
-                                <h3 className="text-blue-100 font-bold text-xs uppercase tracking-[0.2em] mb-2">
-                                    {reportDate === new Date().toLocaleDateString('en-CA') ? 'Faturamento de Hoje' : `Vendas em ${new Date(reportDate + "T12:00:00").toLocaleDateString('pt-BR')}`}
-                                </h3>
-                                <p className="text-5xl font-black">
-                                    R$ {dailyOrders
-                                        .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
-                                    }
-                                </p>
-                                <p className="text-blue-200 text-sm mt-2 font-medium">
-                                    {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length} pedidos realizados
-                                </p>
-                            </div>
-                            <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
-                                <span className="text-3xl">📊</span>
-                            </div>
-                        </div>
-
-                        {/* DETALHAMENTO DO DIA SELECIONADO */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Minhas Vendas (Data)</h3>
-                                <p className="text-2xl font-black text-blue-600">
-                                    R$ {dailyOrders
-                                        .filter(o => o.cashier_name === user.name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
-                                    }
-                                </p>
-                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Processado por você</p>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Vendas Totem (Data)</h3>
-                                <p className="text-2xl font-black text-orange-600">
-                                    R$ {dailyOrders
-                                        .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                        .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
-                                    }
-                                </p>
-                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Autoatendimento</p>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Geral (Semana)</h3>
-                                <p className="text-2xl font-black text-green-600">
-                                    R$ {dailyOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)}
-                                </p>
-                                <p className="text-[10px] text-gray-500 mt-1 font-bold">Acumulado 7 dias buscados</p>
-                            </div>
-                        </div>
-
-                        {/* HISTÓRICO DETALHADO — FILTRADO POR DATA */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                                <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Pedidos do Dia Selecionado</h2>
-                                <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
-                            </div>
-                            <div className="overflow-x-auto hidden md:block">
-                                <table className="w-full text-left">
-                                    <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
-                                        <tr>
-                                            <th className="p-4">Data/Hora</th>
-                                            <th className="p-4">Origem</th>
-                                            <th className="p-4">Itens</th>
-                                            <th className="p-4 text-right">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {dailyOrders
-                                            .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                            .map(order => (
-                                                <tr
-                                                    key={order.id}
-                                                    onClick={() => handleReprint(order)}
-                                                    className="hover:bg-blue-50 transition-colors cursor-pointer group"
-                                                    title="Clique para Reimprimir"
-                                                >
-                                                    <td className="p-4 text-gray-500 font-mono text-[10px] leading-tight">
-                                                        <span className="block font-bold text-gray-800">{new Date(order.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                                                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                                    </td>
-                                                    <td className="p-4">
-                                                        {order.cashier_name ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                                                <span className="text-[10px] font-black uppercase text-blue-900">{order.cashier_name}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                                                                <span className="text-[10px] font-black uppercase text-orange-900 font-mono tracking-tighter">🤖 TOTEM</span>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <p className="text-xs font-bold truncate max-w-[200px] md:max-w-md group-hover:text-blue-700">
-                                                            {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
-                                                        </p>
-                                                        <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
-                                                    </td>
-                                                    <td className="p-4 text-right">
-                                                        <div className="flex flex-col items-end">
-                                                            <span className="font-black text-gray-900 text-sm">R$ {Number(order.total).toFixed(2)}</span>
-                                                            <span className="text-[8px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 uppercase tracking-tighter">🖨️ REIMPRIMIR</span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* MOBILE VERSION OF HISTORY (CARD BASED) */}
-                            <div className="md:hidden divide-y divide-gray-100">
-                                {dailyOrders
-                                    .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                    .map(order => (
-                                        <div
-                                            key={order.id}
-                                            onClick={() => handleReprint(order)}
-                                            className="p-4 active:bg-blue-50 transition-colors"
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <span className="text-[10px] font-black text-blue-600 block mb-1">#{order.order_number}</span>
-                                                    <span className="text-xs font-bold text-gray-800">
-                                                        {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-black text-gray-900">R$ {Number(order.total).toFixed(2)}</p>
-                                                    {order.cashier_name ? (
-                                                        <span className="text-[9px] font-black uppercase text-blue-500">👤 {order.cashier_name}</span>
-                                                    ) : (
-                                                        <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <p className="text-[11px] text-gray-500 line-clamp-2 italic">
-                                                {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
-                                            </p>
-                                            <button className="w-full mt-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-blue-100">
-                                                🖨️ REIMPRIMIR COMPROVANTE
-                                            </button>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                    {cart.length === 0 ? (
+                                        <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
+                                            Nenhum item selecionado
                                         </div>
-                                    ))}
+                                    ) : (
+                                        cart.map((item, idx) => (
+                                            <div key={item.tempId} className="bg-gray-50 p-3 rounded-lg border border-gray-200 shadow-sm transition-all">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-sm text-gray-800 line-clamp-1">{item.name}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="flex items-center bg-white border border-gray-200 rounded-md shadow-sm">
+                                                                <button
+                                                                    onClick={() => decreaseQty(item.tempId)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-red-500 font-bold hover:bg-red-50 active:bg-red-100 transition-colors"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="w-8 text-center text-xs font-black text-gray-700">
+                                                                    {item.qty || 1}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => increaseQty(item.tempId)}
+                                                                    className="w-8 h-8 flex items-center justify-center text-green-600 font-bold hover:bg-green-50 active:bg-green-100 transition-colors"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                            <p className="text-xs text-green-600 font-bold ml-1">
+                                                                R$ {(Number(item.price) * (item.qty || 1)).toFixed(2)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.tempId)}
+                                                        className="text-red-400 hover:text-red-600 p-1 bg-white rounded shadow-sm ml-2"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                                {/* OBSERVAÇÃO POR ITEM */}
+                                                <input
+                                                    className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none placeholder-gray-300"
+                                                    placeholder="Obs: Sem cebola, bem passado..."
+                                                    value={item.observation || ""}
+                                                    onChange={(e) => updateItemObservation(item.tempId, e.target.value)}
+                                                />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <div className="p-4 md:p-6 bg-gray-100 border-t border-gray-200 safe-bottom">
+                                    {/* OBSERVAÇÃO GERAL */}
+                                    <div className="mb-3 md:mb-4">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Observação Geral</label>
+                                        <textarea
+                                            className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none resize-none"
+                                            rows={1}
+                                            placeholder="Notas do pedido..."
+                                            value={orderObservation}
+                                            onChange={(e) => setOrderObservation(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-between items-center mb-4 md:mb-6">
+                                        <span className="text-gray-600 font-bold text-sm">TOTAL</span>
+                                        <span className="text-2xl md:text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            handleFinishOrder()
+                                            setMobileCartOpen(false)
+                                        }}
+                                        className="w-full bg-green-600 text-white py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl hover:bg-green-700 shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <span>✅</span> CONFIRMAR VENDA
+                                    </button>
+                                </div>
                             </div>
 
-                            {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length === 0 && (
-                                <div className="p-10 text-center text-gray-400 font-bold italic text-sm">Nenhum pedido encontrado nesta data.</div>
+                            {/* MOBILE BOTTOM BAR (TRIGGER) */}
+                            {!mobileCartOpen && cart.length > 0 && (
+                                <div className="fixed bottom-0 left-0 right-0 bg-gray-900 p-4 md:hidden z-20 flex items-center justify-between shadow-lg cursor-pointer" onClick={() => setMobileCartOpen(true)}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-orange-500 text-white font-bold w-8 h-8 rounded-full flex items-center justify-center text-sm">
+                                            {cart.length}
+                                        </div>
+                                        <div className="text-white">
+                                            <p className="text-xs text-gray-400 uppercase font-bold">Total</p>
+                                            <p className="font-bold text-lg">R$ {calculateTotal().toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                    <button className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm">
+                                        VER CARRINHO
+                                    </button>
+                                </div>
                             )}
                         </div>
-                    </div>
-                )}
-            </main>
-        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'history' && (
+                        <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+                            {/* SELETOR DE DATA */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">📅 Relatórios</h2>
+                                    <p className="text-xs text-gray-400 font-bold uppercase">Consulte o desempenho de qualquer dia</p>
+                                </div>
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <button
+                                        onClick={() => setReportDate(new Date().toLocaleDateString('en-CA'))}
+                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-black transition-all"
+                                    >
+                                        HOJE
+                                    </button>
+                                    <input
+                                        type="date"
+                                        value={reportDate}
+                                        onChange={(e) => setReportDate(e.target.value)}
+                                        className="flex-1 md:w-48 border-2 border-gray-200 p-2 rounded-lg font-bold text-gray-700 focus:border-blue-500 focus:outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* DESTAQUE DO DIA SELECIONADO */}
+                            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl border border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6 text-white text-center md:text-left transition-all">
+                                <div>
+                                    <h3 className="text-blue-100 font-bold text-xs uppercase tracking-[0.2em] mb-2">
+                                        {reportDate === new Date().toLocaleDateString('en-CA') ? 'Faturamento de Hoje' : `Vendas em ${new Date(reportDate + "T12:00:00").toLocaleDateString('pt-BR')}`}
+                                    </h3>
+                                    <p className="text-5xl font-black">
+                                        R$ {dailyOrders
+                                            .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                            .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                        }
+                                    </p>
+                                    <p className="text-blue-200 text-sm mt-2 font-medium">
+                                        {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length} pedidos realizados
+                                    </p>
+                                </div>
+                                <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
+                                    <span className="text-3xl">📊</span>
+                                </div>
+                            </div>
+
+                            {/* DETALHAMENTO DO DIA SELECIONADO */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Minhas Vendas (Data)</h3>
+                                    <p className="text-2xl font-black text-blue-600">
+                                        R$ {dailyOrders
+                                            .filter(o => o.cashier_name === user.name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                            .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                        }
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Processado por você</p>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Vendas Totem (Data)</h3>
+                                    <p className="text-2xl font-black text-orange-600">
+                                        R$ {dailyOrders
+                                            .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                            .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                        }
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Autoatendimento</p>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Geral (Semana)</h3>
+                                    <p className="text-2xl font-black text-green-600">
+                                        R$ {dailyOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Acumulado 7 dias buscados</p>
+                                </div>
+                            </div>
+
+                            {/* HISTÓRICO DETALHADO — FILTRADO POR DATA */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Pedidos do Dia Selecionado</h2>
+                                    <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
+                                </div>
+                                <div className="overflow-x-auto hidden md:block">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
+                                            <tr>
+                                                <th className="p-4">Data/Hora</th>
+                                                <th className="p-4">Origem</th>
+                                                <th className="p-4">Itens</th>
+                                                <th className="p-4 text-right">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {dailyOrders
+                                                .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                .map(order => (
+                                                    <tr
+                                                        key={order.id}
+                                                        onClick={() => handleReprint(order)}
+                                                        className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                                                        title="Clique para Reimprimir"
+                                                    >
+                                                        <td className="p-4 text-gray-500 font-mono text-[10px] leading-tight">
+                                                            <span className="block font-bold text-gray-800">{new Date(order.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                                            {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {order.cashier_name ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                                    <span className="text-[10px] font-black uppercase text-blue-900">{order.cashier_name}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                                                                    <span className="text-[10px] font-black uppercase text-orange-900 font-mono tracking-tighter">🤖 TOTEM</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <p className="text-xs font-bold truncate max-w-[200px] md:max-w-md group-hover:text-blue-700">
+                                                                {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
+                                                            </p>
+                                                            <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
+                                                        </td>
+                                                        <td className="p-4 text-right">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="font-black text-gray-900 text-sm">R$ {Number(order.total).toFixed(2)}</span>
+                                                                <span className="text-[8px] font-bold text-blue-500 opacity-0 group-hover:opacity-100 uppercase tracking-tighter">🖨️ REIMPRIMIR</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* MOBILE VERSION OF HISTORY (CARD BASED) */}
+                                <div className="md:hidden divide-y divide-gray-100">
+                                    {dailyOrders
+                                        .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                        .map(order => (
+                                            <div
+                                                key={order.id}
+                                                onClick={() => handleReprint(order)}
+                                                className="p-4 active:bg-blue-50 transition-colors"
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <span className="text-[10px] font-black text-blue-600 block mb-1">#{order.order_number}</span>
+                                                        <span className="text-xs font-bold text-gray-800">
+                                                            {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-black text-gray-900">R$ {Number(order.total).toFixed(2)}</p>
+                                                        {order.cashier_name ? (
+                                                            <span className="text-[9px] font-black uppercase text-blue-500">👤 {order.cashier_name}</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <p className="text-[11px] text-gray-500 line-clamp-2 italic">
+                                                    {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
+                                                </p>
+                                                <button className="w-full mt-3 py-2 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest border border-blue-100">
+                                                    🖨️ REIMPRIMIR COMPROVANTE
+                                                </button>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length === 0 && (
+                                    <div className="p-10 text-center text-gray-400 font-bold italic text-sm">Nenhum pedido encontrado nesta data.</div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+            </main >
+        </div >
     )
 }
