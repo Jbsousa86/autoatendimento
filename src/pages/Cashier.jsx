@@ -571,7 +571,7 @@ export default function Cashier() {
 
                         {/* COMPROVANTE (HIDDEN) COPIADO DO FINISH.JSX */}
                         <div id="receipt" className="hidden">
-                            <div className="p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
+                            <div className="text-black bg-white font-mono text-xs leading-tight">
                                 <div className="text-center mb-4">
                                     <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
                                     <p className="text-xs">Rua Antonio moreira, 123</p>
