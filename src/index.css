@@ -46,37 +46,45 @@
 
 @media print {
 
-    /* Esconde o site inteiro */
-    body>*:not(#receipt) {
-        display: none !important;
+    /* Remove cores de fundo e margens do navegador */
+    html,
+    body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    #root {
-        display: none !important;
+    /* Esconde tudo na página */
+    body * {
+        visibility: hidden !important;
     }
 
-    /* Força o recibo a aparecer */
+    /* Mostra APENAS o recibo e tudo o que está dentro dele */
+    #receipt,
+    #receipt * {
+        visibility: visible !important;
+    }
+
+    /* Posiciona o recibo no topo absoluto do papel */
     #receipt {
         display: block !important;
-        position: relative !important;
-        width: 100% !important;
-        max-width: 72mm !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 72mm !important;
+        /* Largura ideal para papel de 80mm */
         margin: 0 !important;
-        padding: 4mm !important;
+        padding: 2mm !important;
         background: white !important;
         color: black !important;
         font-family: 'Courier New', Courier, monospace !important;
         font-size: 10pt !important;
+        line-height: 1.2 !important;
     }
 
-    #receipt * {
-        display: block;
-        /* Garante que filhos não herdem display none */
-        visibility: visible !important;
-    }
-
-    table {
-        width: 100%;
+    /* Garante que a tabela use a largura total do recibo */
+    #receipt table {
+        width: 100% !important;
     }
 
     @page {
