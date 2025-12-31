@@ -83,11 +83,11 @@ export default function Finish() {
 
   return (
     <div className="min-h-screen w-screen bg-green-600 flex flex-col items-center pt-10 pb-20 text-white overflow-y-auto">
-      <h1 onClick={handleAdminUnlock} className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none">
+      <h1 onClick={handleAdminUnlock} className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none screen-only">
         ✅ SUCESSO!
       </h1>
 
-      <div className="mb-2 text-center w-full max-w-2xl px-6">
+      <div className="mb-2 text-center w-full max-w-2xl px-6 screen-only">
         <input
           type="text"
           value={tempName}
@@ -98,17 +98,17 @@ export default function Finish() {
         />
       </div>
 
-      <div className="text-[180px] leading-none font-black mb-10 drop-shadow-2xl text-yellow-300">
+      <div className="text-[180px] leading-none font-black mb-10 drop-shadow-2xl text-yellow-300 screen-only">
         {order.orderNumber}
       </div>
 
       {order.orderObservation && (
-        <div className="mb-10 bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20">
+        <div className="mb-10 bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20 screen-only">
           <p className="text-2xl italic text-white font-medium italic">"{order.orderObservation}"</p>
         </div>
       )}
 
-      <div className="mb-12">
+      <div className="mb-12 screen-only">
         <p className="text-5xl font-black text-white/90">
           {Number(order.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </p>

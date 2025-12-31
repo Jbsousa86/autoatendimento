@@ -46,46 +46,48 @@
 
 @media print {
 
-    /* Remove cores de fundo e margens do navegador */
+    /* Esconde o que é so da tela */
+    .screen-only {
+        display: none !important;
+    }
+
+    /* Reseta o corpo para impressão */
     html,
     body {
         background: white !important;
         margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
     }
 
-    /* Esconde tudo na página */
-    body * {
-        visibility: hidden !important;
+    #root {
+        background: white !important;
+        padding: 0 !important;
     }
 
-    /* Mostra APENAS o recibo e tudo o que está dentro dele */
-    #receipt,
-    #receipt * {
-        visibility: visible !important;
-    }
-
-    /* Posiciona o recibo no topo absoluto do papel */
+    /* Estilo do Recibo Ultra Compatível */
     #receipt {
         display: block !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 72mm !important;
-        /* Largura ideal para papel de 80mm */
+        visibility: visible !important;
+        width: 65mm !important;
+        /* Um pouco menor para garantir compatibilidade */
         margin: 0 !important;
-        padding: 2mm !important;
-        background: white !important;
-        color: black !important;
+        padding: 0 !important;
+        color: #000000 !important;
         font-family: 'Courier New', Courier, monospace !important;
-        font-size: 12pt !important;
+        font-size: 11pt !important;
         font-weight: bold !important;
-        line-height: 1.1 !important;
+        line-height: 1.2 !important;
     }
 
-    /* Garante que a tabela use a largura total do recibo */
-    #receipt table {
+    #receipt * {
+        color: #000000 !important;
+    }
+
+    table {
         width: 100% !important;
+        border-collapse: collapse;
     }
 
     @page {
