@@ -39,57 +39,31 @@
     }
 }
 
-/* PRINT STYLES FOR THERMAL PRINTERS */
 @media print {
+    /* Esconde absolutamente TUDO na tela */
+    body * {
+        visibility: hidden !important;
+    }
 
-    html,
-    body {
-        background: #fff !important;
+    /* Mostra APENAS o recibo e seus filhos */
+    #receipt, #receipt * {
+        visibility: visible !important;
+    }
+
+    /* Posiciona o recibo no topo da página de impressão */
+    #receipt {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
-        height: auto !important;
-        overflow: visible !important;
-        visibility: hidden !important;
-    }
-
-    /* Keep root as container but invisible */
-    #root {
-        visibility: hidden !important;
-        display: block !important;
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-    }
-
-    /* Main receipt visibility and styling */
-    #receipt {
-        visibility: visible !important;
-        display: block !important;
-        position: absolute !important;
-        /* Absolute é melhor que fixed para algumas versões de drivers Linux */
-        left: 0 !important;
-        right: 0 !important;
-        top: 0 !important;
-        width: 80mm !important;
-        margin: 0 auto !important;
-        padding: 5mm !important;
         background: white !important;
         color: black !important;
-        font-family: 'Courier New', Courier, monospace !important;
-        z-index: 999999 !important;
-        box-shadow: none !important;
-        border: none !important;
     }
 
-    #receipt * {
-        visibility: visible !important;
-    }
-
-    .screen-only {
-        display: none !important;
-    }
-
+    /* Remove margens da página definidas pelo navegador */
     @page {
         margin: 0;
         size: auto;
