@@ -132,7 +132,7 @@ export default function Finish() {
         </button>
       </div>
 
-      <div id="receipt" className="hidden p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
+      <div id="receipt" className="opacity-0 pointer-events-none absolute top-0 left-0 p-4 max-w-[80mm] mx-auto text-black bg-white font-mono text-xs leading-tight">
         <div className="text-center mb-4">
           <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
           <p className="text-xs italic">CNPJ: 48.507.205/0001-94</p>
