@@ -51,7 +51,7 @@
         display: none !important;
     }
 
-    /* Reseta o corpo para impressão */
+    /* Reseta o corpo para impressão - REMOVE ALINHAMENTOS FLEX DO SITE */
     html,
     body {
         background: white !important;
@@ -59,30 +59,38 @@
         padding: 0 !important;
         width: 100% !important;
         height: auto !important;
+        display: block !important;
+        /* Força sair do modo flex do site */
+        overflow: visible !important;
     }
 
     #root {
-        background: white !important;
+        display: block !important;
+        margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
     }
 
-    /* Estilo do Recibo Ultra Compatível */
+    /* Estilo do Recibo - Largura reduzida para evitar cortes laterais */
     #receipt {
         display: block !important;
         visibility: visible !important;
-        width: 65mm !important;
-        /* Um pouco menor para garantir compatibilidade */
+        position: relative !important;
+        width: 58mm !important;
+        /* Largura conservadora para 80mm */
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 2mm !important;
         color: #000000 !important;
         font-family: 'Courier New', Courier, monospace !important;
-        font-size: 11pt !important;
+        font-size: 10pt !important;
         font-weight: bold !important;
         line-height: 1.2 !important;
+        box-sizing: border-box !important;
     }
 
     #receipt * {
         color: #000000 !important;
+        box-sizing: border-box !important;
     }
 
     table {
