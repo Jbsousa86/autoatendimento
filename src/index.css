@@ -46,123 +46,118 @@
 
 @media print {
 
-    /* RESET DE AMBIENTE */
+    /* 1. REMOVE TUDO QUE NÃO É RECIBO */
+    .screen-only,
+    #root>div:not(#receipt),
+    h1,
+    input,
+    button {
+        display: none !important;
+    }
+
+    /* 2. RESET DO AMBIENTE */
     html,
-    body,
-    #root,
-    #root>div {
-        display: block !important;
+    body {
         background: white !important;
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
+        height: auto !important;
     }
 
-    body * {
-        visibility: hidden !important;
+    #root {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* O RECIBO - PADRÃO 80MM COM MARGEM SEGURA */
-    #receipt,
-    #receipt * {
-        visibility: visible !important;
-        color: #000 !important;
-    }
-
+    /* 3. O RECIBO - AJUSTADO PARA 72MM */
     #receipt {
         display: block !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 76mm !important;
-        /* Margem de segurança */
+        visibility: visible !important;
+        width: 72mm !important;
+        /* Limite do seu driver */
         margin: 0 !important;
         padding: 2mm !important;
+        color: #000 !important;
+        background: white !important;
         font-family: 'Courier New', Courier, monospace !important;
         font-size: 10pt !important;
+        font-weight: bold !important;
         line-height: 1.1 !important;
     }
 
-    /* CABEÇALHO COMERCIAL */
+    #receipt * {
+        visibility: visible !important;
+        display: block;
+    }
+
+    /* 4. CABEÇALHO E NÚMERO */
     #receipt .text-center {
         text-align: center !important;
         text-transform: uppercase !important;
     }
 
     #receipt h2 {
-        font-size: 16pt !important;
-        font-weight: bold !important;
-        margin: 5px 0 2px 0 !important;
+        font-size: 14pt !important;
+        margin-bottom: 5px !important;
     }
 
-    /* NÚMERO DO PEDIDO ESTILO SENHA */
-    #receipt .flex.justify-between:has(.text-2xl) {
-        display: block !important;
+    /* Estilo Senha PDV - Simplificado para Firefox */
+    #receipt .text-4xl,
+    #receipt .text-2xl {
+        font-size: 30pt !important;
+        font-weight: 900 !important;
         text-align: center !important;
         border-top: 1px dashed #000 !important;
         border-bottom: 1px dashed #000 !important;
         padding: 5px 0 !important;
-        margin: 10px 0 !important;
-    }
-
-    #receipt .text-2xl {
-        font-size: 32pt !important;
-        font-weight: 900 !important;
+        margin: 5px 0 !important;
         display: block !important;
-        margin: 0 !important;
     }
 
-    #receipt .font-bold.uppercase.truncate {
-        font-size: 11pt !important;
+    /* 5. TABELA DE ITENS */
+    #receipt table {
+        display: table !important;
+        /* Força comportamento de tabela */
+        width: 100% !important;
+        border-collapse: collapse !important;
         margin: 5px 0 !important;
     }
 
-    /* LISTA DE ITENS - PADRÃO PDV */
-    #receipt table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        margin: 10px 0 !important;
+    #receipt table tr {
+        display: table-row !important;
+        border-bottom: 1px dashed #000 !important;
     }
 
     #receipt table td {
-        vertical-align: top !important;
+        display: table-cell !important;
         padding: 3px 0 !important;
         text-transform: uppercase !important;
     }
 
-    /* Preço alinhado à direita */
     #receipt table td:last-child {
         text-align: right !important;
-        white-space: nowrap !important;
     }
 
-    /* Divisórias de Itens */
-    #receipt tr {
-        border-bottom: 1px dashed #000 !important;
-    }
-
-    /* TOTAL EM DESTAQUE */
-    #receipt .border-t.border-black {
+    /* 6. TOTAL E OBS */
+    #receipt .border-t {
         border-top: 2px solid #000 !important;
-        padding-top: 5px !important;
+        padding-top: 4px !important;
         font-size: 12pt !important;
-        font-weight: bold !important;
     }
 
-    /* OBSERVAÇÕES EM CAIXA */
-    #receipt .mt-2.border-black {
+    #receipt .mt-2 {
         border: 1px solid #000 !important;
-        padding: 4px !important;
-        font-weight: bold !important;
+        padding: 3px !important;
         text-transform: uppercase !important;
     }
 
     @page {
         margin: 0;
-        size: auto;
+        size: 72mm auto;
     }
 }
 
 .screen-only {
     display: block;
-}
