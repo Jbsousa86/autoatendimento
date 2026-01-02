@@ -23,6 +23,7 @@ export default function Cashier() {
     const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA'))
     const [orderObservation, setOrderObservation] = useState("")
     const [isPrinting, setIsPrinting] = useState(false)
+    const [paymentMethod, setPaymentMethod] = useState("") // 'dinheiro', 'cartao', 'pix'
 
     useEffect(() => {
         if (user) {
@@ -215,6 +216,7 @@ export default function Cashier() {
                 ...LEFT, ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
                 ...txt(`Caixa: ${user?.name || 'Sistema'}`),
                 ...txt(`Cliente: ${lastFinishedOrder.customerName || 'Nao informado'}`),
+                ...(lastFinishedOrder.paymentMethod ? [...txt(`Pagamento: ${lastFinishedOrder.paymentMethod.toUpperCase()}`)] : []),
                 ...txt("--------------------------------"),
             ]);
 
@@ -393,7 +395,8 @@ export default function Cashier() {
             total: calculateTotal(),
             items: Object.values(itemMap),
             cashierName: user.name,
-            observation: orderObservation
+            observation: orderObservation,
+            paymentMethod: paymentMethod // Novo campo
         }
 
         await orderService.createOrder(orderPayload)
@@ -403,6 +406,7 @@ export default function Cashier() {
         setCart([])
         setCustomerName("")
         setOrderObservation("")
+        setPaymentMethod("") // Limpa o método de pagamento
         loadDailyHistory()
 
         // AUTO-PRINT: Só tenta se estiver conectado, para não abrir diálogos chatos
@@ -602,6 +606,11 @@ export default function Cashier() {
                                 <div className="text-xs mb-2 uppercase font-bold">
                                     Cliente: {lastFinishedOrder.customerName || "Não informado"}
                                 </div>
+                                {lastFinishedOrder.paymentMethod && (
+                                    <div className="text-xs mb-2 uppercase font-black">
+                                        PAGAMENTO: {lastFinishedOrder.paymentMethod}
+                                    </div>
+                                )}
                                 <div className="border-b border-black border-dashed my-2"></div>
                                 <table className="w-full text-left mb-4">
                                     <thead>
@@ -892,14 +901,46 @@ export default function Cashier() {
                                         <span className="text-gray-600 font-bold text-sm">TOTAL</span>
                                         <span className="text-2xl md:text-3xl font-black text-gray-900">R$ {calculateTotal().toFixed(2)}</span>
                                     </div>
+
+                                    {/* FORMA DE PAGAMENTO (OBRIGATÓRIO) */}
+                                    <div className="mb-6 space-y-2">
+                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Forma de Pagamento</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { id: 'dinheiro', label: '💵 Dinheiro' },
+                                                { id: 'cartao', label: '💳 Cartão' },
+                                                { id: 'pix', label: '💎 PIX' }
+                                            ].map(method => (
+                                                <button
+                                                    key={method.id}
+                                                    onClick={() => setPaymentMethod(method.id)}
+                                                    className={`
+                                                        py-3 rounded-xl text-xs font-black transition-all border-2
+                                                        ${paymentMethod === method.id
+                                                            ? 'bg-orange-600 border-orange-600 text-white shadow-lg scale-105'
+                                                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}
+                                                    `}
+                                                >
+                                                    {method.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <button
                                         onClick={() => {
                                             handleFinishOrder()
                                             setMobileCartOpen(false)
                                         }}
-                                        className="w-full bg-green-600 text-white py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl hover:bg-green-700 shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2"
+                                        disabled={!paymentMethod}
+                                        className={`
+                                            w-full py-4 md:py-5 rounded-2xl font-black text-lg md:text-xl shadow-xl transition transform flex items-center justify-center gap-2
+                                            ${paymentMethod
+                                                ? 'bg-green-600 text-white hover:bg-green-700 active:scale-95 cursor-pointer'
+                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+                                        `}
                                     >
-                                        <span>✅</span> CONFIRMAR VENDA
+                                        <span>✅</span> {paymentMethod ? 'CONFIRMAR VENDA' : 'SELECIONE O PAGAMENTO'}
                                     </button>
                                 </div>
                             </div>
