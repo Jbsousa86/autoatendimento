@@ -49,6 +49,7 @@ export default function Admin() {
     const [endDate, setEndDate] = useState(getToday())
     const [businessHours, setBusinessHours] = useState("18:00 — 00:00")
     const [reportFilter, setReportFilter] = useState('all') // 'all' | 'totem' | 'cashier'
+    const [orderSearchQuery, setOrderSearchQuery] = useState("")
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -248,6 +249,19 @@ export default function Admin() {
             await orderService.archiveAllOrders()
             alert("✅ Tela da cozinha limpa com sucesso!")
             loadReports() // Recarrega para refletir status (se necessário)
+        }
+    }
+
+    const handleDeleteOrder = async (order) => {
+        const confirmMsg = `⚠️ EXCLUIR PERMANENTEMENTE?\n\nPedido: #${order.order_number}\nCliente: ${order.customer_name}\nTotal: R$ ${Number(order.total).toFixed(2)}\n\nEsta ação não pode ser desfeita.`
+        if (confirm(confirmMsg)) {
+            try {
+                await orderService.deleteOrder(order.id)
+                loadReports()
+                alert("✅ Pedido excluído com sucesso!")
+            } catch (error) {
+                alert("❌ Erro ao excluir pedido.")
+            }
         }
     }
 
@@ -733,6 +747,16 @@ export default function Admin() {
                                 </span>
                             </div>
 
+                            <div className="mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Buscar por Nº do Pedido ou Nome..."
+                                    className="w-full border-2 border-gray-100 p-3 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+                                    value={orderSearchQuery}
+                                    onChange={(e) => setOrderSearchQuery(e.target.value)}
+                                />
+                            </div>
+
                             <div className="overflow-y-auto max-h-[500px] border rounded-lg">
                                 <table className="w-full text-left">
                                     <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-black sticky top-0">
@@ -741,17 +765,25 @@ export default function Admin() {
                                             <th className="p-3">Horário</th>
                                             <th className="p-3">Cliente</th>
                                             <th className="p-3 text-right">Valor</th>
+                                            {devMode && <th className="p-3 text-center">Ação</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {allOrders
                                             .filter(o => {
-                                                if (reportFilter === 'totem') return !o.cashier_name
-                                                if (reportFilter === 'cashier') return !!o.cashier_name
-                                                if (reportFilter.startsWith('cashier:')) {
-                                                    return o.cashier_name === reportFilter.split(':')[1]
-                                                }
-                                                return true
+                                                // Filtro de Categoria/Operador
+                                                const matchFilter = reportFilter === 'all' ||
+                                                    (reportFilter === 'totem' && !o.cashier_name) ||
+                                                    (reportFilter === 'cashier' && !!o.cashier_name) ||
+                                                    (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]);
+
+                                                // Filtro de Busca (Número ou Nome)
+                                                const search = orderSearchQuery.toLowerCase();
+                                                const matchSearch = !orderSearchQuery ||
+                                                    o.order_number.includes(search) ||
+                                                    (o.customer_name && o.customer_name.toLowerCase().includes(search));
+
+                                                return matchFilter && matchSearch;
                                             })
                                             .map((order, idx) => (
                                                 <tr key={order.id} className="hover:bg-gray-50 transition-colors text-sm">
@@ -777,6 +809,17 @@ export default function Admin() {
                                                     <td className="p-3 text-right font-black text-gray-900">
                                                         {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                     </td>
+                                                    {devMode && (
+                                                        <td className="p-3 text-center">
+                                                            <button
+                                                                onClick={() => handleDeleteOrder(order)}
+                                                                className="text-red-500 hover:text-red-700 p-1"
+                                                                title="Excluir Pedido"
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         {allOrders.length === 0 && (

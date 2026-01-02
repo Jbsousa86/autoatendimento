@@ -145,6 +145,18 @@ export const orderService = {
         if (error) console.error("Erro ao arquivar pedidos:", error)
     },
 
+    async deleteOrder(id) {
+        const { error } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error("Erro ao deletar pedido:", error)
+            throw error
+        }
+    },
+
     // INSCRIÇÃO EM TEMPO REAL (Para a Cozinha!)
     subscribeToOrders(callback) {
         console.log("🔌 Iniciando conexão Realtime com Supabase...")
