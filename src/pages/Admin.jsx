@@ -9,8 +9,10 @@ const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
 // ==========================================
 
 export default function Admin() {
-    // Estados de Autenticação
-    const [isAuthenticated, setIsAuthenticated] = useState(false)
+    // Estados de Autenticação com persistência simples
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return localStorage.getItem("admin_auth") === "true"
+    })
     const [passwordInput, setPasswordInput] = useState("")
 
     // Estados Gerais
@@ -26,7 +28,8 @@ export default function Admin() {
     const [stats, setStats] = useState({
         revenue: 0, count: 0, ticket: 0, topItems: [],
         revenueTotem: 0, countTotem: 0,
-        revenueCashier: 0, countCashier: 0
+        revenueCashier: 0, countCashier: 0,
+        cashierBreakdown: {}
     })
     const [allOrders, setAllOrders] = useState([])
 
@@ -137,6 +140,7 @@ export default function Admin() {
         let countTotem = 0
         let revenueCashier = 0
         let countCashier = 0
+        const cashierBreakdown = {}
 
         orders.forEach(order => {
             const val = Number(order.total) || 0
@@ -144,6 +148,12 @@ export default function Admin() {
             if (order.cashier_name) {
                 revenueCashier += val
                 countCashier++
+
+                if (!cashierBreakdown[order.cashier_name]) {
+                    cashierBreakdown[order.cashier_name] = { revenue: 0, count: 0 }
+                }
+                cashierBreakdown[order.cashier_name].revenue += val
+                cashierBreakdown[order.cashier_name].count++
             } else {
                 revenueTotem += val
                 countTotem++
@@ -168,7 +178,8 @@ export default function Admin() {
         setStats({
             revenue, count, ticket, topItems,
             revenueTotem, countTotem,
-            revenueCashier, countCashier
+            revenueCashier, countCashier,
+            cashierBreakdown
         })
     }
 
@@ -176,10 +187,16 @@ export default function Admin() {
         e.preventDefault()
         if (passwordInput === ADMIN_PASSWORD) {
             setIsAuthenticated(true)
+            localStorage.setItem("admin_auth", "true")
         } else {
             alert("Senha incorreta!")
             setPasswordInput("")
         }
+    }
+
+    const handleLogout = () => {
+        setIsAuthenticated(false)
+        localStorage.removeItem("admin_auth")
     }
 
     const handleEdit = (product) => {
@@ -246,24 +263,75 @@ export default function Admin() {
     // TELA DE LOGIN
     if (!isAuthenticated) {
         return (
-            <div className="h-screen w-screen bg-gray-900 flex items-center justify-center p-4">
-                <form onSubmit={handleLogin} className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md">
-                    <h1 className="text-3xl font-black text-gray-800 mb-6 text-center">🔒 Acesso Restrito</h1>
-                    <div className="mb-6 relative z-50">
-                        <label className="block text-gray-600 text-sm font-bold mb-2">Senha do Administrador</label>
-                        <input
-                            type="password"
-                            className="w-full border-2 border-gray-300 p-4 rounded-lg text-xl focus:border-blue-500 focus:outline-none bg-white text-black"
-                            placeholder="Digite a senha..."
-                            value={passwordInput}
-                            onChange={(e) => setPasswordInput(e.target.value)}
-                        />
+            <div style={{
+                minHeight: '100vh',
+                backgroundColor: '#111827',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                zIndex: 9999
+            }}>
+                <div style={{
+                    backgroundColor: 'white',
+                    padding: '40px',
+                    borderRadius: '24px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                    width: '100%',
+                    maxWidth: '400px',
+                    borderTop: '8px solid #1f2937'
+                }}>
+                    <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                        <span style={{ fontSize: '40px' }}>🔒</span>
+                        <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#111827', marginTop: '10px', textTransform: 'uppercase' }}>Acesso Restrito</h1>
+                        <p style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold' }}>PAINEL ADMIN</p>
                     </div>
-                    <button className="w-full bg-black text-white py-4 rounded-lg font-bold text-xl hover:bg-gray-800 transition-colors">
-                        ENTRAR
-                    </button>
 
-                </form>
+                    <form onSubmit={handleLogin}>
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#374151', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                Digite a Senha Mestra
+                            </label>
+                            <input
+                                type="password"
+                                value={passwordInput}
+                                onChange={(e) => setPasswordInput(e.target.value)}
+                                placeholder="Sua senha aqui..."
+                                style={{
+                                    width: '100%',
+                                    padding: '16px',
+                                    borderRadius: '12px',
+                                    border: '3px solid #6b7280',
+                                    fontSize: '20px',
+                                    color: 'black',
+                                    backgroundColor: 'white',
+                                    display: 'block',
+                                    boxSizing: 'border-box'
+                                }}
+                                autoFocus
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                backgroundColor: '#111827',
+                                color: 'white',
+                                fontWeight: '900',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                border: 'none'
+                            }}
+                        >
+                            LIBERAR ACESSO
+                        </button>
+                    </form>
+                </div>
             </div>
         )
     }
@@ -273,13 +341,21 @@ export default function Admin() {
         <div className="min-h-screen bg-gray-100 p-4 md:p-8">
             <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="w-full md:w-auto">
-                    <h1
-                        className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 cursor-pointer select-none"
-                        onClick={handleSecretClick}
-                        title="Dica: Clique 5 vezes aqui para opções avançadas"
-                    >
-                        ⚙️ Admin {devMode && <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">DEV</span>}
-                    </h1>
+                    <div className="flex items-center gap-4 mb-4">
+                        <h1
+                            className="text-2xl md:text-3xl font-bold text-gray-800 cursor-pointer select-none"
+                            onClick={handleSecretClick}
+                            title="Dica: Clique 5 vezes aqui para opções avançadas"
+                        >
+                            ⚙️ Admin {devMode && <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">DEV</span>}
+                        </h1>
+                        <button
+                            onClick={handleLogout}
+                            className="bg-gray-200 hover:bg-red-100 hover:text-red-600 text-gray-500 px-3 py-1 rounded-lg text-xs font-black transition-colors"
+                        >
+                            SAIR
+                        </button>
+                    </div>
                     <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-4 md:w-auto md:gap-4 scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('products')}
@@ -572,14 +648,14 @@ export default function Admin() {
                         {/* DETALHE CAIXA */}
                         <div
                             onClick={() => setReportFilter('cashier')}
-                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'cashier' ? 'bg-orange-50 border-orange-600 scale-[1.02]' : 'bg-white border-orange-500'}`}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter.includes('cashier') ? 'bg-orange-50 border-orange-600 scale-[1.02]' : 'bg-white border-orange-500'}`}
                         >
                             <h3 className="text-orange-500 font-bold text-xs uppercase mb-2">👤 Vendas no Caixa</h3>
                             <p className="text-3xl font-black text-gray-800">
                                 {stats.revenueCashier.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             <p className="text-xs text-gray-400 mt-2">
-                                {stats.countCashier} pedidos (CLIQUE PARA FILTRAR)
+                                {stats.countCashier} pedidos {reportFilter.startsWith('cashier:') ? `(Filtrado: ${reportFilter.split(':')[1]})` : '(CLIQUE PARA FILTRAR)'}
                             </p>
                         </div>
                     </div>
@@ -591,7 +667,7 @@ export default function Admin() {
                             {stats.topItems.length === 0 ? (
                                 <p className="text-gray-400 italic">Nenhum dado de venda ainda...</p>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-4 mb-8">
                                     {stats.topItems.slice(0, 10).map((item, idx) => (
                                         <div key={idx} className="flex items-center">
                                             <div className="w-8 font-bold text-gray-400 text-xl">#{idx + 1}</div>
@@ -611,6 +687,39 @@ export default function Admin() {
                                     ))}
                                 </div>
                             )}
+
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6 border-t pt-8">👤 Vendas por Operador</h2>
+                            {Object.keys(stats.cashierBreakdown).length === 0 ? (
+                                <p className="text-gray-400 italic">Nenhuma venda em caixa no período.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {Object.entries(stats.cashierBreakdown)
+                                        .sort((a, b) => b[1].revenue - a[1].revenue)
+                                        .map(([name, data], idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => setReportFilter(`cashier:${name}`)}
+                                                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all hover:bg-orange-50 ${reportFilter === `cashier:${name}` ? 'bg-orange-100 ring-2 ring-orange-500 shadow-md' : 'bg-gray-50'}`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold">
+                                                        {name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-gray-800">{name}</div>
+                                                        <div className="text-xs text-gray-400">{data.count} pedidos realizados</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-black text-orange-600">
+                                                        {data.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400 font-bold uppercase">Total Líquido</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* LISTA DETALHADA DE VENDAS */}
@@ -618,9 +727,9 @@ export default function Admin() {
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-2xl font-bold text-gray-800">📋 Detalhamento</h2>
                                 <span className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${reportFilter === 'totem' ? 'bg-blue-100 text-blue-700' :
-                                    reportFilter === 'cashier' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                                    reportFilter.includes('cashier') ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
                                     }`}>
-                                    {reportFilter === 'totem' ? 'Apenas Totem' : reportFilter === 'cashier' ? 'Apenas Caixa' : 'Tudo'}
+                                    {reportFilter === 'totem' ? 'Apenas Totem' : reportFilter.startsWith('cashier:') ? `Caixa: ${reportFilter.split(':')[1]}` : reportFilter === 'cashier' ? 'Todos os Caixas' : 'Tudo'}
                                 </span>
                             </div>
 
@@ -639,6 +748,9 @@ export default function Admin() {
                                             .filter(o => {
                                                 if (reportFilter === 'totem') return !o.cashier_name
                                                 if (reportFilter === 'cashier') return !!o.cashier_name
+                                                if (reportFilter.startsWith('cashier:')) {
+                                                    return o.cashier_name === reportFilter.split(':')[1]
+                                                }
                                                 return true
                                             })
                                             .map((order, idx) => (
@@ -648,7 +760,19 @@ export default function Admin() {
                                                         {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </td>
                                                     <td className="p-3 font-bold">
-                                                        {order.customer_name || (order.cashier_name ? `Caixa (${order.cashier_name})` : "Totem")}
+                                                        <div className="flex flex-col">
+                                                            <span className="text-gray-800">{order.customer_name || "Cliente"}</span>
+                                                            {order.cashier_name && (
+                                                                <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
+                                                                    👤 Operador: {order.cashier_name}
+                                                                </span>
+                                                            )}
+                                                            {!order.cashier_name && (
+                                                                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
+                                                                    🤖 Totem (Autoatendimento)
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="p-3 text-right font-black text-gray-900">
                                                         {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
