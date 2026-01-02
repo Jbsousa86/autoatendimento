@@ -144,19 +144,19 @@ export default function Finish() {
           <span>PEDIDO:</span>
           <span className="text-2xl">{order.orderNumber}</span>
         </div>
-        <div className="font-bold uppercase truncate">CLIENTE: {tempName}</div>
+        <div className="font-bold uppercase break-words px-4">CLIENTE: {tempName}</div>
         <div className="text-[10px] mb-2">Data: {new Date().toLocaleString('pt-BR')}</div>
         <div className="border-b border-black border-dashed my-2"></div>
         <table className="w-full text-left font-mono text-[10px]">
           <tbody>
             {order.items?.map((item, i) => (
-              <tr key={i} className="border-b border-black border-dashed">
-                <td className="py-1 w-6">{item.qty}x</td>
-                <td className="py-1">
-                  <div>{item.name}</div>
-                  {item.observation && <div className="text-[9px] italic">➔ {item.observation}</div>}
+              <tr key={i} className="border-b border-black border-dashed font-bold">
+                <td className="py-1.5 align-top w-6">{item.qty}x</td>
+                <td className="py-1.5 align-top">
+                  <div className="leading-tight break-words uppercase">{item.name}</div>
+                  {item.observation && <div className="text-[9px] italic mt-0.5 font-normal">➔ {item.observation}</div>}
                 </td>
-                <td className="py-1 text-right">{(item.price * item.qty).toFixed(2)}</td>
+                <td className="py-1.5 align-top text-right whitespace-nowrap pl-2">{(item.price * item.qty).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>

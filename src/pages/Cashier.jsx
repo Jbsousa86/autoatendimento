@@ -219,8 +219,14 @@ export default function Cashier() {
             ]);
 
             lastFinishedOrder.items.forEach(item => {
-                const line = `${item.qty}x ${item.name.slice(0, 18)}`.padEnd(22) + ` R$${(item.price * item.qty).toFixed(2)}`;
-                data = new Uint8Array([...data, ...txt(line)]);
+                // Nome completo do item
+                data = new Uint8Array([...data, ...txt(`${item.qty}x ${item.name}`)]);
+
+                // Preço alinhado à direita na linha seguinte para garantir que o nome nunca seja cortado
+                const itemTotal = (Number(item.price) * item.qty).toFixed(2);
+                const priceLine = `R$ ${itemTotal}`.padStart(32);
+                data = new Uint8Array([...data, ...txt(priceLine)]);
+
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
             });
 
@@ -593,6 +599,9 @@ export default function Cashier() {
                                 <div className="text-xs mb-2 uppercase">
                                     Caixa: {lastFinishedOrder.cashierName}
                                 </div>
+                                <div className="text-xs mb-2 uppercase font-bold">
+                                    Cliente: {lastFinishedOrder.customerName || "Não informado"}
+                                </div>
                                 <div className="border-b border-black border-dashed my-2"></div>
                                 <table className="w-full text-left mb-4">
                                     <thead>
@@ -604,13 +613,13 @@ export default function Cashier() {
                                     </thead>
                                     <tbody>
                                         {lastFinishedOrder.items.map((item, i) => (
-                                            <tr key={i}>
-                                                <td className="py-1 align-top w-6">{item.qty}x</td>
-                                                <td className="py-1 align-top">
-                                                    <div>{item.name}</div>
-                                                    {item.observation && <div className="text-[10px] italic">➔ {item.observation}</div>}
+                                            <tr key={i} className="border-b border-black border-dashed last:border-0 font-bold">
+                                                <td className="py-1.5 align-top w-6">{item.qty}x</td>
+                                                <td className="py-1.5 align-top">
+                                                    <div className="leading-tight break-words">{item.name}</div>
+                                                    {item.observation && <div className="text-[10px] italic mt-0.5 font-normal">➔ {item.observation}</div>}
                                                 </td>
-                                                <td className="py-1 align-top text-right">
+                                                <td className="py-1.5 align-top text-right whitespace-nowrap pl-2">
                                                     {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
