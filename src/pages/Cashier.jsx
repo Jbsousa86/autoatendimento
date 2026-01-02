@@ -473,7 +473,7 @@ export default function Cashier() {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
             {/* HEADER */}
-            <header className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md">
+            <header className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md screen-only">
                 <div className="flex items-center gap-4">
                     <div className="bg-orange-600 w-10 h-10 rounded-full flex items-center justify-center font-bold">
                         {user.name.charAt(0).toUpperCase()}
@@ -537,8 +537,8 @@ export default function Cashier() {
             <main className="flex-1 overflow-hidden relative">
                 {/* MODAL DE SUCESSO / IMPRESSÃO */}
                 {lastFinishedOrder && (
-                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
+                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4 print:bg-white print:p-0">
+                        <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center screen-only">
                             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
                                 ✅
                             </div>
@@ -580,7 +580,7 @@ export default function Cashier() {
                         </div>
 
                         {/* COMPROVANTE (HIDDEN) COPIADO DO FINISH.JSX */}
-                        <div id="receipt" className="hidden">
+                        <div id="receipt" className="hidden print:block">
                             <div className="text-black bg-white font-mono text-xs leading-tight">
                                 <div className="text-center mb-4">
                                     <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
@@ -734,7 +734,7 @@ export default function Cashier() {
                     activeTab === 'pos' && (
                         <div className="h-full flex flex-col md:flex-row relative">
                             {/* COLUNA 1: PRODUTOS */}
-                            <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden">
+                            <div className="flex-1 flex flex-col md:border-r border-gray-200 bg-white overflow-hidden screen-only">
                                 {/* MONITOR DE AUTOATENDIMENTO (TOTEM) */}
                                 <div className="bg-orange-50 p-2 border-b border-orange-100 flex items-center gap-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
                                     <div className="bg-orange-600 text-white text-[8px] md:text-[9px] font-black px-1.5 py-0.5 md:px-2 md:py-1 rounded shadow-sm flex items-center gap-1 shrink-0">
@@ -797,6 +797,7 @@ export default function Cashier() {
                             <div className={`
                             fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out flex flex-col
                             md:relative md:transform-none md:w-96 md:flex md:flex-col md:shadow-none md:z-auto
+                            screen-only
                             ${mobileCartOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
                         `}>
                                 <div className="p-4 bg-gray-50 border-b border-gray-200">

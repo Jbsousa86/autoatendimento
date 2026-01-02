@@ -45,97 +45,88 @@
 }
 
 @media print {
-
-    /* 1. TRAVAMENTO NO LIMITE DO SEU DRIVER (Ajustado para ~70mm para segurança) */
+    /* 1. CONFIGURAÇÃO DA PÁGINA */
     @page {
         margin: 0 !important;
         size: 70mm auto !important;
     }
 
-    html,
-    body {
+    /* 2. LIMPEZA TOTAL DA PÁGINA (NUCLEAR) */
+    html, body {
         margin: 0 !important;
         padding: 0 !important;
         width: 70mm !important;
-        min-width: 70mm !important;
-        max-width: 70mm !important;
-        background: white !important;
-        overflow: visible !important;
-        display: block !important;
+        background: #fff !important;
+        /* Esconde TUDO por padrão */
+        visibility: hidden !important;
     }
 
-    /* 2. LIMPEZA TOTAL DA PÁGINA */
-    .screen-only {
+    /* Esconde elementos comuns de UI que podem "vazar" */
+    header, footer, nav, button, input, textarea, .screen-only, #root > div:not(.print-container) {
         display: none !important;
     }
 
-    /* 3. RECIBO COM MARGEM SUPERIOR (Evita ficar "topado") */
-    #receipt {
-        display: block !important;
+    /* 3. EXIBIÇÃO DO RECIBO */
+    /* Mostra o recibo e todos os seus descendentes */
+    #receipt, #receipt * {
         visibility: visible !important;
-        position: relative !important;
-        /* Mudado de absolute para relative para melhor fluxo */
-        width: 70mm !important;
-        min-width: 70mm !important;
-        max-width: 70mm !important;
-        margin: 0 auto !important;
-        padding: 8mm 2mm 5mm 2mm !important;
-        /* 8mm no topo para não ficar colado */
-        background: white !important;
+        display: block !important;
         color: #000 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+    }
+
+    #receipt {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 70mm !important;
+        padding: 8mm 2mm 5mm 2mm !important;
         font-family: 'Courier New', Courier, monospace !important;
         font-size: 10pt !important;
-        line-height: 1.1 !important;
+        line-height: 1.2 !important;
         box-sizing: border-box !important;
     }
 
-    #receipt * {
-        visibility: visible !important;
-        color: #000 !important;
+    /* Ajustes específicos de elementos dentro do recibo */
+    #receipt div, #receipt p, #receipt span {
+        display: block !important;
     }
 
-    /* 4. ELEMENTOS DO RECIBO */
-    #receipt .text-center {
-        text-align: center !important;
+    /* Mantem flexbox para o cabeçalho do recibo se necessário */
+    #receipt .flex {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+    }
+
+    #receipt table {
+        display: table !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 5mm 0 !important;
+    }
+
+    #receipt tr {
+        display: table-row !important;
+        border-bottom: 1pt dashed #000 !important;
+    }
+
+    #receipt td, #receipt th {
+        display: table-cell !important;
+        padding: 1mm 0 !important;
     }
 
     #receipt h2 {
         font-size: 14pt !important;
-        margin-bottom: 5px !important;
+        font-weight: bold !important;
+        text-align: center !important;
+        margin-bottom: 2mm !important;
     }
 
-    #receipt .text-4xl,
-    #receipt .text-2xl {
-        font-size: 30pt !important;
+    #receipt .text-2xl, #receipt .text-xl {
+        font-size: 20pt !important;
         font-weight: 900 !important;
         text-align: center !important;
-        border-top: 1px dashed #000 !important;
-        border-bottom: 1px dashed #000 !important;
-        margin: 5px 0 !important;
-        display: block !important;
-    }
-
-    #receipt table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-    }
-
-    #receipt table td {
-        padding: 2px 0 !important;
-        text-transform: uppercase !important;
-    }
-
-    #receipt table td:last-child {
-        text-align: right !important;
-    }
-
-    #receipt tr {
-        border-bottom: 1px dashed #000 !important;
-    }
-
-    #receipt .border-t {
-        border-top: 2px solid #000 !important;
-        font-size: 12pt !important;
-        font-weight: bold !important;
     }
 }

@@ -82,7 +82,7 @@ export default function Finish() {
   }
 
   return (
-    <div className="min-h-screen w-screen bg-green-600 flex flex-col items-center pt-10 pb-20 text-white overflow-y-auto">
+    <div className="min-h-screen w-screen bg-green-600 flex flex-col items-center pt-10 pb-20 text-white overflow-y-auto print:bg-white print:p-0">
       <h1 onClick={handleAdminUnlock} className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none screen-only">
         ✅ SUCESSO!
       </h1>
