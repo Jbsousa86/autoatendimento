@@ -579,8 +579,8 @@ export default function Cashier() {
                             </div>
                         </div>
 
-                        {/* COMPROVANTE (HIDDEN) COPIADO DO FINISH.JSX */}
-                        <div id="receipt" className="hidden print:block">
+                        {/* COMPROVANTE (VISÍVEL PARA PREVIEW) */}
+                        <div id="receipt" className="print:block border-t border-dashed border-gray-200 pt-4">
                             <div className="text-black bg-white font-mono text-xs leading-tight">
                                 <div className="text-center mb-4">
                                     <h2 className="text-xl font-black uppercase">Hero's Burger</h2>
