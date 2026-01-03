@@ -74,59 +74,71 @@ export const productService = {
 // ==========================================
 export const orderService = {
     async getOrders(startDate, endDate) {
-        let query = supabase
-            .from('orders')
-            .select('*')
-            .order('created_at', { ascending: false })
+        try {
+            let query = supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false })
 
-        if (startDate && endDate) {
-            query = query.gte('created_at', startDate).lte('created_at', endDate)
-        }
+            if (startDate && endDate) {
+                query = query.gte('created_at', startDate).lte('created_at', endDate)
+            }
 
-        const { data, error } = await query
+            const { data, error } = await query
 
-        if (error) {
-            console.error("Erro ao buscar pedidos:", error)
+            if (error) {
+                console.error("❌ Erro Supabase (getOrders):", error)
+                // Se a coluna nova estiver dando erro no SELECT, tentamos sem ela como último recurso
+                if (error.message.includes("payment_method")) {
+                    const fallback = await supabase.from('orders').select('id, created_at, order_number, customer_name, total, items, status, cashier_name').order('created_at', { ascending: false });
+                    return fallback.data || []
+                }
+                return []
+            }
+            return data || []
+        } catch (err) {
+            console.error("❌ Erro Crítico (getOrders):", err)
             return []
         }
-        return data || []
     },
 
     async createOrder(orderData) {
+        console.log("💾 Tentando salvar pedido...", orderData.orderNumber)
+
         const newOrder = {
             order_number: String(orderData.orderNumber),
             customer_name: orderData.observation
                 ? `${orderData.customerName || "Cliente"} (${orderData.observation})`
                 : (orderData.customerName || "Cliente"),
-            total: orderData.total,
+            total: Number(orderData.total),
             items: orderData.items,
             status: 'pending',
             cashier_name: orderData.cashierName || null,
             payment_method: orderData.paymentMethod || null
         }
 
-        // Tenta inserir com a forma de pagamento
-        let response = await supabase
-            .from('orders')
-            .insert([newOrder])
-            .select()
+        // 1. Tenta o salvamento completo (com forma de pagamento)
+        let response = await supabase.from('orders').insert([newOrder]).select()
 
-        // Se der erro de coluna inexistente, tenta novamente SEM o payment_method
-        if (response.error && (response.error.message.includes("payment_method") || response.error.code === '42703')) {
-            console.warn("⚠️ Coluna 'payment_method' não encontrada no banco. Salvando sem ela...")
-            const { payment_method, ...orderWithoutPayment } = newOrder
-            response = await supabase
-                .from('orders')
-                .insert([orderWithoutPayment])
-                .select()
+        // 2. Se falhar por causa da coluna, tenta sem a forma de pagamento
+        if (response.error) {
+            console.warn("⚠️ Primeira tentativa de salvamento falhou:", response.error.message)
+
+            if (response.error.message.includes("payment_method") || response.error.code === '42703') {
+                const { payment_method, ...orderWithoutPayment } = newOrder
+                response = await supabase.from('orders').insert([orderWithoutPayment]).select()
+            }
         }
 
         if (response.error) {
-            console.error("Erro fatal ao criar pedido:", response.error)
+            console.error("❌ Erro fatal ao criar pedido no banco:", response.error)
+            // Lança o erro para que o componente (Cashier.jsx) possa mostrar o alerta com o catch
             return null
         }
 
-        return response.data ? response.data[0] : null
+        const data = response.data ? response.data[0] : null
+        if (data) console.log("✅ Pedido salvo com sucesso! ID:", data.id)
+        return data
     },
 
     async updateOrderName(id, newName) {

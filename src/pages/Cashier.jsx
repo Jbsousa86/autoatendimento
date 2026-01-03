@@ -60,8 +60,19 @@ export default function Cashier() {
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         sevenDaysAgo.setHours(0, 0, 0, 0)
-        const recentOrders = all.filter(o => new Date(o.created_at) >= sevenDaysAgo)
-        recentOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+        // Filtra garantindo que pedidos sem data apareçam no topo
+        const recentOrders = all.filter(o => {
+            if (!o.created_at) return true
+            return new Date(o.created_at) >= sevenDaysAgo
+        })
+
+        recentOrders.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at) : new Date()
+            const dateB = b.created_at ? new Date(b.created_at) : new Date()
+            return dateB - dateA
+        })
+
         setDailyOrders(recentOrders)
     }
 
