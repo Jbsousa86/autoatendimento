@@ -237,20 +237,22 @@ export default function Cashier() {
             order.items.forEach(item => {
                 const qty = `${item.qty}x `;
                 const price = (Number(item.price) * item.qty).toFixed(2);
-
-                // Calculamos quanto sobra para o nome (base 32 caracteres)
                 const totalWidth = 32;
-                const nameWidth = totalWidth - qty.length - price.length - 1;
+                const name = item.name;
 
-                let name = item.name;
-                if (name.length > nameWidth) {
-                    name = name.substring(0, nameWidth - 1) + ".";
+                // Se o nome couber na mesma linha com qty e price
+                if (qty.length + name.length + price.length + 1 <= totalWidth) {
+                    const dotsCount = totalWidth - qty.length - name.length - price.length;
+                    const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
+                    data = new Uint8Array([...data, ...txt(`${qty}${name}${dots}${price}`)]);
+                } else {
+                    // Nome longo: imprime o nome completo (quebra automática na impressora)
+                    // e o preço na linha de baixo alinhado à direita
+                    data = new Uint8Array([...data, ...txt(`${qty}${name}`)]);
+                    const dotsCount = totalWidth - price.length;
+                    const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
+                    data = new Uint8Array([...data, ...txt(`${dots}${price}`)]);
                 }
-
-                const dotsCount = totalWidth - qty.length - name.length - price.length;
-                const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
-
-                data = new Uint8Array([...data, ...txt(`${qty}${name}${dots}${price}`)]);
 
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
             });
