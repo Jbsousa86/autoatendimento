@@ -105,16 +105,28 @@ export const orderService = {
             payment_method: orderData.paymentMethod || null
         }
 
-        const { data, error } = await supabase
+        // Tenta inserir com a forma de pagamento
+        let response = await supabase
             .from('orders')
             .insert([newOrder])
             .select()
 
-        if (error) {
-            console.error("Erro ao criar pedido:", error)
+        // Se der erro de coluna inexistente, tenta novamente SEM o payment_method
+        if (response.error && (response.error.message.includes("payment_method") || response.error.code === '42703')) {
+            console.warn("⚠️ Coluna 'payment_method' não encontrada no banco. Salvando sem ela...")
+            const { payment_method, ...orderWithoutPayment } = newOrder
+            response = await supabase
+                .from('orders')
+                .insert([orderWithoutPayment])
+                .select()
+        }
+
+        if (response.error) {
+            console.error("Erro fatal ao criar pedido:", response.error)
             return null
         }
-        return data ? data[0] : null
+
+        return response.data ? response.data[0] : null
     },
 
     async updateOrderName(id, newName) {
@@ -160,16 +172,30 @@ export const orderService = {
 
     // INSCRIÇÃO EM TEMPO REAL (Para a Cozinha!)
     subscribeToOrders(callback) {
-        console.log("🔌 Iniciando conexão Realtime com Supabase...")
-        return supabase
-            .channel('realtime-orders')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-                console.log('🔔 Mudança detectada no banco!', payload)
-                callback(payload) // Passamos o payload para saber se foi INSERT
-            })
+        console.log("🔌 Conectando ao canal de pedidos em tempo real...")
+        const channel = supabase
+            .channel('db-changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'orders'
+                },
+                (payload) => {
+                    console.log('🔔 Alteração na tabela de pedidos:', payload.eventType, payload.new?.order_number)
+                    callback(payload)
+                }
+            )
             .subscribe((status) => {
-                console.log("📡 Status da conexão Realtime:", status)
+                if (status === 'SUBSCRIBED') {
+                    console.log("✅ Conexão Realtime ATIVA e sincronizada!")
+                } else {
+                    console.log("📡 Status Realtime:", status)
+                }
             })
+
+        return channel
     }
 }
 // ==========================================

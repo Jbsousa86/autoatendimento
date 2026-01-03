@@ -403,10 +403,22 @@ export default function Cashier() {
             paymentMethod: paymentMethod // Novo campo
         }
 
-        await orderService.createOrder(orderPayload)
+        const savedOrder = await orderService.createOrder(orderPayload)
+
+        if (!savedOrder) {
+            alert("❌ ERRO AO SALVAR PEDIDO!\n\nO pedido não foi registrado no banco de dados. Verifique sua conexão com a internet e tente novamente.")
+            return
+        }
 
         // Atualiza estado e limpa carrinho
-        setLastFinishedOrder(orderPayload)
+        // Usamos o savedOrder do banco para garantir que temos o ID real e dados finais
+        const finalOrder = {
+            ...orderPayload,
+            id: savedOrder.id,
+            created_at: savedOrder.created_at
+        }
+
+        setLastFinishedOrder(finalOrder)
         setCart([])
         setCustomerName("")
         setOrderObservation("")
@@ -415,7 +427,7 @@ export default function Cashier() {
 
         // AUTO-PRINT: Só tenta se estiver conectado, para não abrir diálogos chatos
         if (printerStatus === 'connected') {
-            setTimeout(() => printBluetooth(false, orderPayload), 500)
+            setTimeout(() => printBluetooth(false, finalOrder), 500)
         }
     }
 

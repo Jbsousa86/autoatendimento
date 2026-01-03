@@ -39,6 +39,7 @@ export default function Kitchen() {
         window.playTestSound = playNotification
 
         const loadOrders = async () => {
+            // Buscamos os pedidos. A cozinha filtra apenas os pendentes/preparando.
             const data = await orderService.getOrders()
             const safeData = Array.isArray(data) ? data : []
 
@@ -47,14 +48,15 @@ export default function Kitchen() {
             safeData.forEach(order => {
                 if (!knownIds.current.has(order.id)) {
                     knownIds.current.add(order.id)
-                    // Se não é a primeira carga e o pedido não é "Pronto" (caso de reload), marcamos novidade
-                    if (!isFirstLoad.current && order.status !== 'ready') {
+                    // Se não é a primeira carga e o pedido é NOVO (pending), bipamos
+                    if (!isFirstLoad.current && order.status === 'pending') {
                         hasNewOrder = true
                     }
                 }
             })
 
             if (hasNewOrder) {
+                console.log("🔔 Novo pedido detectado! Tocando som...")
                 playNotification()
             }
 
