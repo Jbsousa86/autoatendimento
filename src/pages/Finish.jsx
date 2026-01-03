@@ -161,6 +161,12 @@ export default function Finish() {
             ))}
           </tbody>
         </table>
+
+        {(order.payment_method || order.paymentMethod) && (
+          <div className="mt-4 border-t border-black border-dashed pt-2 font-bold text-center uppercase text-xs">
+            FORMA DE PAGAMENTO: {(order.payment_method || order.paymentMethod).toUpperCase()}
+          </div>
+        )}
         <div className="border-t border-black border-dashed pt-2 my-2 font-bold flex justify-between text-base">
           <span>TOTAL</span>
           <span>{Number(order.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
@@ -172,6 +178,6 @@ export default function Finish() {
         )}
         <div className="text-center mt-4 text-[9px]">Obrigado pela preferencia!</div>
       </div>
-    </div>
+    </div >
   )
 }

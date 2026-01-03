@@ -101,7 +101,8 @@ export const orderService = {
             total: orderData.total,
             items: orderData.items,
             status: 'pending',
-            cashier_name: orderData.cashierName || null
+            cashier_name: orderData.cashierName || null,
+            payment_method: orderData.paymentMethod || null
         }
 
         const { data, error } = await supabase

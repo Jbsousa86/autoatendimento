@@ -175,7 +175,7 @@ export default function Cashier() {
         }
     }, [user]);
 
-    const printBluetooth = async (isManual = false) => {
+    const printBluetooth = async (isManual = false, orderToPrint = null) => {
         let activeDevice = printerDevice;
 
         // Se manual e não tiver dispositivo, abre o seletor nativo
@@ -183,7 +183,8 @@ export default function Cashier() {
             activeDevice = await connectPrinter(!isManual);
         }
 
-        if (!activeDevice || !lastFinishedOrder) return false;
+        const order = orderToPrint || lastFinishedOrder;
+        if (!activeDevice || !order) return false;
 
         try {
             const encoder = new TextEncoder();
@@ -212,15 +213,17 @@ export default function Cashier() {
                 ...txt("Tel: (63) 99103-8781"),
                 ...txt("Comprovante de Venda"), ...BOLD_OFF,
                 ...txt("--------------------------------"),
-                ...BOLD_ON, ...txt(`PEDIDO: ${lastFinishedOrder.orderNumber}`), ...BOLD_OFF,
+                ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
                 ...LEFT, ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
-                ...txt(`Caixa: ${user?.name || 'Sistema'}`),
-                ...txt(`Cliente: ${lastFinishedOrder.customerName || 'Nao informado'}`),
-                ...(lastFinishedOrder.paymentMethod ? [...txt(`Pagamento: ${lastFinishedOrder.paymentMethod.toUpperCase()}`)] : []),
+                ...txt(`Caixa: ${order.cashierName || user?.name || 'Sistema'}`),
+                ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
+                ...((order.paymentMethod || order.payment_method)
+                    ? [...txt(`FORMA PGTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
+                    : []),
                 ...txt("--------------------------------"),
             ]);
 
-            lastFinishedOrder.items.forEach(item => {
+            order.items.forEach(item => {
                 // Nome completo do item
                 data = new Uint8Array([...data, ...txt(`${item.qty}x ${item.name}`)]);
 
@@ -232,15 +235,15 @@ export default function Cashier() {
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
             });
 
-            if (lastFinishedOrder.observation) {
-                data = new Uint8Array([...data, ...txt(`OBS: ${lastFinishedOrder.observation}`)]);
+            if (order.observation) {
+                data = new Uint8Array([...data, ...txt(`OBS: ${order.observation}`)]);
             }
 
             data = new Uint8Array([
                 ...data,
                 ...txt("--------------------------------"),
-                ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(lastFinishedOrder.total).toFixed(2)}`), ...BOLD_OFF,
-                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...FEED
+                ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
+                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...txt("\n\n\n"), ...FEED
             ]);
 
             // Determina o método de escrita mais compatível
@@ -277,8 +280,9 @@ export default function Cashier() {
             orderNumber: order.order_number,
             items: order.items,
             total: order.total,
-            cashierName: order.cashier_name || "Totem",
-            customerName: order.customer_name || ""
+            cashierName: order.cashier_name || "Balcão",
+            customerName: order.customer_name || "",
+            paymentMethod: order.payment_method || order.paymentMethod || ""
         }
         setLastFinishedOrder(reprintData)
         // No reprint manual, não disparamos nada automático para não confundir
@@ -411,7 +415,7 @@ export default function Cashier() {
 
         // AUTO-PRINT: Só tenta se estiver conectado, para não abrir diálogos chatos
         if (printerStatus === 'connected') {
-            setTimeout(() => printBluetooth(), 500)
+            setTimeout(() => printBluetooth(false, orderPayload), 500)
         }
     }
 
@@ -606,11 +610,19 @@ export default function Cashier() {
                                 <div className="text-xs mb-2 uppercase font-bold">
                                     Cliente: {lastFinishedOrder.customerName || "Não informado"}
                                 </div>
-                                {lastFinishedOrder.paymentMethod && (
-                                    <div className="text-xs mb-2 uppercase font-black">
-                                        PAGAMENTO: {lastFinishedOrder.paymentMethod}
-                                    </div>
-                                )}
+                                {(() => {
+                                    const pgto = lastFinishedOrder?.paymentMethod || lastFinishedOrder?.payment_method;
+                                    if (!pgto) return null;
+                                    return (
+                                        <>
+                                            <div className="my-2 p-1 border-2 border-black text-center font-bold text-sm uppercase">
+                                                FORMA DE PAGAMENTO: {pgto.toUpperCase()}
+                                            </div>
+                                            {/* Add more line feeds for Bluetooth print */}
+                                            <div className="h-4"></div>
+                                        </>
+                                    );
+                                })()}
                                 <div className="border-b border-black border-dashed my-2"></div>
                                 <table className="w-full text-left mb-4">
                                     <thead>
@@ -650,6 +662,8 @@ export default function Cashier() {
                                 <div className="text-center mt-6 text-xs">
                                     <p>Obrigado pela preferência!</p>
                                 </div>
+                                {/* Add more line feeds for Bluetooth print */}
+                                <div className="h-8"></div>
                             </div>
                         </div>
                     </div>
@@ -1092,7 +1106,14 @@ export default function Cashier() {
                                                             <p className="text-xs font-bold truncate max-w-[200px] md:max-w-md group-hover:text-blue-700">
                                                                 {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
                                                             </p>
-                                                            <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
+                                                                {order.payment_method && (
+                                                                    <span className="text-[8px] bg-gray-100 text-gray-600 px-1 rounded font-black uppercase border border-gray-200">
+                                                                        {order.payment_method}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-4 text-right">
                                                             <div className="flex flex-col items-end">

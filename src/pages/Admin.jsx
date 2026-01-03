@@ -764,6 +764,7 @@ export default function Admin() {
                                             <th className="p-3">#</th>
                                             <th className="p-3">Horário</th>
                                             <th className="p-3">Cliente</th>
+                                            <th className="p-3">Pgto</th>
                                             <th className="p-3 text-right">Valor</th>
                                             {devMode && <th className="p-3 text-center">Ação</th>}
                                         </tr>
@@ -805,6 +806,14 @@ export default function Admin() {
                                                                 </span>
                                                             )}
                                                         </div>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${order.payment_method === 'dinheiro' ? 'bg-green-100 text-green-700' :
+                                                                order.payment_method === 'cartao' ? 'bg-blue-100 text-blue-700' :
+                                                                    order.payment_method === 'pix' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                                                            }`}>
+                                                            {order.payment_method || '-'}
+                                                        </span>
                                                     </td>
                                                     <td className="p-3 text-right font-black text-gray-900">
                                                         {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
