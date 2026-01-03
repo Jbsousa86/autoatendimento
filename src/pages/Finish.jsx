@@ -155,15 +155,24 @@ export default function Finish() {
         <div className="text-[10px] mb-2">Data: {new Date().toLocaleString('pt-BR')}</div>
         <div className="border-b border-black border-dashed my-2"></div>
         <table className="w-full text-left font-mono text-[10px]">
+          <thead>
+            <tr className="border-b border-black border-dashed font-bold uppercase">
+              <th className="py-1 w-[10%]">Qtd</th>
+              <th className="py-1 w-[65%]">Item</th>
+              <th className="py-1 w-[25%] text-right">Preço</th>
+            </tr>
+          </thead>
           <tbody>
             {order.items?.map((item, i) => (
               <tr key={i} className="border-b border-black border-dashed font-bold">
-                <td className="py-1.5 align-top w-6">{item.qty}x</td>
+                <td className="py-1.5 align-top">{item.qty}x</td>
                 <td className="py-1.5 align-top">
                   <div className="leading-tight break-words uppercase">{item.name}</div>
                   {item.observation && <div className="text-[9px] italic mt-0.5 font-normal">➔ {item.observation}</div>}
                 </td>
-                <td className="py-1.5 align-top text-right whitespace-nowrap pl-2">{(item.price * item.qty).toFixed(2)}</td>
+                <td className="py-1.5 align-top text-right whitespace-nowrap pl-2">
+                  {(item.price * item.qty).toFixed(2)}
+                </td>
               </tr>
             ))}
           </tbody>

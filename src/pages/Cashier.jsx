@@ -235,13 +235,22 @@ export default function Cashier() {
             ]);
 
             order.items.forEach(item => {
-                // Nome completo do item
-                data = new Uint8Array([...data, ...txt(`${item.qty}x ${item.name}`)]);
+                const qty = `${item.qty}x `;
+                const price = (Number(item.price) * item.qty).toFixed(2);
 
-                // Preço alinhado à direita na linha seguinte para garantir que o nome nunca seja cortado
-                const itemTotal = (Number(item.price) * item.qty).toFixed(2);
-                const priceLine = `R$ ${itemTotal}`.padStart(32);
-                data = new Uint8Array([...data, ...txt(priceLine)]);
+                // Calculamos quanto sobra para o nome (base 32 caracteres)
+                const totalWidth = 32;
+                const nameWidth = totalWidth - qty.length - price.length - 1;
+
+                let name = item.name;
+                if (name.length > nameWidth) {
+                    name = name.substring(0, nameWidth - 1) + ".";
+                }
+
+                const dotsCount = totalWidth - qty.length - name.length - price.length;
+                const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
+
+                data = new Uint8Array([...data, ...txt(`${qty}${name}${dots}${price}`)]);
 
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
             });
@@ -657,9 +666,9 @@ export default function Cashier() {
                                 <table className="w-full text-left mb-4">
                                     <thead>
                                         <tr className="text-xs border-b border-dashed border-black">
-                                            <th className="py-1">Qtd</th>
-                                            <th className="py-1">Item</th>
-                                            <th className="py-1 text-right">Vl.</th>
+                                            <th className="py-1 w-[10%]">Qtd</th>
+                                            <th className="py-1 w-[65%]">Item</th>
+                                            <th className="py-1 w-[25%] text-right">Preço</th>
                                         </tr>
                                     </thead>
                                     <tbody>
