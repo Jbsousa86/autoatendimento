@@ -103,7 +103,7 @@ export const orderService = {
     },
 
     async createOrder(orderData) {
-        console.log("💾 Tentando salvar pedido...", orderData.orderNumber)
+        console.log("💾 [API] Tentando salvar pedido...", orderData.orderNumber)
 
         const newOrder = {
             order_number: String(orderData.orderNumber),
@@ -117,28 +117,27 @@ export const orderService = {
             payment_method: orderData.paymentMethod || null
         }
 
-        // 1. Tenta o salvamento completo (com forma de pagamento)
+        // Tenta o salvamento completo
         let response = await supabase.from('orders').insert([newOrder]).select()
 
-        // 2. Se falhar por causa da coluna, tenta sem a forma de pagamento
+        // Fallback robusto para colunas faltando
         if (response.error) {
-            console.warn("⚠️ Primeira tentativa de salvamento falhou:", response.error.message)
+            console.warn("⚠️ Tentativa 1 falhou:", response.error.message)
 
-            if (response.error.message.includes("payment_method") || response.error.code === '42703') {
-                const { payment_method, ...orderWithoutPayment } = newOrder
-                response = await supabase.from('orders').insert([orderWithoutPayment]).select()
+            if (response.error.message.includes("payment_method") || response.error.message.includes("cashier_name") || response.error.code === '42703') {
+                const { payment_method, cashier_name, ...minOrder } = newOrder
+                response = await supabase.from('orders').insert([minOrder]).select()
             }
         }
 
         if (response.error) {
-            console.error("❌ Erro fatal ao criar pedido no banco:", response.error)
-            // Lança o erro para que o componente (Cashier.jsx) possa mostrar o alerta com o catch
-            return null
+            console.error("❌ ERRO SUPABASE AO SALVAR:", response.error)
+            return { error: response.error }
         }
 
         const data = response.data ? response.data[0] : null
-        if (data) console.log("✅ Pedido salvo com sucesso! ID:", data.id)
-        return data
+        if (data) console.log("✅ Pedido gravado no banco! ID:", data.id)
+        return { data }
     },
 
     async updateOrderName(id, newName) {

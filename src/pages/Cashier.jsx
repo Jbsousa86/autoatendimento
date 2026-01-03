@@ -414,10 +414,11 @@ export default function Cashier() {
             paymentMethod: paymentMethod // Novo campo
         }
 
-        const savedOrder = await orderService.createOrder(orderPayload)
+        const { data: savedOrder, error } = await orderService.createOrder(orderPayload)
 
-        if (!savedOrder) {
-            alert("❌ ERRO AO SALVAR PEDIDO!\n\nO pedido não foi registrado no banco de dados. Verifique sua conexão com a internet e tente novamente.")
+        if (error || !savedOrder) {
+            const msg = error?.message || "Erro desconhecido"
+            alert(`❌ ERRO AO GRAVAR NO BANCO!\n\nO servidor disse: "${msg}"\n\nVerifique se a tabela 'orders' existe e se você tem permissão de acesso.`)
             return
         }
 

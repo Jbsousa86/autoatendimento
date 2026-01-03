@@ -19,7 +19,14 @@ export default function Finish() {
       if (order && !hasProcessed.current) {
         hasProcessed.current = true
         try {
-          const saved = await orderService.createOrder(order)
+          const { data: saved, error } = await orderService.createOrder(order)
+
+          if (error || !saved) {
+            console.error("Erro ao salvar pedido:", error)
+            alert("⚠️ Erro ao registrar pedido no servidor. Por favor, avise o atendente.")
+            return
+          }
+
           if (saved && saved.id) order.id = saved.id
           window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
           clearCart()
