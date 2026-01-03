@@ -171,7 +171,7 @@ export default function Finish() {
 
         {(order.payment_method || order.paymentMethod) && (
           <div className="mt-4 border-t border-black border-dashed pt-2 font-bold text-center uppercase text-xs">
-            FORMA DE PAGAMENTO: {(order.payment_method || order.paymentMethod).toUpperCase()}
+            PAGAMENTO: {(order.payment_method || order.paymentMethod).toUpperCase()}
           </div>
         )}
         <div className="border-t border-black border-dashed pt-2 my-2 font-bold flex justify-between text-base">
@@ -179,8 +179,9 @@ export default function Finish() {
           <span>{Number(order.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
         </div>
         {order.observation && (
-          <div className="mt-2 text-[9px] border border-black p-1">
-            <strong>OBS:</strong> {order.observation}
+          <div className="border-y border-black border-dashed py-2 my-2 text-[10px]">
+            <div className="font-bold uppercase mb-1">Observações Gerais:</div>
+            <div className="italic break-words">{order.observation}</div>
           </div>
         )}
         <div className="text-center mt-4 text-[9px]">Obrigado pela preferencia!</div>

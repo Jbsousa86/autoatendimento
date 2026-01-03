@@ -229,7 +229,7 @@ export default function Cashier() {
                 ...txt(`Caixa: ${order.cashierName || user?.name || 'Sistema'}`),
                 ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
                 ...((order.paymentMethod || order.payment_method)
-                    ? [...txt(`FORMA PGTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
+                    ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
                     : []),
                 ...txt("--------------------------------"),
             ]);
@@ -247,7 +247,13 @@ export default function Cashier() {
             });
 
             if (order.observation) {
-                data = new Uint8Array([...data, ...txt(`OBS: ${order.observation}`)]);
+                data = new Uint8Array([
+                    ...data,
+                    ...txt("--------------------------------"),
+                    ...BOLD_ON, ...txt("OBS GERAL:"), ...BOLD_OFF,
+                    ...txt(order.observation),
+                    ...txt("--------------------------------")
+                ]);
             }
 
             data = new Uint8Array([
@@ -640,7 +646,7 @@ export default function Cashier() {
                                     return (
                                         <>
                                             <div className="my-2 p-1 border-2 border-black text-center font-bold text-sm uppercase">
-                                                FORMA DE PAGAMENTO: {pgto.toUpperCase()}
+                                                PAGAMENTO: {pgto.toUpperCase()}
                                             </div>
                                             {/* Add more line feeds for Bluetooth print */}
                                             <div className="h-4"></div>
@@ -672,8 +678,9 @@ export default function Cashier() {
                                     </tbody>
                                 </table>
                                 {lastFinishedOrder.observation && (
-                                    <div className="border border-black p-1 text-[10px] mb-2 mt-2">
-                                        <span className="font-bold">OBS: </span> {lastFinishedOrder.observation}
+                                    <div className="border-y border-black border-dashed py-2 my-2 text-[10px]">
+                                        <div className="font-bold uppercase mb-1">Observações Gerais:</div>
+                                        <div className="italic break-words">{lastFinishedOrder.observation}</div>
                                     </div>
                                 )}
                                 <div className="border-t border-black border-dashed pt-2 my-2">
