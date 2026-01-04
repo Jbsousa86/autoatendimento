@@ -25,6 +25,23 @@ export default function Cashier() {
     const [isPrinting, setIsPrinting] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState("") // 'dinheiro', 'cartao', 'pix'
 
+    // Verifica se já existe uma impressora pareada ao carregar
+    useEffect(() => {
+        const checkPairedDevices = async () => {
+            if (navigator.bluetooth?.getDevices) {
+                try {
+                    const devices = await navigator.bluetooth.getDevices();
+                    if (devices.length > 0) {
+                        setPrinterStatus("ready");
+                    }
+                } catch (e) {
+                    console.log("Erro ao verificar dispositivos pareados:", e);
+                }
+            }
+        };
+        checkPairedDevices();
+    }, []);
+
     useEffect(() => {
         if (user) {
             loadProducts()
@@ -33,19 +50,10 @@ export default function Cashier() {
             const handleAfterPrint = () => setLastFinishedOrder(null)
             window.addEventListener('afterprint', handleAfterPrint)
 
-            // Auto-reconnect: tenta silenciosamente sempre que autenticado
-            // Aumentamos a frequência e verificamos se realmente está desconectado
-            const reconnectTimer = setInterval(() => {
-                if (user && printerStatus === 'disconnected') {
-                    console.log("Tentativa de reconexão automática...");
-                    connectPrinter(true)
-                }
-            }, 10000);
 
             return () => {
                 if (subscription) subscription.unsubscribe()
                 window.removeEventListener('afterprint', handleAfterPrint)
-                clearInterval(reconnectTimer)
             }
         }
     }, [user, activeTab, printerStatus]) // Adicionado printerStatus para reagir a quedas
@@ -109,17 +117,7 @@ export default function Cashier() {
 
             if (!device && !auto) {
                 device = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-                        { namePrefix: 'Inner' },
-                        { namePrefix: 'POS' },
-                        { namePrefix: 'mini' },
-                        { namePrefix: 'MP' },
-                        { namePrefix: 'MTP' },
-                        { namePrefix: 'Goojprt' },
-                        { namePrefix: 'BT' },
-                        { namePrefix: 'PRINTER' }
-                    ],
+                    acceptAllDevices: true,
                     optionalServices: commonServices
                 });
             }
@@ -163,9 +161,8 @@ export default function Cashier() {
             setPrinterStatus("connected");
 
             device.addEventListener('gattserverdisconnected', () => {
-                setPrinterStatus("disconnected");
+                setPrinterStatus("ready");
                 setPrinterDevice(null);
-                setTimeout(() => connectPrinter(true), 5000);
             });
 
             return characteristic;
@@ -293,6 +290,9 @@ export default function Cashier() {
                 // Pequeno delay para não sobrecarregar o buffer da impressora
                 await new Promise(r => setTimeout(r, 20));
             }
+
+
+
             return true;
         } catch (error) {
             console.error("Print Error:", error);
@@ -454,8 +454,8 @@ export default function Cashier() {
         setPaymentMethod("") // Limpa o método de pagamento
         loadDailyHistory()
 
-        // AUTO-PRINT: Só tenta se estiver conectado, para não abrir diálogos chatos
-        if (printerStatus === 'connected') {
+        // AUTO-PRINT: Tenta imprimir se houver uma impressora configurada/pronta
+        if (printerStatus === 'connected' || printerStatus === 'ready') {
             setTimeout(() => printBluetooth(false, finalOrder), 500)
         }
     }
@@ -547,9 +547,13 @@ export default function Cashier() {
                     >
                         <span className="text-sm">🖨️</span>
                         <span className="text-[10px] font-black uppercase hidden md:inline">
-                            {printerStatus === 'connected' ? 'ONLINE' : printerStatus === 'connecting' ? 'BUSCANDO...' : 'IMPRESSORA OFF'}
+                            {printerStatus === 'connected' ? 'CONECTADO' :
+                                printerStatus === 'connecting' ? 'BUSCANDO...' :
+                                    printerStatus === 'ready' ? 'PRONTA' : 'OFF'}
                         </span>
-                        {printerStatus === 'connected' && <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>}
+                        {(printerStatus === 'connected' || printerStatus === 'ready') && (
+                            <span className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)] ${printerStatus === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-green-500/50'}`}></span>
+                        )}
                     </button>
 
                     <div className="flex bg-gray-800 rounded-lg p-1 overflow-x-auto max-w-[200px] sm:max-w-[250px] md:max-w-none">
