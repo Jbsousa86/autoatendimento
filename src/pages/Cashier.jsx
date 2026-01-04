@@ -252,6 +252,9 @@ export default function Cashier() {
                 }
 
                 if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
+
+                // Espaçamento extra entre itens
+                data = new Uint8Array([...data, ...txt("")]);
             });
 
             if (order.observation) {
@@ -268,7 +271,7 @@ export default function Cashier() {
                 ...data,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
-                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...txt("\n\n\n"), ...FEED
+                ...CENTER, ...txt("\nObrigado pela preferencia!"), ...txt("\n"), ...FEED
             ]);
 
             // Determina o método de escrita mais compatível
@@ -292,6 +295,13 @@ export default function Cashier() {
             }
 
 
+            // DESCONECTA APÓS IMPRIMIR
+            // Isso é essencial para que outros caixas possam usar a mesma impressora, 
+            // já que ela só aceita uma conexão Bluetooth ativa por vez através do site.
+            if (activeDevice.service?.device?.gatt?.connected) {
+                console.log("Desconectando para liberar para outros dispositivos...");
+                activeDevice.service.device.gatt.disconnect();
+            }
 
             return true;
         } catch (error) {
@@ -680,12 +690,12 @@ export default function Cashier() {
                                     <tbody>
                                         {lastFinishedOrder.items.map((item, i) => (
                                             <tr key={i} className="border-b border-black border-dashed last:border-0 font-bold">
-                                                <td className="py-1.5 align-top w-6">{item.qty}x</td>
-                                                <td className="py-1.5 align-top">
+                                                <td className="py-3 align-top w-6">{item.qty}x</td>
+                                                <td className="py-3 align-top">
                                                     <div className="leading-tight break-words">{item.name}</div>
-                                                    {item.observation && <div className="text-[10px] italic mt-0.5 font-normal">➔ {item.observation}</div>}
+                                                    {item.observation && <div className="text-[10px] italic mt-1 font-normal">➔ {item.observation}</div>}
                                                 </td>
-                                                <td className="py-1.5 align-top text-right whitespace-nowrap pl-2">
+                                                <td className="py-3 align-top text-right whitespace-nowrap pl-2">
                                                     {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
