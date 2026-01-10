@@ -747,10 +747,10 @@ export default function Cashier() {
                                 {lastFinishedOrder.changeAmount && (
                                     <div className="border-t border-black border-dashed pt-2 my-2 text-sm font-bold">
                                         <div className="flex justify-between">
-                                            <span>VALOR EM DINHEIRO:</span>
+                                            <span>TROCO PARA:</span>
                                             <span>R$ {Number(lastFinishedOrder.changeAmount).toFixed(2)}</span>                                        </div>
                                         <div className="flex justify-between text-lg">
-                                            <span>TROCO:</span>
+                                            <span>VALOR:</span>
                                             <span>{(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </div>
                                     </div>
