@@ -237,11 +237,10 @@ export default function Cashier() {
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
                 ...txt("CONTROLE DE PEDIDO"),
-                ...BOLD_ON, ...txt("VENDA DE CAIXA"), ...BOLD_OFF,
+                ...BOLD_ON, ...txt(`OPERADOR: ${order.cashierName || 'GERAL'}`), ...BOLD_OFF,
                 ...txt(`NR: ${order.orderNumber}`),
                 ...txt(`DATA: ${new Date().toLocaleDateString('pt-BR')}`),
                 ...txt(`HORA: ${new Date().toLocaleTimeString('pt-BR')}`),
-                ...txt(`OPERADOR: ${order.cashierName || 'GERAL'}`),
                 ...txt("--------------------------------"),
                 ...LEFT,
                 ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
@@ -695,10 +694,7 @@ export default function Cashier() {
                                     <span>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-1 mt-2">
-                                    <div className="text-[10px] font-black bg-black text-white px-3 py-1 rounded-full inline-block uppercase tracking-widest">
-                                        VENDA DE CAIXA
-                                    </div>
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">
+                                    <div className="text-[10px] font-black bg-black text-white px-4 py-1.5 rounded-full inline-block uppercase tracking-widest">
                                         Operador: {lastFinishedOrder.cashierName}
                                     </div>
                                 </div>
@@ -1156,32 +1152,76 @@ export default function Cashier() {
                                 </div>
                             )}
 
-                            {/* STATS CARDS — RESUMO DO DIA DESTE CAIXA */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            {/* STATS CARDS — RESUMO DINÂMICO BASEADO NA PERMISSÃO */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                                {/* CARD 1: SEU RESULTADO (Sempre visível) */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-blue-500">
                                     <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Suas Vendas (Hoje)</h3>
                                     <p className="text-2xl font-black text-blue-600">
                                         R$ {dailyOrders
-                                            .filter(o => o.cashier_name === user.name)
+                                            .filter(o => o.cashier_name === user.name && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA')))
                                             .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                         }
                                     </p>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Total processado por {user.name}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Processado por você</p>
                                 </div>
 
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Qtd. de Pedidos</h3>
-                                    <p className="text-2xl font-black text-gray-800">
-                                        {dailyOrders.length}
-                                    </p>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Vendas realizadas hoje</p>
-                                </div>
+                                {/* CARDS ADICIONAIS: APENAS SE AUTORIZADO (VISÃO DE GERENTE) */}
+                                {user.can_view_reports && (
+                                    <>
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem & Mesas</h3>
+                                            <p className="text-2xl font-black text-orange-600">
+                                                R$ {dailyOrders
+                                                    .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                                }
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Vendas de autoatendimento</p>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-purple-500">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Outros Operadores</h3>
+                                            <p className="text-2xl font-black text-purple-600">
+                                                R$ {dailyOrders
+                                                    .filter(o => o.cashier_name && o.cashier_name !== user.name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                                }
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Vendas de outros caixas</p>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-green-600">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Geral (Dia)</h3>
+                                            <p className="text-2xl font-black text-green-700">
+                                                R$ {dailyOrders
+                                                    .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                                }
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Soma de todas as fontes</p>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* SE NÃO AUTORIZADO: MOSTRA QTD DE PEDIDOS SIMPLES */}
+                                {!user.can_view_reports && (
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                        <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Seus Pedidos (Hoje)</h3>
+                                        <p className="text-2xl font-black text-gray-800">
+                                            {dailyOrders.filter(o => o.cashier_name === user.name).length}
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Sua quantidade de hoje</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* HISTÓRICO DETALHADO — APENAS HOJE */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Suas Vendas de Hoje</h2>
+                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">
+                                        {user.can_view_reports ? 'Histórico Geral de Vendas' : 'Suas Vendas de Hoje'}
+                                    </h2>
                                     <div className="flex items-center gap-4">
                                         <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
                                     </div>
