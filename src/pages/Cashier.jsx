@@ -71,24 +71,23 @@ export default function Cashier() {
     }
 
     const loadDailyHistory = async () => {
-        const all = await orderService.getOrders()
-        const sevenDaysAgo = new Date()
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        sevenDaysAgo.setHours(0, 0, 0, 0)
+        const today = new Date().toLocaleDateString('en-CA')
+        const startIso = today + 'T00:00:00.000Z'
+        const endIso = today + 'T23:59:59.999Z'
 
-        // Filtra garantindo que pedidos sem data apareçam no topo
-        const recentOrders = all.filter(o => {
-            if (!o.created_at) return true
-            return new Date(o.created_at) >= sevenDaysAgo
-        })
+        // Busca apenas os pedidos de hoje para maior performance e privacidade
+        const all = await orderService.getOrders(startIso, endIso)
 
-        recentOrders.sort((a, b) => {
+        // Filtra para exibir apenas as vendas DESTE operador logado
+        const filtered = all.filter(o => o.cashier_name === user.name)
+
+        filtered.sort((a, b) => {
             const dateA = a.created_at ? new Date(a.created_at) : new Date()
             const dateB = b.created_at ? new Date(b.created_at) : new Date()
             return dateB - dateA
         })
 
-        setDailyOrders(recentOrders)
+        setDailyOrders(filtered)
     }
 
     // Handlers
@@ -1138,44 +1137,35 @@ export default function Cashier() {
                                 </div>
                             </div>
 
-                            {/* DETALHAMENTO DO DIA SELECIONADO */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* STATS CARDS — RESUMO DO DIA DESTE CAIXA */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Minhas Vendas (Data)</h3>
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Suas Vendas (Hoje)</h3>
                                     <p className="text-2xl font-black text-blue-600">
                                         R$ {dailyOrders
-                                            .filter(o => o.cashier_name === user.name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                            .filter(o => o.cashier_name === user.name)
                                             .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                         }
                                     </p>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Processado por você</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Total processado por {user.name}</p>
                                 </div>
 
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Vendas Totem (Data)</h3>
-                                    <p className="text-2xl font-black text-orange-600">
-                                        R$ {dailyOrders
-                                            .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                            .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
-                                        }
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Qtd. de Pedidos</h3>
+                                    <p className="text-2xl font-black text-gray-800">
+                                        {dailyOrders.length}
                                     </p>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Autoatendimento</p>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total Geral (Semana)</h3>
-                                    <p className="text-2xl font-black text-green-600">
-                                        R$ {dailyOrders.reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)}
-                                    </p>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Acumulado 7 dias buscados</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold">Vendas realizadas hoje</p>
                                 </div>
                             </div>
 
-                            {/* HISTÓRICO DETALHADO — FILTRADO POR DATA */}
+                            {/* HISTÓRICO DETALHADO — APENAS HOJE */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Pedidos do Dia Selecionado</h2>
-                                    <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
+                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">Suas Vendas de Hoje</h2>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={loadDailyHistory} className="text-xs font-bold text-blue-600 hover:underline">Atualizar ↻</button>
+                                    </div>
                                 </div>
                                 <div className="overflow-x-auto hidden md:block">
                                     <table className="w-full text-left">
