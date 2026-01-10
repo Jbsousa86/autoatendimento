@@ -752,7 +752,7 @@ export default function Cashier() {
                                         </div>
                                         <div className="flex justify-between text-lg">
                                             <span>TROCO:</span>
-                                            <span>R$ {(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                            <span>{(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </div>
                                     </div>
                                 )}
