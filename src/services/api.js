@@ -115,20 +115,25 @@ export const orderService = {
             status: 'pending',
             cashier_name: orderData.cashierName || null,
             payment_method: orderData.paymentMethod || null,
-            change_amount: orderData.changeAmount || null
+            change_amount: orderData.changeAmount || null,
+            observation: orderData.observation || null
         }
 
         // Tenta o salvamento completo
         let response = await supabase.from('orders').insert([newOrder]).select()
 
-        // Fallback robusto para colunas faltando
-        if (response.error) {
-            console.warn("⚠️ Tentativa 1 falhou:", response.error.message)
-
-            if (response.error.message.includes("payment_method") || response.error.message.includes("cashier_name") || response.error.message.includes("change_amount") || response.error.code === '42703') {
-                const { payment_method, cashier_name, change_amount, ...minOrder } = newOrder
-                response = await supabase.from('orders').insert([minOrder]).select()
+        // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
+        if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
+            console.warn("⚠️ Alguma coluna falta no banco. Mantendo o Operador e salvando o básico.")
+            const minOrder = {
+                order_number: newOrder.order_number,
+                customer_name: newOrder.customer_name,
+                total: newOrder.total,
+                items: newOrder.items,
+                status: newOrder.status,
+                cashier_name: newOrder.cashier_name // MANTÉM O OPERADOR
             }
+            response = await supabase.from('orders').insert([minOrder]).select()
         }
 
         if (response.error) {

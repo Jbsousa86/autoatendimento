@@ -295,7 +295,7 @@ export default function Cashier() {
                     data = new Uint8Array([
                         ...data,
                         ...BOLD_ON, ...txt(`PAGOU: R$ ${changeVal.toFixed(2)}`),
-                        ...txt(`TROCO: R$ ${troco.toFixed(2)}`), ...BOLD_OFF,
+                        ...txt(`TROCO: ${troco.toFixed(2)}`), ...BOLD_OFF,
                         ...txt("--------------------------------")
                     ]);
                 }
@@ -348,18 +348,16 @@ export default function Cashier() {
     }
 
     const handleReprint = async (order) => {
+        // Criamos o objeto de reimpressão com TODOS os campos presentes no pedido original
         const reprintData = {
-            orderNumber: order.order_number,
-            items: order.items,
-            total: order.total,
-            cashierName: order.cashier_name || "Balcão",
-            customerName: order.customer_name || "",
-            paymentMethod: order.payment_method || order.paymentMethod || ""
+            ...order, // Copia tudo (incluindo observation, change_amount, etc)
+            orderNumber: order.order_number, // Mapeia snake_case para camelCase usado no print
+            cashierName: order.cashier_name || null, // Se for null, o sistema entende como Totem
+            customerName: order.customer_name || "Balcão",
+            paymentMethod: order.payment_method || ""
         }
         setLastFinishedOrder(reprintData)
-        // No reprint manual, não disparamos nada automático para não confundir
     }
-
     const handleLogin = async (e) => {
         e.preventDefault()
         try {
