@@ -126,6 +126,16 @@ export default function Admin() {
         }
     }
 
+    const handleToggleReportAccess = async (cashier) => {
+        try {
+            const newValue = !cashier.can_view_reports
+            await cashierService.updateCashier(cashier.id, { can_view_reports: newValue })
+            loadCashiers()
+        } catch (error) {
+            alert("Erro ao atualizar permissão. Verifique se a coluna 'can_view_reports' existe no banco.")
+        }
+    }
+
     const calculateStats = (orders) => {
         // 1. Faturamento Total (garantindo número)
         const revenue = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0)
@@ -809,8 +819,8 @@ export default function Admin() {
                                                     </td>
                                                     <td className="p-3">
                                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${order.payment_method === 'dinheiro' ? 'bg-green-100 text-green-700' :
-                                                                order.payment_method === 'cartao' ? 'bg-blue-100 text-blue-700' :
-                                                                    order.payment_method === 'pix' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                                                            order.payment_method === 'cartao' ? 'bg-blue-100 text-blue-700' :
+                                                                order.payment_method === 'pix' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
                                                             }`}>
                                                             {order.payment_method || '-'}
                                                         </span>
@@ -895,12 +905,23 @@ export default function Admin() {
                                             <td className="p-4 text-gray-400 font-mono text-xs max-w-[50px] truncate">{cashier.id}</td>
                                             <td className="p-4 font-bold">{cashier.name}</td>
                                             <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => handleDeleteCashier(cashier.id)}
-                                                    className="text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded"
-                                                >
-                                                    REMOVER
-                                                </button>
+                                                <div className="flex items-center justify-center gap-4">
+                                                    <button
+                                                        onClick={() => handleToggleReportAccess(cashier)}
+                                                        className={`text-[10px] font-black px-3 py-1.5 rounded-full border transition-all ${cashier.can_view_reports
+                                                            ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                                            : 'bg-gray-100 border-gray-200 text-gray-400 hover:border-gray-300'
+                                                            }`}
+                                                    >
+                                                        {cashier.can_view_reports ? '📊 RELATÓRIOS: ON' : '📊 RELATÓRIOS: OFF'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteCashier(cashier.id)}
+                                                        className="text-red-500 font-bold hover:bg-red-50 px-3 py-1 rounded text-sm whitespace-nowrap"
+                                                    >
+                                                        REMOVER
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

@@ -46,6 +46,11 @@ export default function Cashier() {
 
     useEffect(() => {
         if (user) {
+            // Se o usuário perder acesso ao relatório enquanto está na aba, volta pra venda
+            if (activeTab === 'history' && !user.can_view_reports) {
+                setActiveTab('pos')
+            }
+
             loadProducts()
             loadDailyHistory()
             const subscription = orderService.subscribeToOrders(() => loadDailyHistory())
@@ -276,8 +281,8 @@ export default function Cashier() {
                 if (troco > 0) {
                     data = new Uint8Array([
                         ...data,
-                        ...BOLD_ON, ...txt(`PAGOU COM: R$ ${changeVal.toFixed(2)}`),
-                        ...txt(`TROCO PARA: R$ ${troco.toFixed(2)}`), ...BOLD_OFF,
+                        ...BOLD_ON, ...txt(`PAGOU: R$ ${changeVal.toFixed(2)}`),
+                        ...txt(`TROCO: R$ ${troco.toFixed(2)}`), ...BOLD_OFF,
                         ...txt("--------------------------------")
                     ]);
                 }
@@ -592,12 +597,14 @@ export default function Cashier() {
                         >
                             🛒 VENDA
                         </button>
-                        <button
-                            onClick={() => setActiveTab('history')}
-                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            📋 CAIXA
-                        </button>
+                        {user.can_view_reports && (
+                            <button
+                                onClick={() => setActiveTab('history')}
+                                className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                📋 CAIXA
+                            </button>
+                        )}
                         <button
                             onClick={() => window.open("/kitchen", "_blank")}
                             className="px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap text-gray-400 hover:text-orange-400"
@@ -730,11 +737,11 @@ export default function Cashier() {
                                 {lastFinishedOrder.changeAmount && (
                                     <div className="border-t border-black border-dashed pt-2 my-2 text-sm font-bold">
                                         <div className="flex justify-between">
-                                            <span>PAGOU COM:</span>
+                                            <span>PAGOU:</span>
                                             <span>R$ {Number(lastFinishedOrder.changeAmount).toFixed(2)}</span>
                                         </div>
                                         <div className="flex justify-between text-lg">
-                                            <span>TROCO PARA:</span>
+                                            <span>TROCO:</span>
                                             <span>R$ {(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </div>
                                     </div>

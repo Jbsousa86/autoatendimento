@@ -230,7 +230,26 @@ export const cashierService = {
     async createCashier(name, password) {
         const { error } = await supabase
             .from('cashiers')
-            .insert([{ name, password }])
+            .insert([{ name, password, can_view_reports: false }])
+
+        if (error) {
+            // Fallback caso a coluna não exista ainda
+            if (error.message.includes("can_view_reports")) {
+                const { error: error2 } = await supabase
+                    .from('cashiers')
+                    .insert([{ name, password }])
+                if (error2) throw error2
+                return
+            }
+            throw error
+        }
+    },
+
+    async updateCashier(id, updates) {
+        const { error } = await supabase
+            .from('cashiers')
+            .update(updates)
+            .eq('id', id)
 
         if (error) throw error
     },
