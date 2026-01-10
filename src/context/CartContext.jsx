@@ -90,7 +90,8 @@ export function CartProvider({ children }) {
       total: freshTotal,
       orderNumber: Math.floor(Math.random() * 900) + 100,
       customerName: customerName || "Cliente",
-      observation: generalObs
+      observation: generalObs,
+      cashierName: null // Explicitamente indica que é do Totem
     }
     setLastOrder(order)
     return order

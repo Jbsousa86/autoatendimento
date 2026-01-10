@@ -240,13 +240,14 @@ export default function Cashier() {
 
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
-                ...txt("CNPJ: 48.507.205/0001-94"),
-                ...txt("Tel: (63) 99103-8781"),
-                ...txt("Comprovante de Venda"), ...BOLD_OFF,
+                ...txt("CONTROLE DE PEDIDO"),
+                ...BOLD_ON, ...txt("VENDA DE CAIXA"), ...BOLD_OFF,
+                ...txt(`NR: ${order.orderNumber}`),
+                ...txt(`DATA: ${new Date().toLocaleDateString('pt-BR')}`),
+                ...txt(`HORA: ${new Date().toLocaleTimeString('pt-BR')}`),
+                ...txt(`OPERADOR: ${order.cashierName || 'GERAL'}`),
                 ...txt("--------------------------------"),
-                ...BOLD_ON, ...txt(`PEDIDO: ${order.orderNumber}`), ...BOLD_OFF,
-                ...LEFT, ...txt(`Data: ${new Date().toLocaleString('pt-BR')}`),
-                ...txt(`Caixa: ${order.cashierName || user?.name || 'Sistema'}`),
+                ...LEFT,
                 ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
                 ...((order.paymentMethod || order.payment_method)
                     ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
@@ -692,15 +693,20 @@ export default function Cashier() {
                                     <p className="text-xs">TEL: (63) 99103-8781</p>
                                 </div>
                                 <div className="border-b border-black border-dashed my-2"></div>
-                                <div className="flex justify-between font-bold text-lg my-2">
-                                    <span>PEDIDO:</span>
-                                    <span className="text-2xl">{lastFinishedOrder.orderNumber}</span>
+                                <div className="flex justify-center gap-2 text-xs font-mono">
+                                    <span>#{lastFinishedOrder.orderNumber}</span>
+                                    <span>•</span>
+                                    <span>{new Date().toLocaleDateString('pt-BR')}</span>
+                                    <span>•</span>
+                                    <span>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-                                <div className="text-xs mb-2">
-                                    Data: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR')}
-                                </div>
-                                <div className="text-xs mb-2 uppercase">
-                                    Caixa: {lastFinishedOrder.cashierName}
+                                <div className="flex flex-col items-center gap-1 mt-2">
+                                    <div className="text-[10px] font-black bg-black text-white px-3 py-1 rounded-full inline-block uppercase tracking-widest">
+                                        VENDA DE CAIXA
+                                    </div>
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">
+                                        Operador: {lastFinishedOrder.cashierName}
+                                    </div>
                                 </div>
                                 <div className="text-xs mb-2 uppercase font-bold">
                                     Cliente: {lastFinishedOrder.customerName || "Não informado"}

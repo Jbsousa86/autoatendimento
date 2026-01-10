@@ -156,7 +156,8 @@ export default function Admin() {
         orders.forEach(order => {
             const val = Number(order.total) || 0
             // Se tiver cashier_name, é Caixa. Senão, é Totem (cliente final direto)
-            if (order.cashier_name) {
+            // Se tiver cashier_name, é Caixa. Senão (null ou vazio), é Totem (cliente final direto)
+            if (order.cashier_name && order.cashier_name.trim() !== "") {
                 revenueCashier += val
                 countCashier++
 
@@ -805,12 +806,11 @@ export default function Admin() {
                                                     <td className="p-3 font-bold">
                                                         <div className="flex flex-col">
                                                             <span className="text-gray-800">{order.customer_name || "Cliente"}</span>
-                                                            {order.cashier_name && (
+                                                            {order.cashier_name && order.cashier_name.trim() !== "" ? (
                                                                 <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
                                                                     👤 Operador: {order.cashier_name}
                                                                 </span>
-                                                            )}
-                                                            {!order.cashier_name && (
+                                                            ) : (
                                                                 <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
                                                                     🤖 Totem (Autoatendimento)
                                                                 </span>
