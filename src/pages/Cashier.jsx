@@ -46,11 +46,7 @@ export default function Cashier() {
 
     useEffect(() => {
         if (user) {
-            // Se o usuário perder acesso ao relatório enquanto está na aba, volta pra venda
-            if (activeTab === 'history' && !user.can_view_reports) {
-                setActiveTab('pos')
-            }
-
+            // Carregamento de dados básicos
             loadProducts()
             loadDailyHistory()
             const subscription = orderService.subscribeToOrders(() => loadDailyHistory())
