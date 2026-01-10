@@ -72,22 +72,39 @@ export default function Cashier() {
 
     const loadDailyHistory = async () => {
         const today = new Date().toLocaleDateString('en-CA')
-        const startIso = today + 'T00:00:00.000Z'
-        const endIso = today + 'T23:59:59.999Z'
+        let orders;
 
-        // Busca apenas os pedidos de hoje para maior performance e privacidade
-        const all = await orderService.getOrders(startIso, endIso)
+        if (user.can_view_reports) {
+            // ACESSO TOTAL: Busca tudo (7 dias padrão)
+            orders = await orderService.getOrders()
+        } else {
+            // ACESSO RESTRITO: Busca apenas hoje
+            const startIso = today + 'T00:00:00.000Z'
+            const endIso = today + 'T23:59:59.999Z'
+            orders = await orderService.getOrders(startIso, endIso)
+        }
 
-        // Filtra para exibir apenas as vendas DESTE operador logado
-        const filtered = all.filter(o => o.cashier_name === user.name)
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        sevenDaysAgo.setHours(0, 0, 0, 0)
 
-        filtered.sort((a, b) => {
+        // Filtra os resultados baseados na permissão
+        const finalOrders = orders.filter(o => {
+            if (user.can_view_reports) {
+                if (!o.created_at) return true
+                return new Date(o.created_at) >= sevenDaysAgo
+            } else {
+                return o.cashier_name === user.name
+            }
+        })
+
+        finalOrders.sort((a, b) => {
             const dateA = a.created_at ? new Date(a.created_at) : new Date()
             const dateB = b.created_at ? new Date(b.created_at) : new Date()
             return dateB - dateA
         })
 
-        setDailyOrders(filtered)
+        setDailyOrders(finalOrders)
     }
 
     // Handlers
@@ -596,14 +613,12 @@ export default function Cashier() {
                         >
                             🛒 VENDA
                         </button>
-                        {user.can_view_reports && (
-                            <button
-                                onClick={() => setActiveTab('history')}
-                                className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                📋 CAIXA
-                            </button>
-                        )}
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            📋 CAIXA
+                        </button>
                         <button
                             onClick={() => window.open("/kitchen", "_blank")}
                             className="px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap text-gray-400 hover:text-orange-400"
@@ -1094,48 +1109,52 @@ export default function Cashier() {
                 {
                     activeTab === 'history' && (
                         <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
-                            {/* SELETOR DE DATA */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
-                                <div>
-                                    <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">📅 Relatórios</h2>
-                                    <p className="text-xs text-gray-400 font-bold uppercase">Consulte o desempenho de qualquer dia</p>
+                            {/* FILTRO DE DATA — APENAS SE TIVER PERMISSÃO */}
+                            {user.can_view_reports && (
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
+                                    <div className="flex flex-col gap-1">
+                                        <h2 className="text-sm font-black text-gray-800 uppercase tracking-tighter">Filtrar Histórico</h2>
+                                        <p className="text-[10px] text-gray-400 font-bold">Consulte vendas de outros dias e do Totem</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full md:w-auto">
+                                        <button
+                                            onClick={() => setReportDate(new Date().toLocaleDateString('en-CA'))}
+                                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-black transition-all"
+                                        >
+                                            HOJE
+                                        </button>
+                                        <input
+                                            type="date"
+                                            value={reportDate}
+                                            onChange={(e) => setReportDate(e.target.value)}
+                                            className="flex-1 md:w-48 border-2 border-gray-200 p-2 rounded-lg font-bold text-gray-700 focus:border-blue-500 focus:outline-none transition-all"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 w-full md:w-auto">
-                                    <button
-                                        onClick={() => setReportDate(new Date().toLocaleDateString('en-CA'))}
-                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-black transition-all"
-                                    >
-                                        HOJE
-                                    </button>
-                                    <input
-                                        type="date"
-                                        value={reportDate}
-                                        onChange={(e) => setReportDate(e.target.value)}
-                                        className="flex-1 md:w-48 border-2 border-gray-200 p-2 rounded-lg font-bold text-gray-700 focus:border-blue-500 focus:outline-none transition-all"
-                                    />
-                                </div>
-                            </div>
+                            )}
 
-                            {/* DESTAQUE DO DIA SELECIONADO */}
-                            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl border border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6 text-white text-center md:text-left transition-all">
-                                <div>
-                                    <h3 className="text-blue-100 font-bold text-xs uppercase tracking-[0.2em] mb-2">
-                                        {reportDate === new Date().toLocaleDateString('en-CA') ? 'Faturamento de Hoje' : `Vendas em ${new Date(reportDate + "T12:00:00").toLocaleDateString('pt-BR')}`}
-                                    </h3>
-                                    <p className="text-5xl font-black">
-                                        R$ {dailyOrders
-                                            .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
-                                            .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
-                                        }
-                                    </p>
-                                    <p className="text-blue-200 text-sm mt-2 font-medium">
-                                        {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length} pedidos realizados
-                                    </p>
+                            {/* DESTAQUE DO DIA SELECIONADO — APENAS SE TIVER PERMISSÃO */}
+                            {user.can_view_reports && (
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-3xl shadow-xl border border-blue-500 flex flex-col md:flex-row items-center justify-between gap-6 text-white text-center md:text-left transition-all mb-8">
+                                    <div>
+                                        <h3 className="text-blue-100 font-bold text-xs uppercase tracking-[0.2em] mb-2">
+                                            {reportDate === new Date().toLocaleDateString('en-CA') ? 'Faturamento de Hoje' : `Vendas em ${new Date(reportDate + "T12:00:00").toLocaleDateString('pt-BR')}`}
+                                        </h3>
+                                        <p className="text-5xl font-black">
+                                            R$ {dailyOrders
+                                                .filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                            }
+                                        </p>
+                                        <p className="text-blue-200 text-sm mt-2 font-medium">
+                                            {dailyOrders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA') === reportDate).length} pedidos realizados
+                                        </p>
+                                    </div>
+                                    <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
+                                        <span className="text-3xl">📊</span>
+                                    </div>
                                 </div>
-                                <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
-                                    <span className="text-3xl">📊</span>
-                                </div>
-                            </div>
+                            )}
 
                             {/* STATS CARDS — RESUMO DO DIA DESTE CAIXA */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
