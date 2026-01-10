@@ -5,6 +5,8 @@ import Finish from "./pages/Finish"
 import Kitchen from "./pages/Kitchen"
 import Admin from "./pages/Admin"
 import Cashier from "./pages/Cashier"
+import MobileMenu from "./pages/MobileMenu"
+import MobileFinish from "./pages/MobileFinish"
 
 
 export default function App() {
@@ -12,6 +14,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Start />} />
       <Route path="/menu" element={<Menu />} />
+      <Route path="/mesa/:tableId" element={<MobileMenu />} />
+      <Route path="/mesa/:tableId/sucesso" element={<MobileFinish />} />
       <Route path="/finish" element={<Finish />} />
       <Route path="/kitchen" element={<Kitchen />} />
       <Route path="/admin" element={<Admin />} />

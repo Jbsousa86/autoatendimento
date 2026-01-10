@@ -114,7 +114,8 @@ export const orderService = {
             items: orderData.items,
             status: 'pending',
             cashier_name: orderData.cashierName || null,
-            payment_method: orderData.paymentMethod || null
+            payment_method: orderData.paymentMethod || null,
+            change_amount: orderData.changeAmount || null
         }
 
         // Tenta o salvamento completo
@@ -124,8 +125,8 @@ export const orderService = {
         if (response.error) {
             console.warn("⚠️ Tentativa 1 falhou:", response.error.message)
 
-            if (response.error.message.includes("payment_method") || response.error.message.includes("cashier_name") || response.error.code === '42703') {
-                const { payment_method, cashier_name, ...minOrder } = newOrder
+            if (response.error.message.includes("payment_method") || response.error.message.includes("cashier_name") || response.error.message.includes("change_amount") || response.error.code === '42703') {
+                const { payment_method, cashier_name, change_amount, ...minOrder } = newOrder
                 response = await supabase.from('orders').insert([minOrder]).select()
             }
         }

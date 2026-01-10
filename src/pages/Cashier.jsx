@@ -24,6 +24,8 @@ export default function Cashier() {
     const [orderObservation, setOrderObservation] = useState("")
     const [isPrinting, setIsPrinting] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState("") // 'dinheiro', 'cartao', 'pix'
+    const [changeAmount, setChangeAmount] = useState("")
+    const [needsChange, setNeedsChange] = useState(false)
 
     // Verifica se já existe uma impressora pareada ao carregar
     useEffect(() => {
@@ -267,6 +269,20 @@ export default function Cashier() {
                 ]);
             }
 
+            if (order.change_amount || order.changeAmount) {
+                const changeVal = Number(order.change_amount || order.changeAmount);
+                const totalVal = Number(order.total);
+                const troco = changeVal - totalVal;
+                if (troco > 0) {
+                    data = new Uint8Array([
+                        ...data,
+                        ...BOLD_ON, ...txt(`PAGOU COM: R$ ${changeVal.toFixed(2)}`),
+                        ...txt(`TROCO PARA: R$ ${troco.toFixed(2)}`), ...BOLD_OFF,
+                        ...txt("--------------------------------")
+                    ]);
+                }
+            }
+
             data = new Uint8Array([
                 ...data,
                 ...txt("--------------------------------"),
@@ -438,7 +454,8 @@ export default function Cashier() {
             items: Object.values(itemMap),
             cashierName: user.name,
             observation: orderObservation,
-            paymentMethod: paymentMethod // Novo campo
+            paymentMethod: paymentMethod, // Novo campo
+            changeAmount: paymentMethod === 'dinheiro' && changeAmount ? changeAmount : null
         }
 
         const { data: savedOrder, error } = await orderService.createOrder(orderPayload)
@@ -462,6 +479,8 @@ export default function Cashier() {
         setCustomerName("")
         setOrderObservation("")
         setPaymentMethod("") // Limpa o método de pagamento
+        setChangeAmount("")
+        setNeedsChange(false)
         loadDailyHistory()
 
         // AUTO-PRINT: Tenta imprimir se houver uma impressora configurada/pronta
@@ -706,6 +725,18 @@ export default function Cashier() {
                                     <div className="border-y border-black border-dashed py-2 my-2 text-[10px]">
                                         <div className="font-bold uppercase mb-1">Observações Gerais:</div>
                                         <div className="italic break-words">{lastFinishedOrder.observation}</div>
+                                    </div>
+                                )}
+                                {lastFinishedOrder.changeAmount && (
+                                    <div className="border-t border-black border-dashed pt-2 my-2 text-sm font-bold">
+                                        <div className="flex justify-between">
+                                            <span>PAGOU COM:</span>
+                                            <span>R$ {Number(lastFinishedOrder.changeAmount).toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-lg">
+                                            <span>TROCO PARA:</span>
+                                            <span>R$ {(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                        </div>
                                     </div>
                                 )}
                                 <div className="border-t border-black border-dashed pt-2 my-2">
@@ -996,6 +1027,24 @@ export default function Cashier() {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* OPÇÃO DE TROCO (Apenas se for dinheiro) */}
+                                    {paymentMethod === 'dinheiro' && (
+                                        <div className="mb-4 p-3 bg-orange-50 rounded-xl border border-orange-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <label className="block text-[10px] font-black text-orange-600 uppercase mb-2 tracking-widest">Troco para quanto?</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">R$</span>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Valor entregue pelo cliente"
+                                                    className="w-full pl-10 pr-4 py-3 bg-white border-2 border-orange-200 rounded-xl font-black text-gray-800 focus:border-orange-500 focus:outline-none placeholder-gray-300"
+                                                    value={changeAmount}
+                                                    onChange={(e) => setChangeAmount(e.target.value)}
+                                                />
+                                            </div>
+                                            <p className="text-[9px] text-orange-400 mt-2 font-bold italic">Deixe vazio se não houver troco</p>
+                                        </div>
+                                    )}
 
                                     <button
                                         onClick={() => {
