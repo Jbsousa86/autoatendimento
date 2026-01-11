@@ -67,16 +67,17 @@ export default function Cashier() {
     }
 
     const loadDailyHistory = async () => {
-        const today = new Date().toLocaleDateString('en-CA')
+        const now = new Date()
+        const today = now.toLocaleDateString('en-CA')
         let orders;
 
         if (user.can_view_reports) {
             // ACESSO TOTAL: Busca tudo (7 dias padrão)
             orders = await orderService.getOrders()
         } else {
-            // ACESSO RESTRITO: Busca apenas hoje
-            const startIso = today + 'T00:00:00.000Z'
-            const endIso = today + 'T23:59:59.999Z'
+            // ACESSO RESTRITO: Busca apenas hoje (considerando fuso horário local)
+            const startIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString()
+            const endIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
             orders = await orderService.getOrders(startIso, endIso)
         }
 
@@ -761,6 +762,7 @@ export default function Cashier() {
                                         <span>{Number(lastFinishedOrder.total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                     </div>
                                 </div>
+
 
                                 <div className="text-center mt-6 text-xs">
                                     <p>Obrigado pela preferência!</p>
