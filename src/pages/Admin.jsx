@@ -29,7 +29,8 @@ export default function Admin() {
         revenue: 0, count: 0, ticket: 0, topItems: [],
         revenueTotem: 0, countTotem: 0,
         revenueCashier: 0, countCashier: 0,
-        cashierBreakdown: {}
+        cashierBreakdown: {},
+        paymentBreakdown: { dinheiro: 0, cartao: 0, pix: 0, totem: 0, outro: 0 }
     })
     const [allOrders, setAllOrders] = useState([])
 
@@ -152,11 +153,21 @@ export default function Admin() {
         let revenueCashier = 0
         let countCashier = 0
         const cashierBreakdown = {}
+        const paymentBreakdown = { dinheiro: 0, cartao: 0, pix: 0, totem: 0, outro: 0 }
 
         orders.forEach(order => {
             const val = Number(order.total) || 0
+
+            // Breakdown por Pagamento (tenta snake e camel case)
+            const pgtoMethod = order.payment_method || order.paymentMethod
+            const pgto = (pgtoMethod || (order.cashier_name ? 'outro' : 'totem')).toLowerCase()
+            if (paymentBreakdown.hasOwnProperty(pgto)) {
+                paymentBreakdown[pgto] += val
+            } else {
+                paymentBreakdown.outro += val
+            }
+
             // Se tiver cashier_name, é Caixa. Senão, é Totem (cliente final direto)
-            // Se tiver cashier_name, é Caixa. Senão (null ou vazio), é Totem (cliente final direto)
             if (order.cashier_name && order.cashier_name.trim() !== "") {
                 revenueCashier += val
                 countCashier++
@@ -191,7 +202,8 @@ export default function Admin() {
             revenue, count, ticket, topItems,
             revenueTotem, countTotem,
             revenueCashier, countCashier,
-            cashierBreakdown
+            cashierBreakdown,
+            paymentBreakdown
         })
     }
 
@@ -642,20 +654,38 @@ export default function Admin() {
                     </div>
 
                     {/* CARTÕES DE KPI - RESUMO GERAL */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                         <div
                             onClick={() => setReportFilter('all')}
-                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'all' ? 'bg-green-50 border-green-600 scale-[1.02]' : 'bg-white border-green-500'}`}
+                            className={`p-4 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'all' ? 'bg-green-50 border-green-600 scale-[1.02]' : 'bg-white border-green-500'}`}
                         >
-                            <h3 className="text-gray-500 font-bold text-xs uppercase mb-2">Faturamento Total</h3>
-                            <p className="text-4xl font-black text-gray-800">
+                            <h3 className="text-gray-500 font-bold text-[10px] uppercase mb-1">Faturamento Total</h3>
+                            <p className="text-2xl font-black text-gray-800">
                                 {stats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
-                            <p className="text-xs text-gray-400 mt-2">
-                                {stats.count} pedidos no total (CLIQUAR VER TODOS)
-                            </p>
+                            <p className="text-[10px] text-gray-400 mt-1">{stats.count} pedidos</p>
                         </div>
 
+                        <div className="p-4 rounded-xl shadow-lg border-l-4 bg-white border-green-600">
+                            <h3 className="text-green-600 font-bold text-[10px] uppercase mb-1">💵 Dinheiro</h3>
+                            <p className="text-xl font-black text-gray-800">{stats.paymentBreakdown.dinheiro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Total em espécie</p>
+                        </div>
+
+                        <div className="p-4 rounded-xl shadow-lg border-l-4 bg-white border-blue-600">
+                            <h3 className="text-blue-600 font-bold text-[10px] uppercase mb-1">💳 Cartão</h3>
+                            <p className="text-xl font-black text-gray-800">{stats.paymentBreakdown.cartao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Débito/Crédito</p>
+                        </div>
+
+                        <div className="p-4 rounded-xl shadow-lg border-l-4 bg-white border-purple-600">
+                            <h3 className="text-purple-600 font-bold text-[10px] uppercase mb-1">💎 PIX</h3>
+                            <p className="text-xl font-black text-gray-800">{stats.paymentBreakdown.pix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Transferências</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         {/* DETALHE TOTEM */}
                         <div
                             onClick={() => setReportFilter('totem')}
@@ -818,11 +848,11 @@ export default function Admin() {
                                                         </div>
                                                     </td>
                                                     <td className="p-3">
-                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${order.payment_method === 'dinheiro' ? 'bg-green-100 text-green-700' :
-                                                            order.payment_method === 'cartao' ? 'bg-blue-100 text-blue-700' :
-                                                                order.payment_method === 'pix' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${(order.payment_method === 'dinheiro' || order.paymentMethod === 'dinheiro') ? 'bg-green-100 text-green-700' :
+                                                                (order.payment_method === 'cartao' || order.paymentMethod === 'cartao') ? 'bg-blue-100 text-blue-700' :
+                                                                    (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
                                                             }`}>
-                                                            {order.payment_method || '-'}
+                                                            {order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem')}
                                                         </span>
                                                     </td>
                                                     <td className="p-3 text-right font-black text-gray-900">

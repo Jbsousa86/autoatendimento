@@ -124,16 +124,39 @@ export const orderService = {
 
         // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
         if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
-            console.warn("⚠️ Alguma coluna falta no banco. Mantendo o Operador e salvando o básico.")
+            const errField = response.error.message;
+            console.warn("⚠️ Erro de coluna detectado:", errField);
+
+            // Se o erro NÃO for no payment_method (que o usuário confirmou que tem), 
+            // tentamos salvar incluindo o método de pagamento.
+            const hasPaymentColumn = !errField.includes("payment_method");
+
             const minOrder = {
                 order_number: newOrder.order_number,
                 customer_name: newOrder.customer_name,
                 total: newOrder.total,
                 items: newOrder.items,
                 status: newOrder.status,
-                cashier_name: newOrder.cashier_name // MANTÉM O OPERADOR
+                cashier_name: newOrder.cashier_name
             }
-            response = await supabase.from('orders').insert([minOrder]).select()
+
+            if (hasPaymentColumn) {
+                // Tenta salvar com o pagamento, já que o erro deve ser em outra coluna (como observation ou change_amount)
+                const orderWithPayment = { ...minOrder, payment_method: newOrder.payment_method };
+                response = await supabase.from('orders').insert([orderWithPayment]).select();
+
+                // Se ainda der erro, faz o fallback final para o mínimo absoluto
+                if (response.error) {
+                    response = await supabase.from('orders').insert([minOrder]).select();
+                }
+            } else {
+                // O erro era realmente no payment_method
+                response = await supabase.from('orders').insert([minOrder]).select();
+                if (!window.hasShownColumnAlert) {
+                    alert("⚠️ A coluna 'payment_method' não foi encontrada no seu banco. Adicione-a para ver os relatórios de pagamento.");
+                    window.hasShownColumnAlert = true;
+                }
+            }
         }
 
         if (response.error) {
