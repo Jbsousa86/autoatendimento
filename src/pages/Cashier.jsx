@@ -68,7 +68,36 @@ export default function Cashier() {
 
             // Subscribe to realtime orders
             const subscription = orderService.subscribeToOrders((payload) => {
-                loadDailyHistory()
+                const { eventType, new: newOrder, old: oldOrder } = payload
+
+                setDailyOrders(prevOrders => {
+                    let updatedList = [...prevOrders]
+
+                    if (eventType === 'INSERT') {
+                        // Evita duplicatas
+                        if (updatedList.some(o => o.id === newOrder.id)) return updatedList
+
+                        // Lógica de Som (Instantâneo)
+                        if (!newOrder.cashier_name && newOrder.status === 'pending') {
+                            if (user.can_view_reports) {
+                                console.log("🔔 Novo pedido (Realtime) - Tocando som!")
+                                playNotification()
+                            }
+                        }
+
+                        // Adiciona no topo
+                        updatedList.unshift(newOrder)
+                    }
+                    else if (eventType === 'UPDATE') {
+                        updatedList = updatedList.map(o => o.id === newOrder.id ? newOrder : o)
+                    }
+                    else if (eventType === 'DELETE') {
+                        updatedList = updatedList.filter(o => o.id !== oldOrder.id)
+                    }
+
+                    // Re-ordena por garantia (mais recente primeiro)
+                    return updatedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                })
             })
 
             const handleAfterPrint = () => setLastFinishedOrder(null)
@@ -88,7 +117,6 @@ export default function Cashier() {
 
     const loadDailyHistory = async () => {
         const now = new Date()
-        const today = now.toLocaleDateString('en-CA')
         let orders;
 
         if (user.can_view_reports) {
@@ -102,35 +130,6 @@ export default function Cashier() {
         }
 
         const rawOrders = Array.isArray(orders) ? orders : []
-
-        // Lógica de Som (Igual Cozinha)
-        // Verifica nos dados brutos antes do filtro de visualização
-        let hasNewOrder = false
-        rawOrders.forEach(order => {
-            if (!knownIds.current.has(order.id)) {
-                knownIds.current.add(order.id)
-
-                // Se não é a primeira carga
-                if (!isFirstLoad.current) {
-                    // Toca se for do Totem/Mesa (sem operador) E estiver Pendente
-                    const isFromTotemOrTable = !order.cashier_name
-                    if (isFromTotemOrTable && order.status === 'pending') {
-                        // SOMENTE se o caixa estiver habilitado para ver vendas externas (Relatórios)
-                        if (user.can_view_reports) {
-                            hasNewOrder = true
-                        }
-                    }
-                }
-            }
-        })
-
-        if (hasNewOrder) {
-            console.log("🔔 Novo pedido Totem/Mesa detectado! Tocando som no Caixa...")
-            playNotification()
-        }
-
-        isFirstLoad.current = false
-
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         sevenDaysAgo.setHours(0, 0, 0, 0)
