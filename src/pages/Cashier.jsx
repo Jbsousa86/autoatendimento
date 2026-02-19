@@ -50,11 +50,67 @@ export default function Cashier() {
         checkPairedDevices();
     }, []);
 
-    // Sound Alert Helper
+    // Sound Alert Helper (Robust)
+    const playBeepFallback = () => {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const playNote = (freq, startTime, duration) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+                gain.gain.setValueAtTime(0.3, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            };
+            const now = ctx.currentTime;
+            playNote(880, now, 0.3); // A5
+            playNote(659, now + 0.2, 0.6); // E5
+        } catch (e) {
+            console.error("Erro no som de fallback:", e);
+        }
+    }
+
     const playNotification = () => {
         const audio = new Audio(AUDIO_URL)
         audio.volume = 1.0
-        audio.play().catch(e => console.log("Erro som (clique na tela para ativar):", e))
+        audio.play().catch(e => {
+            console.log("MP3 falhou/bloqueado. Tentando beep nativo...", e)
+            playBeepFallback()
+        })
+    }
+
+    // Sound Logic - Robust & Centralized
+    const processAudioForOrders = (ordersList) => {
+        if (!user.can_view_reports) return
+
+        let shouldPlay = false
+        ordersList.forEach(order => {
+            if (!knownIds.current.has(order.id)) {
+                knownIds.current.add(order.id)
+
+                // Ignora sons na primeira carga massiva da tela
+                if (isFirstLoad.current) return
+
+                // Critérios: Sem operador (Totem/Mesa) + Pendente
+                const isExternal = !order.cashier_name
+                const isPending = order.status === 'pending'
+
+                if (isExternal && isPending) {
+                    console.log(`🔊 Som detectado para pedido #${order.order_number}`)
+                    shouldPlay = true
+                }
+            }
+        })
+
+        if (shouldPlay) {
+            playNotification()
+        }
     }
 
     useEffect(() => {
@@ -62,9 +118,16 @@ export default function Cashier() {
             // Expor para teste
             window.playTestSound = playNotification
 
-            // Carregamento de dados básicos
+            // Carregamento inicial
             loadProducts()
-            loadDailyHistory()
+            loadDailyHistory().then(() => {
+                isFirstLoad.current = false // Libera o som após primeira carga
+            })
+
+            // Backup Polling (a cada 15s) para garantir sincronia
+            const polling = setInterval(() => {
+                loadDailyHistory(true) // Passa flag silent
+            }, 10000)
 
             // Subscribe to realtime orders
             const subscription = orderService.subscribeToOrders((payload) => {
@@ -74,18 +137,11 @@ export default function Cashier() {
                     let updatedList = [...prevOrders]
 
                     if (eventType === 'INSERT') {
-                        // Evita duplicatas
                         if (updatedList.some(o => o.id === newOrder.id)) return updatedList
 
-                        // Lógica de Som (Instantâneo)
-                        if (!newOrder.cashier_name && newOrder.status === 'pending') {
-                            if (user.can_view_reports) {
-                                console.log("🔔 Novo pedido (Realtime) - Tocando som!")
-                                playNotification()
-                            }
-                        }
+                        // Processa Som Instantâneo
+                        processAudioForOrders([newOrder])
 
-                        // Adiciona no topo
                         updatedList.unshift(newOrder)
                     }
                     else if (eventType === 'UPDATE') {
@@ -95,7 +151,6 @@ export default function Cashier() {
                         updatedList = updatedList.filter(o => o.id !== oldOrder.id)
                     }
 
-                    // Re-ordena por garantia (mais recente primeiro)
                     return updatedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
                 })
             })
@@ -105,6 +160,7 @@ export default function Cashier() {
 
             return () => {
                 if (subscription) subscription.unsubscribe()
+                clearInterval(polling)
                 window.removeEventListener('afterprint', handleAfterPrint)
             }
         }
@@ -115,26 +171,27 @@ export default function Cashier() {
         setProducts(data)
     }
 
-    const loadDailyHistory = async () => {
+    const loadDailyHistory = async (isPolling = false) => {
         const now = new Date()
         let orders;
 
         if (user.can_view_reports) {
-            // ACESSO TOTAL: Busca tudo (7 dias padrão)
             orders = await orderService.getOrders()
         } else {
-            // ACESSO RESTRITO: Busca apenas hoje (considerando fuso horário local)
             const startIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString()
             const endIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
             orders = await orderService.getOrders(startIso, endIso)
         }
 
         const rawOrders = Array.isArray(orders) ? orders : []
+
+        // Processa som (se houver novos ids detectados pelo polling)
+        processAudioForOrders(rawOrders)
+
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         sevenDaysAgo.setHours(0, 0, 0, 0)
 
-        // Filtra os resultados baseados na permissão (Para exibição na lista)
         const finalOrders = rawOrders.filter(o => {
             if (user.can_view_reports) {
                 if (!o.created_at) return true
