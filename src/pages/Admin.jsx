@@ -46,7 +46,7 @@ export default function Admin() {
     }
     const getToday = () => new Date().toLocaleDateString('en-CA')
 
-    const [startDate, setStartDate] = useState(getFirstDayOfMonth())
+    const [startDate, setStartDate] = useState(getToday())
     const [endDate, setEndDate] = useState(getToday())
     const [businessHours, setBusinessHours] = useState("18:00 — 00:00")
     const [reportFilter, setReportFilter] = useState('all') // 'all' | 'totem' | 'cashier'
@@ -849,8 +849,8 @@ export default function Admin() {
                                                     </td>
                                                     <td className="p-3">
                                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${(order.payment_method === 'dinheiro' || order.paymentMethod === 'dinheiro') ? 'bg-green-100 text-green-700' :
-                                                                (order.payment_method === 'cartao' || order.paymentMethod === 'cartao') ? 'bg-blue-100 text-blue-700' :
-                                                                    (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                                                            (order.payment_method === 'cartao' || order.paymentMethod === 'cartao') ? 'bg-blue-100 text-blue-700' :
+                                                                (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
                                                             }`}>
                                                             {order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem')}
                                                         </span>

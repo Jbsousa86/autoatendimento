@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { productService, orderService, cashierService } from "../services/api"
 import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
+
+const AUDIO_URL = "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
 
 export default function Cashier() {
     const [user, setUser] = useState(null)
@@ -27,6 +29,10 @@ export default function Cashier() {
     const [changeAmount, setChangeAmount] = useState("")
     const [needsChange, setNeedsChange] = useState(false)
 
+    // Refs para controle de áudio (Igual Cozinha)
+    const knownIds = useRef(new Set())
+    const isFirstLoad = useRef(true)
+
     // Verifica se já existe uma impressora pareada ao carregar
     useEffect(() => {
         const checkPairedDevices = async () => {
@@ -44,22 +50,36 @@ export default function Cashier() {
         checkPairedDevices();
     }, []);
 
+    // Sound Alert Helper
+    const playNotification = () => {
+        const audio = new Audio(AUDIO_URL)
+        audio.volume = 1.0
+        audio.play().catch(e => console.log("Erro som (clique na tela para ativar):", e))
+    }
+
     useEffect(() => {
         if (user) {
+            // Expor para teste
+            window.playTestSound = playNotification
+
             // Carregamento de dados básicos
             loadProducts()
             loadDailyHistory()
-            const subscription = orderService.subscribeToOrders(() => loadDailyHistory())
+
+            // Subscribe to realtime orders
+            const subscription = orderService.subscribeToOrders((payload) => {
+                loadDailyHistory()
+            })
+
             const handleAfterPrint = () => setLastFinishedOrder(null)
             window.addEventListener('afterprint', handleAfterPrint)
-
 
             return () => {
                 if (subscription) subscription.unsubscribe()
                 window.removeEventListener('afterprint', handleAfterPrint)
             }
         }
-    }, [user, activeTab, printerStatus]) // Adicionado printerStatus para reagir a quedas
+    }, [user, activeTab, printerStatus])
 
     const loadProducts = async () => {
         const data = await productService.getProducts()
@@ -81,12 +101,42 @@ export default function Cashier() {
             orders = await orderService.getOrders(startIso, endIso)
         }
 
+        const rawOrders = Array.isArray(orders) ? orders : []
+
+        // Lógica de Som (Igual Cozinha)
+        // Verifica nos dados brutos antes do filtro de visualização
+        let hasNewOrder = false
+        rawOrders.forEach(order => {
+            if (!knownIds.current.has(order.id)) {
+                knownIds.current.add(order.id)
+
+                // Se não é a primeira carga
+                if (!isFirstLoad.current) {
+                    // Toca se for do Totem/Mesa (sem operador) E estiver Pendente
+                    const isFromTotemOrTable = !order.cashier_name
+                    if (isFromTotemOrTable && order.status === 'pending') {
+                        // SOMENTE se o caixa estiver habilitado para ver vendas externas (Relatórios)
+                        if (user.can_view_reports) {
+                            hasNewOrder = true
+                        }
+                    }
+                }
+            }
+        })
+
+        if (hasNewOrder) {
+            console.log("🔔 Novo pedido Totem/Mesa detectado! Tocando som no Caixa...")
+            playNotification()
+        }
+
+        isFirstLoad.current = false
+
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         sevenDaysAgo.setHours(0, 0, 0, 0)
 
-        // Filtra os resultados baseados na permissão
-        const finalOrders = orders.filter(o => {
+        // Filtra os resultados baseados na permissão (Para exibição na lista)
+        const finalOrders = rawOrders.filter(o => {
             if (user.can_view_reports) {
                 if (!o.created_at) return true
                 return new Date(o.created_at) >= sevenDaysAgo
@@ -579,6 +629,15 @@ export default function Cashier() {
                 </div>
 
                 <div className="flex items-center gap-2 md:gap-4">
+                    {/* TESTE DE SOM */}
+                    <button
+                        onClick={playNotification}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-900/50 bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 transition-all font-bold text-xs"
+                        title="Testar alerta sonoro"
+                    >
+                        🔊 <span className="hidden md:inline">TESTAR SOM</span>
+                    </button>
+
                     {/* INDICADOR DE IMPRESSORA */}
                     <button
                         onClick={connectPrinter}
@@ -1171,14 +1230,25 @@ export default function Cashier() {
                                 {user.can_view_reports && (
                                     <>
                                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
-                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem & Mesas</h3>
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem</h3>
                                             <p className="text-2xl font-black text-orange-600">
                                                 R$ {dailyOrders
-                                                    .filter(o => !o.cashier_name && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .filter(o => !o.cashier_name && !o.customer_name?.toLowerCase().startsWith('mesa') && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                                 }
                                             </p>
-                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Vendas de autoatendimento</p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Autoatendimento</p>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-teal-500">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Mesas (QR Code)</h3>
+                                            <p className="text-2xl font-black text-teal-600">
+                                                R$ {dailyOrders
+                                                    .filter(o => !o.cashier_name && o.customer_name?.toLowerCase().startsWith('mesa') && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                                }
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Pedidos via Celular</p>
                                         </div>
 
                                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-purple-500">
@@ -1257,6 +1327,11 @@ export default function Cashier() {
                                                                     <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                                                                     <span className="text-[10px] font-black uppercase text-blue-900">{order.cashier_name}</span>
                                                                 </div>
+                                                            ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                                                                    <span className="text-[10px] font-black uppercase text-teal-900 font-mono tracking-tighter">📱 MESA</span>
+                                                                </div>
                                                             ) : (
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
@@ -1310,6 +1385,8 @@ export default function Cashier() {
                                                         <p className="font-black text-gray-900">R$ {Number(order.total).toFixed(2)}</p>
                                                         {order.cashier_name ? (
                                                             <span className="text-[9px] font-black uppercase text-blue-500">👤 {order.cashier_name}</span>
+                                                        ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
+                                                            <span className="text-[9px] font-black uppercase text-teal-500">📱 MESA</span>
                                                         ) : (
                                                             <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
                                                         )}
