@@ -34,7 +34,7 @@ export default function Menu() {
   )
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 relative">
+    <div className="min-h-screen w-full flex bg-gradient-to-br from-orange-500 to-red-600 relative">
       {/* AVISO SELEÇÃO SEGUNDO SABOR (TOTEM) */}
       {hfPizza && (
         <div className="absolute top-0 left-0 right-0 bg-yellow-400 text-gray-900 p-6 z-50 flex justify-between items-center shadow-2xl animate-pulse">
@@ -49,7 +49,7 @@ export default function Menu() {
       )}
 
       {/* COLUNA 1 — CATEGORIAS (Scrollavel se houver muitas) */}
-      <aside className="w-1/5 h-full p-6 z-10 flex flex-col items-center overflow-y-auto scrollbar-hide space-y-4">
+      <aside className="w-1/5 p-6 z-10 flex flex-col items-center space-y-4">
         {/* BLOCO DE INFORMAÇÕES: RELÓGIO + FUNCIONAMENTO */}
         <div className="w-full bg-white/10 backdrop-blur-md rounded-[32px] p-6 mb-4 border border-white/10 shadow-2xl shrink-0">
           <div className="text-white text-5xl font-black drop-shadow-lg tracking-tighter leading-none mb-2 text-center">
@@ -90,7 +90,7 @@ export default function Menu() {
       </aside>
 
       {/* COLUNA 2 — PRODUTOS (Auto-ajustável e Inteligente) */}
-      <main className="w-3/5 h-full overflow-y-auto scrollbar-hide p-6">
+      <main className="w-3/5 p-6">
         <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8 pb-40 max-w-[1800px] mx-auto">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
@@ -104,7 +104,7 @@ export default function Menu() {
           </div>
         )}
       </main>
-
+      
       {/* COLUNA 3 — CARRINHO */}
       <Cart />
 
