@@ -34,7 +34,7 @@ export default function Menu() {
   )
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden relative">
+    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 relative">
       {/* AVISO SELEÇÃO SEGUNDO SABOR (TOTEM) */}
       {hfPizza && (
         <div className="absolute top-0 left-0 right-0 bg-yellow-400 text-gray-900 p-6 z-50 flex justify-between items-center shadow-2xl animate-pulse">
