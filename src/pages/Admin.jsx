@@ -28,9 +28,10 @@ export default function Admin() {
     const [stats, setStats] = useState({
         revenue: 0, count: 0, ticket: 0, topItems: [],
         revenueTotem: 0, countTotem: 0,
+        revenueOnline: 0, countOnline: 0,
         revenueCashier: 0, countCashier: 0,
         cashierBreakdown: {},
-        paymentBreakdown: { dinheiro: 0, cartao: 0, pix: 0, totem: 0, outro: 0 }
+        paymentBreakdown: { dinheiro: 0, cartao: 0, pix: 0, totem: 0, whatsapp: 0, outro: 0 }
     })
     const [allOrders, setAllOrders] = useState([])
 
@@ -51,6 +52,9 @@ export default function Admin() {
     const [businessHours, setBusinessHours] = useState("18:00 — 00:00")
     const [reportFilter, setReportFilter] = useState('all') // 'all' | 'totem' | 'cashier'
     const [orderSearchQuery, setOrderSearchQuery] = useState("")
+    const [whatsappNumber, setWhatsappNumber] = useState("")
+    const [merchantMessage, setMerchantMessage] = useState("")
+    const [isOnlineMenuOpen, setIsOnlineMenuOpen] = useState(true)
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -73,15 +77,25 @@ export default function Admin() {
     const loadSettings = async () => {
         const data = await configService.getSettings()
         const hoursConfig = data.find(c => c.key === 'hours')
+        const waConfig = data.find(c => c.key === 'whatsapp')
+        const msgConfig = data.find(c => c.key === 'merchant_message')
+        const openConfig = data.find(c => c.key === 'is_open')
+
         if (hoursConfig) setBusinessHours(hoursConfig.value)
+        if (waConfig) setWhatsappNumber(waConfig.value)
+        if (msgConfig) setMerchantMessage(msgConfig.value)
+        if (openConfig) setIsOnlineMenuOpen(openConfig.value === 'true' || openConfig.value === true)
     }
 
-    const handleSaveHours = async () => {
+    const handleSaveConfig = async () => {
         try {
             await configService.updateSetting('hours', businessHours)
-            alert("✅ Horário de funcionamento atualizado!")
+            await configService.updateSetting('whatsapp', whatsappNumber)
+            await configService.updateSetting('merchant_message', merchantMessage)
+            await configService.updateSetting('is_open', isOnlineMenuOpen)
+            alert("✅ Configurações atualizadas!")
         } catch (error) {
-            alert("❌ Erro ao salvar horário.")
+            alert("❌ Erro ao salvar configurações.")
         }
     }
 
@@ -147,28 +161,34 @@ export default function Admin() {
         // 3. Ticket Médio
         const ticket = count > 0 ? revenue / count : 0
 
-        // 4. Breakdown Totem vs Caixa
+        // 4. Breakdown Totem vs Online vs Caixa
         let revenueTotem = 0
         let countTotem = 0
+        let revenueOnline = 0
+        let countOnline = 0
         let revenueCashier = 0
         let countCashier = 0
         const cashierBreakdown = {}
-        const paymentBreakdown = { dinheiro: 0, cartao: 0, pix: 0, totem: 0, outro: 0 }
+        const paymentBreakdown = { dinheiro: 0, cartao: 0, pix: 0, totem: 0, whatsapp: 0, outro: 0 }
 
         orders.forEach(order => {
             const val = Number(order.total) || 0
 
             // Breakdown por Pagamento (tenta snake e camel case)
-            const pgtoMethod = order.payment_method || order.paymentMethod
+            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase()
             const pgto = (pgtoMethod || (order.cashier_name ? 'outro' : 'totem')).toLowerCase()
+            
             if (paymentBreakdown.hasOwnProperty(pgto)) {
                 paymentBreakdown[pgto] += val
             } else {
                 paymentBreakdown.outro += val
             }
 
-            // Se tiver cashier_name, é Caixa. Senão, é Totem (cliente final direto)
-            if (order.cashier_name && order.cashier_name.trim() !== "") {
+            // Origem: Online, Caixa ou Totem
+            if (pgtoMethod === 'whatsapp') {
+                revenueOnline += val
+                countOnline++
+            } else if (order.cashier_name && order.cashier_name.trim() !== "") {
                 revenueCashier += val
                 countCashier++
 
@@ -201,6 +221,7 @@ export default function Admin() {
         setStats({
             revenue, count, ticket, topItems,
             revenueTotem, countTotem,
+            revenueOnline, countOnline,
             revenueCashier, countCashier,
             cashierBreakdown,
             paymentBreakdown
@@ -685,7 +706,21 @@ export default function Admin() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        {/* DETALHE CARDÁPIO ONLINE */}
+                        <div
+                            onClick={() => setReportFilter('online')}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'online' ? 'bg-green-50 border-green-600 scale-[1.02]' : 'bg-white border-green-500'}`}
+                        >
+                            <h3 className="text-green-600 font-bold text-xs uppercase mb-2">📱 Cardápio Online</h3>
+                            <p className="text-3xl font-black text-gray-800">
+                                {stats.revenueOnline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2">
+                                {stats.countOnline} pedidos (CLIQUE PARA FILTRAR)
+                            </p>
+                        </div>
+
                         {/* DETALHE TOTEM */}
                         <div
                             onClick={() => setReportFilter('totem')}
@@ -784,7 +819,10 @@ export default function Admin() {
                                 <span className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${reportFilter === 'totem' ? 'bg-blue-100 text-blue-700' :
                                     reportFilter.includes('cashier') ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
                                     }`}>
-                                    {reportFilter === 'totem' ? 'Apenas Totem' : reportFilter.startsWith('cashier:') ? `Caixa: ${reportFilter.split(':')[1]}` : reportFilter === 'cashier' ? 'Todos os Caixas' : 'Tudo'}
+                                    {reportFilter === 'totem' ? 'Vendas no Totem' : 
+                                     reportFilter === 'online' ? 'Cardápio Online' :
+                                     reportFilter.startsWith('cashier:') ? `Caixa: ${reportFilter.split(':')[1]}` : 
+                                     reportFilter === 'cashier' ? 'Todos os Caixas' : 'Relatório Geral'}
                                 </span>
                             </div>
 
@@ -814,8 +852,10 @@ export default function Admin() {
                                         {allOrders
                                             .filter(o => {
                                                 // Filtro de Categoria/Operador
+                                                const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase()
                                                 const matchFilter = reportFilter === 'all' ||
-                                                    (reportFilter === 'totem' && !o.cashier_name) ||
+                                                    (reportFilter === 'online' && pgtoMethod === 'whatsapp') ||
+                                                    (reportFilter === 'totem' && !o.cashier_name && pgtoMethod !== 'whatsapp' && !o.customer_name?.toLowerCase().startsWith('mesa')) ||
                                                     (reportFilter === 'cashier' && !!o.cashier_name) ||
                                                     (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]);
 
@@ -841,8 +881,8 @@ export default function Admin() {
                                                                     👤 Operador: {order.cashier_name}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
-                                                                    🤖 Totem (Autoatendimento)
+                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? 'text-green-600' : 'text-blue-500'}`}>
+                                                                    {order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)'}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -850,9 +890,11 @@ export default function Admin() {
                                                     <td className="p-3">
                                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${(order.payment_method === 'dinheiro' || order.paymentMethod === 'dinheiro') ? 'bg-green-100 text-green-700' :
                                                             (order.payment_method === 'cartao' || order.paymentMethod === 'cartao') ? 'bg-blue-100 text-blue-700' :
-                                                                (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'
+                                                                (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 
+                                                                    (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp') ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400'
                                                             }`}>
-                                                            {order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem')}
+                                                            {order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? 'Cardápio' : 
+                                                             (order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem'))}
                                                         </span>
                                                     </td>
                                                     <td className="p-3 text-right font-black text-gray-900">
@@ -983,6 +1025,23 @@ export default function Admin() {
                                 </p>
                             </div>
 
+                            <div className="w-full bg-white p-6 rounded-2xl border-2 border-gray-100 flex items-center justify-between shadow-sm mb-4">
+                                <div>
+                                    <label className="block text-gray-900 text-lg font-black uppercase leading-tight">
+                                        Cardápio Online Ativo
+                                    </label>
+                                    <p className="text-sm text-gray-500 font-medium">
+                                        Se desativado, os clientes não poderão fazer pedidos.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsOnlineMenuOpen(!isOnlineMenuOpen)}
+                                    className={`w-16 h-8 rounded-full transition-all relative ${isOnlineMenuOpen ? 'bg-green-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${isOnlineMenuOpen ? 'right-1' : 'left-1'}`} />
+                                </button>
+                            </div>
+
                             <div className="w-full">
                                 <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
                                     Horário de Funcionamento
@@ -999,8 +1058,40 @@ export default function Admin() {
                                 </p>
                             </div>
 
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    WhatsApp para Pedidos Online
+                                </label>
+                                <input
+                                    type="text"
+                                    className="w-full border-2 border-gray-200 p-4 rounded-xl text-xl font-bold text-green-600 focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                    placeholder="Ex: 5563991038781"
+                                    value={whatsappNumber}
+                                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                                />
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Importante: Use apenas números, com código do país (Brasil é 55) e DDD.
+                                </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Mensagem de Boas-vindas (Cardápio Online)
+                                </label>
+                                <textarea
+                                    className="w-full border-2 border-gray-200 p-4 rounded-xl text-lg font-bold text-green-600 focus:border-green-400 focus:outline-none transition-all shadow-inner resize-none"
+                                    placeholder="Ex: Sejam bem-vindos ao Hero's Burger!"
+                                    rows={3}
+                                    value={merchantMessage}
+                                    onChange={(e) => setMerchantMessage(e.target.value)}
+                                />
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Esta mensagem aparecerá no topo do cardápio online.
+                                </p>
+                            </div>
+
                             <button
-                                onClick={handleSaveHours}
+                                onClick={handleSaveConfig}
                                 className="w-full bg-black text-white font-black py-5 rounded-2xl hover:bg-gray-800 active:scale-95 transition-all text-xl shadow-xl flex items-center justify-center gap-2"
                             >
                                 💾 SALVAR ALTERAÇÕES

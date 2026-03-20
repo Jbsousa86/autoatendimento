@@ -6,7 +6,10 @@ import logo from "../assets/herosburger.jpg"
 const AUDIO_URL = "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
 
 export default function Cashier() {
-    const [user, setUser] = useState(null)
+    const [user, setUser] = useState(() => {
+        const saved = localStorage.getItem("cashier_user")
+        return saved ? JSON.parse(saved) : null
+    })
     const [loginUser, setLoginUser] = useState("")
     const [loginPass, setLoginPass] = useState("")
     const [activeTab, setActiveTab] = useState('pos')
@@ -470,6 +473,7 @@ export default function Cashier() {
             const cashier = await cashierService.login(loginUser, loginPass)
             if (cashier) {
                 setUser(cashier)
+                localStorage.setItem("cashier_user", JSON.stringify(cashier))
                 setLoginUser("")
                 setLoginPass("")
             } else {
@@ -738,7 +742,10 @@ export default function Cashier() {
                     </div>
 
                     <button
-                        onClick={() => setUser(null)}
+                        onClick={() => {
+                            setUser(null)
+                            localStorage.removeItem("cashier_user")
+                        }}
                         className="text-red-400 hover:text-red-200 text-sm font-bold bg-red-400/10 p-2 rounded-lg"
                     >
                         SAIR
@@ -1047,7 +1054,9 @@ export default function Cashier() {
                                     <div className="flex justify-between items-center mb-3">
                                         <div>
                                             <h2 className="font-black text-lg text-gray-700 leading-none">ORDEM ATUAL</h2>
-                                            <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">Venda de Balcão</p>
+                                            <p className="text-[10px] text-gray-400 uppercase font-bold mt-1">
+                                                Venda de Balcão — <span className="text-orange-600">👤 {user.name}</span>
+                                            </p>
                                         </div>
                                         <button
                                             onClick={() => setMobileCartOpen(false)}
@@ -1285,15 +1294,27 @@ export default function Cashier() {
                                 {/* CARDS ADICIONAIS: APENAS SE AUTORIZADO (VISÃO DE GERENTE) */}
                                 {user.can_view_reports && (
                                     <>
-                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
-                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem</h3>
-                                            <p className="text-2xl font-black text-orange-600">
+                                        {/* CARD 2: CARDÁPIO ONLINE */}
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-green-500">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Cardápio Online</h3>
+                                            <p className="text-2xl font-black text-green-600">
                                                 R$ {dailyOrders
-                                                    .filter(o => !o.cashier_name && !o.customer_name?.toLowerCase().startsWith('mesa') && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .filter(o => (o.payment_method === 'whatsapp' || o.paymentMethod === 'whatsapp') && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA')))
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                                 }
                                             </p>
-                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Autoatendimento</p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Vendas Cardápio Online</p>
+                                        </div>
+
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500">
+                                            <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem (Autoatendimento)</h3>
+                                            <p className="text-2xl font-black text-orange-600">
+                                                R$ {dailyOrders
+                                                    .filter(o => !o.cashier_name && !o.customer_name?.toLowerCase().startsWith('mesa') && o.payment_method !== 'whatsapp' && o.paymentMethod !== 'whatsapp' && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
+                                                }
+                                            </p>
+                                            <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Vendas no Balcão</p>
                                         </div>
 
                                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-teal-500">
@@ -1390,8 +1411,10 @@ export default function Cashier() {
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-                                                                    <span className="text-[10px] font-black uppercase text-orange-900 font-mono tracking-tighter">🤖 TOTEM</span>
+                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${order.payment_method === 'whatsapp' ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                                                                    <span className={`text-[10px] font-black uppercase font-mono tracking-tighter ${order.payment_method === 'whatsapp' ? 'text-green-600' : 'text-orange-900'}`}>
+                                                                        {order.payment_method === 'whatsapp' ? '📱 CARDÁPIO' : '🤖 TOTEM'}
+                                                                    </span>
                                                                 </div>
                                                             )}
                                                         </td>
