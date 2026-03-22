@@ -90,7 +90,7 @@ export const orderService = {
                 console.error("❌ Erro Supabase (getOrders):", error)
                 // Se a coluna nova estiver dando erro no SELECT, tentamos sem ela como último recurso
                 if (error.message.includes("payment_method")) {
-                    const fallback = await supabase.from('orders').select('id, created_at, order_number, customer_name, total, items, status, cashier_name').order('created_at', { ascending: false });
+                    const fallback = await supabase.from('orders').select('id, created_at, order_number, customer_name, total, items, status, cashier_name, observation, customer_address').order('created_at', { ascending: false });
                     return fallback.data || []
                 }
                 return []
@@ -114,50 +114,52 @@ export const orderService = {
             items: orderData.items,
             status: 'pending',
             cashier_name: orderData.cashierName || null,
-            payment_method: orderData.paymentMethod || null,
-            change_amount: orderData.changeAmount || null,
-            observation: orderData.observation || null
+      payment_method: orderData.paymentMethod || null,
+      change_amount: orderData.changeAmount || null,
+      observation: orderData.observation || null,
+      customer_address: orderData.customerAddress || null
+    }
+
+    // Tenta o salvamento completo
+    let response = await supabase.from('orders').insert([newOrder]).select()
+
+    // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
+    if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
+      const errField = response.error.message;
+      console.warn("⚠️ Erro de coluna detectado. Tentando fallback...", errField);
+
+      // Prepara um nome que já inclua o endereço e observação se as colunas falharem
+      let fallbackName = newOrder.customer_name;
+      if (newOrder.customer_address) fallbackName += ` (${newOrder.customer_address})`;
+      if (newOrder.observation) fallbackName += ` [Obs: ${newOrder.observation}]`;
+
+      // Campos mínimos garantidos (versões iniciais do banco)
+      const finalMinOrder = {
+        order_number: newOrder.order_number,
+        customer_name: fallbackName,
+        total: newOrder.total,
+        items: newOrder.items,
+        status: newOrder.status,
+        cashier_name: newOrder.cashier_name,
+        // NÃO incluímos customer_address nem observation aqui pois sabemos que podem falhar
+      }
+
+      // Tenta salvar incluindo o payment_method se o erro não foi nele
+      const isPaymentError = errField.includes("payment_method");
+      if (!isPaymentError) {
+        try {
+          response = await supabase.from('orders').insert([{ ...finalMinOrder, payment_method: newOrder.payment_method }]).select();
+        } catch (e) {
+          response = await supabase.from('orders').insert([finalMinOrder]).select();
         }
-
-        // Tenta o salvamento completo
-        let response = await supabase.from('orders').insert([newOrder]).select()
-
-        // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
-        if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
-            const errField = response.error.message;
-            console.warn("⚠️ Erro de coluna detectado:", errField);
-
-            // Se o erro NÃO for no payment_method (que o usuário confirmou que tem), 
-            // tentamos salvar incluindo o método de pagamento.
-            const hasPaymentColumn = !errField.includes("payment_method");
-
-            const minOrder = {
-                order_number: newOrder.order_number,
-                customer_name: newOrder.customer_name,
-                total: newOrder.total,
-                items: newOrder.items,
-                status: newOrder.status,
-                cashier_name: newOrder.cashier_name
-            }
-
-            if (hasPaymentColumn) {
-                // Tenta salvar com o pagamento, já que o erro deve ser em outra coluna (como observation ou change_amount)
-                const orderWithPayment = { ...minOrder, payment_method: newOrder.payment_method };
-                response = await supabase.from('orders').insert([orderWithPayment]).select();
-
-                // Se ainda der erro, faz o fallback final para o mínimo absoluto
-                if (response.error) {
-                    response = await supabase.from('orders').insert([minOrder]).select();
-                }
-            } else {
-                // O erro era realmente no payment_method
-                response = await supabase.from('orders').insert([minOrder]).select();
-                if (!window.hasShownColumnAlert) {
-                    alert("⚠️ A coluna 'payment_method' não foi encontrada no seu banco. Adicione-a para ver os relatórios de pagamento.");
-                    window.hasShownColumnAlert = true;
-                }
-            }
+      } else {
+        response = await supabase.from('orders').insert([finalMinOrder]).select();
+        if (!window.hasShownColumnAlert) {
+          console.warn("Coluna payment_method ausente.");
+          window.hasShownColumnAlert = true;
         }
+      }
+    }
 
         if (response.error) {
             console.error("❌ ERRO SUPABASE AO SALVAR:", response.error)

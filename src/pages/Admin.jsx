@@ -176,7 +176,14 @@ export default function Admin() {
 
             // Breakdown por Pagamento (tenta snake e camel case)
             const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase()
-            const pgto = (pgtoMethod || (order.cashier_name ? 'outro' : 'totem')).toLowerCase()
+            
+            // Lógica Robusta de Identificação de Origem
+            // Se não tem caixa e não é mesa, e tem nome de cliente ou pgto=whatsapp, é ONLINE
+            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa')
+            const isWhatsApp = pgtoMethod === 'whatsapp'
+            const isOnline = isWhatsApp || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente')
+            
+            const pgto = (pgtoMethod || (order.cashier_name ? 'outro' : (isMesa ? 'totem' : 'whatsapp'))).toLowerCase()
             
             if (paymentBreakdown.hasOwnProperty(pgto)) {
                 paymentBreakdown[pgto] += val
@@ -185,7 +192,7 @@ export default function Admin() {
             }
 
             // Origem: Online, Caixa ou Totem
-            if (pgtoMethod === 'whatsapp') {
+            if (isOnline) {
                 revenueOnline += val
                 countOnline++
             } else if (order.cashier_name && order.cashier_name.trim() !== "") {
@@ -853,16 +860,22 @@ export default function Admin() {
                                             .filter(o => {
                                                 // Filtro de Categoria/Operador
                                                 const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase()
+                                                const isMesa = o.customer_name?.toLowerCase().startsWith('mesa')
+                                                const isWhatsApp = pgtoMethod === 'whatsapp'
+                                                const isOnline = isWhatsApp || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente')
+
                                                 const matchFilter = reportFilter === 'all' ||
-                                                    (reportFilter === 'online' && pgtoMethod === 'whatsapp') ||
-                                                    (reportFilter === 'totem' && !o.cashier_name && pgtoMethod !== 'whatsapp' && !o.customer_name?.toLowerCase().startsWith('mesa')) ||
+                                                    (reportFilter === 'online' && isOnline) ||
+                                                    (reportFilter === 'totem' && !o.cashier_name && !isOnline && !isMesa) ||
+                                                    (reportFilter === 'mesa' && !o.cashier_name && isMesa) ||
                                                     (reportFilter === 'cashier' && !!o.cashier_name) ||
                                                     (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]);
 
                                                 // Filtro de Busca (Número ou Nome)
                                                 const search = orderSearchQuery.toLowerCase();
+                                                const orderNumStr = String(o.order_number || "");
                                                 const matchSearch = !orderSearchQuery ||
-                                                    o.order_number.includes(search) ||
+                                                    orderNumStr.includes(search) ||
                                                     (o.customer_name && o.customer_name.toLowerCase().includes(search));
 
                                                 return matchFilter && matchSearch;
@@ -881,8 +894,8 @@ export default function Admin() {
                                                                     👤 Operador: {order.cashier_name}
                                                                 </span>
                                                             ) : (
-                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? 'text-green-600' : 'text-blue-500'}`}>
-                                                                    {order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)'}
+                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'text-green-600' : 'text-blue-500'}`}>
+                                                                    { (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)'}
                                                                 </span>
                                                             )}
                                                         </div>

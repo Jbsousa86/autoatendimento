@@ -17,7 +17,12 @@ export default function OnlineFinish() {
             if (order && !hasProcessed.current) {
                 hasProcessed.current = true
                 try {
-                    await orderService.createOrder(order)
+                    const { error } = await orderService.createOrder(order)
+                    if (error) {
+                        console.error("Erro ao salvar pedido:", error)
+                        alert("⚠️ Erro ao enviar pedido para o sistema. Por favor, avise o atendente ou tente novamente.")
+                        return
+                    }
                     clearCart()
                 } catch (err) {
                     console.error("Erro ao salvar pedido:", err)

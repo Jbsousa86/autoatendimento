@@ -152,7 +152,12 @@ export default function Finish() {
           <span className="text-2xl">{order.orderNumber}</span>
         </div>
         <div className="font-bold uppercase break-words px-4">CLIENTE: {tempName}</div>
-        <div className="text-[10px] mb-2">Data: {new Date().toLocaleString('pt-BR')}</div>
+        {(order.customer_address || order.customerAddress) && (
+          <div className="text-[10px] mx-4 mt-1 uppercase border border-black p-1 bg-gray-50">
+            <strong>ENTREGA:</strong> {order.customer_address || order.customerAddress}
+          </div>
+        )}
+        <div className="text-[10px] mb-2 px-4">Data: {new Date().toLocaleString('pt-BR')}</div>
         <div className="border-b border-black border-dashed my-2"></div>
         <table className="w-full text-left font-mono text-[10px]">
           <thead>

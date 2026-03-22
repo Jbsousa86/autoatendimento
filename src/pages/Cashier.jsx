@@ -354,8 +354,14 @@ export default function Cashier() {
                 ...txt("--------------------------------"),
                 ...LEFT,
                 ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
+                ...((order.customer_address || order.customerAddress)
+                    ? [...BOLD_ON, ...txt(`ENTREGA: ${order.customer_address || order.customerAddress}`), ...BOLD_OFF]
+                    : []),
                 ...((order.paymentMethod || order.payment_method)
                     ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
+                    : []),
+                ...(order.observation
+                    ? [...txt(`Obs: ${order.observation}`)]
                     : []),
                 ...txt("--------------------------------"),
             ]);
@@ -821,9 +827,19 @@ export default function Cashier() {
                                         Operador: {lastFinishedOrder.cashierName}
                                     </div>
                                 </div>
-                                <div className="text-xs mb-2 uppercase font-bold">
+                                <div className="text-xs mb-1 uppercase font-bold">
                                     Cliente: {lastFinishedOrder.customerName || "Não informado"}
                                 </div>
+                                {(lastFinishedOrder.customer_address || lastFinishedOrder.customerAddress) && (
+                                    <div className="text-[10px] mb-2 uppercase border border-black p-1 bg-gray-50">
+                                        <strong>ENTREGA:</strong> {lastFinishedOrder.customer_address || lastFinishedOrder.customerAddress}
+                                    </div>
+                                )}
+                                {lastFinishedOrder.observation && (
+                                    <div className="text-[10px] mb-2 italic border-t border-black border-dashed pt-1">
+                                        <strong>Obs:</strong> {lastFinishedOrder.observation}
+                                    </div>
+                                )}
                                 {(() => {
                                     const pgto = lastFinishedOrder?.paymentMethod || lastFinishedOrder?.payment_method;
                                     if (!pgto) return null;
@@ -1299,7 +1315,12 @@ export default function Cashier() {
                                             <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Cardápio Online</h3>
                                             <p className="text-2xl font-black text-green-600">
                                                 R$ {dailyOrders
-                                                    .filter(o => (o.payment_method === 'whatsapp' || o.paymentMethod === 'whatsapp') && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA')))
+                                                    .filter(o => {
+                                                        const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
+                                                        const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
+                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente');
+                                                        return isOnline && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA'));
+                                                    })
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                                 }
                                             </p>
@@ -1310,7 +1331,12 @@ export default function Cashier() {
                                             <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Totem (Autoatendimento)</h3>
                                             <p className="text-2xl font-black text-orange-600">
                                                 R$ {dailyOrders
-                                                    .filter(o => !o.cashier_name && !o.customer_name?.toLowerCase().startsWith('mesa') && o.payment_method !== 'whatsapp' && o.paymentMethod !== 'whatsapp' && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate)
+                                                    .filter(o => {
+                                                        const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
+                                                        const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
+                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente');
+                                                        return !o.cashier_name && !isOnline && !isMesa && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate;
+                                                    })
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                                 }
                                             </p>
@@ -1411,9 +1437,9 @@ export default function Cashier() {
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${order.payment_method === 'whatsapp' ? 'bg-green-500' : 'bg-orange-500'}`}></span>
-                                                                    <span className={`text-[10px] font-black uppercase font-mono tracking-tighter ${order.payment_method === 'whatsapp' ? 'text-green-600' : 'text-orange-900'}`}>
-                                                                        {order.payment_method === 'whatsapp' ? '📱 CARDÁPIO' : '🤖 TOTEM'}
+                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                                                                    <span className={`text-[10px] font-black uppercase font-mono tracking-tighter ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'text-green-600' : 'text-orange-900'}`}>
+                                                                        { (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? '📱 CARDÁPIO' : '🤖 TOTEM'}
                                                                     </span>
                                                                 </div>
                                                             )}
