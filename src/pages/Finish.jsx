@@ -67,7 +67,7 @@ export default function Finish() {
   }
 
   function handleNewOrder() {
-    window.location.href = "/"
+    navigate("/", { replace: true })
   }
 
   const [configClickCount, setConfigClickCount] = useState(0)

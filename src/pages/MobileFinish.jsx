@@ -42,7 +42,7 @@ export default function MobileFinish() {
 
                         // Redireciona automaticamente após 3 segundos
                         setTimeout(() => {
-                            if (tableId) navigate(`/mesa/${tableId}`)
+                            if (tableId) navigate(`/mesa/${tableId}`, { replace: true })
                         }, 3000)
                     }
                 } catch (err) {
@@ -55,9 +55,9 @@ export default function MobileFinish() {
 
     const handleNewOrder = () => {
         if (tableId) {
-            navigate(`/mesa/${tableId}`)
+            navigate(`/mesa/${tableId}`, { replace: true })
         } else {
-            navigate("/")
+            navigate("/", { replace: true })
         }
     }
 

@@ -45,7 +45,7 @@ export default function OnlineFinish() {
         })
 
         const timer = setTimeout(() => {
-            navigate("/cardapio")
+            navigate("/cardapio", { replace: true })
         }, 15000)
 
         return () => clearTimeout(timer)
@@ -86,8 +86,8 @@ export default function OnlineFinish() {
                 </div>
                 <h1 className="text-3xl font-black mb-6 uppercase tracking-tighter">Pedido não encontrado</h1>
                 <button
-                    onClick={() => navigate("/cardapio")}
                     className="bg-white text-black px-10 py-4 rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl active:scale-95 transition-all"
+                    onClick={() => navigate("/cardapio", { replace: true })}
                 >
                     Voltar ao Cardápio
                 </button>
@@ -193,7 +193,7 @@ export default function OnlineFinish() {
                     </p>
                     
                     <button
-                        onClick={() => navigate("/cardapio")}
+                        onClick={() => navigate("/cardapio", { replace: true })}
                         className="flex items-center gap-2 mx-auto text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors pt-2"
                     >
                         <ArrowLeft size={14} /> Fazer outro pedido
