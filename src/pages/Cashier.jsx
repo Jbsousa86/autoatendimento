@@ -26,7 +26,7 @@ export default function Cashier() {
     const [selectingHalf, setSelectingHalf] = useState(null)
     const [firstFlavor, setFirstFlavor] = useState(null)
     const [reportDate, setReportDate] = useState(new Date().toLocaleDateString('en-CA'))
-    const [orderObservation, setOrderObservation] = useState("")
+    const [customerAddress, setCustomerAddress] = useState("")
     const [isPrinting, setIsPrinting] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState("") // 'dinheiro', 'cartao', 'pix'
     const [changeAmount, setChangeAmount] = useState("")
@@ -582,7 +582,8 @@ export default function Cashier() {
             total: calculateTotal(),
             items: Object.values(itemMap),
             cashierName: user.name,
-            observation: orderObservation,
+            observation: "", // Deixando vago para não repetir no endereço
+            customerAddress: customerAddress,
             paymentMethod: paymentMethod, // Novo campo
             changeAmount: paymentMethod === 'dinheiro' && changeAmount ? changeAmount : null
         }
@@ -606,7 +607,7 @@ export default function Cashier() {
         setLastFinishedOrder(finalOrder)
         setCart([])
         setCustomerName("")
-        setOrderObservation("")
+        setCustomerAddress("")
         setPaymentMethod("") // Limpa o método de pagamento
         setChangeAmount("")
         setNeedsChange(false)
@@ -1143,13 +1144,13 @@ export default function Cashier() {
                                 <div className="p-4 md:p-6 bg-gray-100 border-t border-gray-200 safe-bottom">
                                     {/* OBSERVAÇÃO GERAL */}
                                     <div className="mb-3 md:mb-4">
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Observação Geral</label>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Endereço (Entrega)</label>
                                         <textarea
                                             className="w-full border border-gray-200 bg-white p-2 rounded text-xs focus:border-orange-500 focus:outline-none resize-none"
                                             rows={1}
-                                            placeholder="Notas do pedido..."
-                                            value={orderObservation}
-                                            onChange={(e) => setOrderObservation(e.target.value)}
+                                            placeholder="Rua, número, bairro..."
+                                            value={customerAddress}
+                                            onChange={(e) => setCustomerAddress(e.target.value)}
                                         />
                                     </div>
 
@@ -1508,7 +1509,13 @@ export default function Cashier() {
                                                             );
                                                         })()}
                                                     </div>
-                                                </div>
+                                                    {order.customer_address && (
+                                                    <div className="mt-2 text-[10px] text-gray-400 bg-gray-50 p-2 rounded border border-gray-100 flex items-center gap-2">
+                                                        <span>📍</span>
+                                                        <span className="font-bold line-clamp-1">{order.customer_address}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                                 <p className="text-[11px] text-gray-500 line-clamp-2 italic">
                                                     {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
                                                 </p>
