@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { MapPin, User, Receipt, Clock, Calendar, DollarSign, BarChart3, TrendingUp, Package, Users, Settings, Search, Trash2 } from "lucide-react"
 import { productService, orderService, cashierService, configService } from "../services/api"
 import { products as defaultProducts } from "../data/menu"
 
@@ -915,30 +916,52 @@ export default function Admin() {
                                                         {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </td>
                                                     <td className="p-3 font-bold">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-gray-800">{order.customer_name || "Cliente"}</span>
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <User size={14} className="text-gray-400" />
+                                                                <span className="text-gray-900 text-base">{order.customer_name || "Cliente"}</span>
+                                                            </div>
+                                                            
                                                             {order.cashier_name && order.cashier_name.trim() !== "" ? (
-                                                                <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
-                                                                    👤 Operador: {order.cashier_name}
-                                                                </span>
+                                                                <div className="flex items-center gap-1.5 bg-orange-50 px-2 py-0.5 rounded-full w-fit border border-orange-100">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.5)]"></span>
+                                                                    <span className="text-[9px] font-black uppercase text-orange-900 tracking-tighter">Operador: {order.cashier_name}</span>
+                                                                </div>
                                                             ) : (
-                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${ (() => {
-                                                                const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
-                                                                const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
-                                                                return isOnline;
-                                                            })() ? 'text-green-600' : 'text-blue-500'}`}>
-                                                                    {(() => {
+                                                                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border ${ (() => {
+                                                                    const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                    const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                    const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                    return isOnline ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
+                                                                })() }`}>
+                                                                    <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
                                                                         const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
                                                                         const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
-                                                                        const isCashier = order.cashier_name && order.cashier_name.trim() !== "";
-                                                                        
-                                                                        if (isCashier) return `👤 Caixa (${order.cashier_name})`;
-                                                                        if (isMesa) return '🪑 Mesa (QR Code)';
-                                                                        return isOnline ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)';
-                                                                    })()}
-                                                                </span>
+                                                                        return isOnline ? 'bg-green-500' : 'bg-blue-500';
+                                                                    })() }`}></span>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-tighter ${ (() => {
+                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                        return isOnline ? 'text-green-900' : 'text-blue-900';
+                                                                    })() }`}>
+                                                                        {(() => {
+                                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                            const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                            
+                                                                            if (isMesa) return 'MESA (QR CODE)';
+                                                                            return isOnline ? 'CARDÁPIO ONLINE (WA)' : 'TOTEM AUTOATENDIMENTO';
+                                                                        })()}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            {order.customer_address && (
+                                                                <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-100 w-fit">
+                                                                    <MapPin size={10} className="text-red-400" />
+                                                                    <span className="truncate max-w-[200px]">{order.customer_address}</span>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </td>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { MapPin, User, Receipt, Clock, ShoppingCart } from "lucide-react"
 import { productService, orderService, cashierService } from "../services/api"
 import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
@@ -1404,7 +1405,7 @@ export default function Cashier() {
                                         <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black">
                                             <tr>
                                                 <th className="p-4">Data/Hora</th>
-                                                <th className="p-4">Origem</th>
+                                                <th className="p-4">Cliente / Origem</th>
                                                 <th className="p-4">Itens</th>
                                                 <th className="p-4 text-right">Total</th>
                                             </tr>
@@ -1424,32 +1425,45 @@ export default function Cashier() {
                                                             {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                         </td>
                                                         <td className="p-4">
-                                                            {order.cashier_name ? (
+                                                            <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                                                    <span className="text-[10px] font-black uppercase text-blue-900">{order.cashier_name}</span>
+                                                                    <User size={12} className="text-gray-400" />
+                                                                    <span className="text-sm font-bold text-gray-800">{order.customer_name || "Cliente"}</span>
                                                                 </div>
-                                                            ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-                                                                    <span className="text-[10px] font-black uppercase text-teal-900 font-mono tracking-tighter">📱 MESA</span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${ (() => {
-                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
-                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
-                                                                        return isOnline;
-                                                                    })() ? 'bg-green-500' : 'bg-orange-500'}`}></span>
-                                                                    {(() => {
-                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
-                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
-                                                                        return isOnline ? '📱 CARDÁPIO' : '🤖 TOTEM';
-                                                                    })()}
-                                                                </div>
-                                                            )}
+                                                                
+                                                                {order.cashier_name ? (
+                                                                    <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-0.5 rounded-full w-fit border border-blue-100">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>
+                                                                        <span className="text-[9px] font-black uppercase text-blue-900 tracking-tighter">Caixa: {order.cashier_name}</span>
+                                                                    </div>
+                                                                ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
+                                                                    <div className="flex items-center gap-1.5 bg-teal-50 px-2 py-0.5 rounded-full w-fit border border-teal-100">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                                                                        <span className="text-[9px] font-black uppercase text-teal-900 font-mono tracking-tighter tracking-tighter">📱 MESA (QR)</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border border-gray-100">
+                                                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
+                                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                            const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                            return isOnline ? 'bg-green-500' : 'bg-orange-500';
+                                                                        })() }`}></span>
+                                                                        <span className="text-[9px] font-black uppercase text-gray-500 tracking-tighter">
+                                                                            {(() => {
+                                                                                const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                                const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                                return isOnline ? '📱 CARDÁPIO ONLINE' : '🤖 TOTEM';
+                                                                            })()}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {order.customer_address && (
+                                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-100 w-fit">
+                                                                        <MapPin size={10} className="text-red-400" />
+                                                                        <span className="truncate max-w-[150px]">{order.customer_address}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="p-4">
                                                             <p className="text-xs font-bold truncate max-w-[200px] md:max-w-md group-hover:text-blue-700">
@@ -1489,7 +1503,10 @@ export default function Cashier() {
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
                                                         <span className="text-[10px] font-black text-blue-600 block mb-1">#{order.order_number}</span>
-                                                        <span className="text-xs font-bold text-gray-800">
+                                                        <span className="text-sm font-black text-gray-900 block mb-1 uppercase tracking-tighter">
+                                                            {order.customer_name || "Cliente"}
+                                                        </span>
+                                                        <span className="text-xs font-bold text-gray-400">
                                                             {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                     </div>
@@ -1510,9 +1527,9 @@ export default function Cashier() {
                                                         })()}
                                                     </div>
                                                     {order.customer_address && (
-                                                    <div className="mt-2 text-[10px] text-gray-400 bg-gray-50 p-2 rounded border border-gray-100 flex items-center gap-2">
-                                                        <span>📍</span>
-                                                        <span className="font-bold line-clamp-1">{order.customer_address}</span>
+                                                    <div className="mt-2 text-[11px] text-orange-900 bg-orange-50 p-2.5 rounded-xl border border-orange-100 flex items-center gap-2 shadow-sm font-bold">
+                                                        <MapPin size={14} className="text-orange-600 shrink-0" />
+                                                        <span className="line-clamp-2 leading-tight">{order.customer_address}</span>
                                                     </div>
                                                 )}
                                             </div>
