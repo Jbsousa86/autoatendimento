@@ -86,7 +86,7 @@ export default function OnlineMenu() {
         // Adiciona o endereço e identifica a origem como WhatsApp
         order.customerAddress = customerAddress
         order.paymentMethod = 'whatsapp'
-        navigate(`/cardapio/sucesso`, { state: { order } })
+        navigate(`/cardapio/sucesso`, { state: { order }, replace: true })
     }
 
     const cartCount = (cart || []).reduce((sum, item) => sum + (item.qty || 0), 0)

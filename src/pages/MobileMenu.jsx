@@ -135,7 +135,7 @@ export default function MobileMenu() {
         setShowConfirmModal(false)
         const customerName = `Mesa ${tableId || "?"}`
         const order = finalizeOrder(customerName, generalObservation)
-        navigate(`/mesa/${tableId}/sucesso`, { state: { order } })
+        navigate(`/mesa/${tableId}/sucesso`, { state: { order }, replace: true })
     }
 
     const cartCount = (cart || []).reduce((sum, item) => sum + (item.qty || 0), 0)

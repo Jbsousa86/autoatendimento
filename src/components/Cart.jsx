@@ -176,7 +176,7 @@ export function Cart() {
           onClick={() => {
             if (!customerName.trim() || !paymentMethod) return
             const order = finalizeOrder(customerName, generalObservation, paymentMethod)
-            navigate("/finish", { state: { order } })
+            navigate("/finish", { state: { order }, replace: true })
           }}
           disabled={cart.length === 0 || !customerName.trim() || !paymentMethod}
           className="w-full h-24 bg-black text-white text-3xl font-black rounded-3xl disabled:bg-black/30 disabled:text-white/30 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center flex-col gap-1 border-4 border-white/20"
