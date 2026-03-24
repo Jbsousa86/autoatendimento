@@ -1444,14 +1444,12 @@ export default function Cashier() {
                                                                 ) : (
                                                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border border-gray-100">
                                                                         <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
-                                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                            const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                            const isOnline = pgtoMethod === 'whatsapp';
                                                                             return isOnline ? 'bg-green-500' : 'bg-orange-500';
                                                                         })() }`}></span>
                                                                         <span className="text-[9px] font-black uppercase text-gray-500 tracking-tighter">
                                                                             {(() => {
-                                                                                const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                                const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                                const isOnline = pgtoMethod === 'whatsapp';
                                                                                 return isOnline ? '📱 CARDÁPIO ONLINE' : '🤖 TOTEM';
                                                                             })()}
                                                                         </span>
@@ -1517,8 +1515,7 @@ export default function Cashier() {
                                                         ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
                                                             <span className="text-[9px] font-black uppercase text-teal-500">📱 MESA</span>
                                                         ) : (() => {
-                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                            const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                            const isOnline = pgtoMethod === 'whatsapp';
                                                             return isOnline ? (
                                                                 <span className="text-[9px] font-black uppercase text-green-500">📱 CARDÁPIO</span>
                                                             ) : (

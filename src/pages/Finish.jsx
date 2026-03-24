@@ -12,6 +12,7 @@ export default function Finish() {
   const [tempName, setTempName] = useState(order?.customerName || "Cliente")
   const hasProcessed = useRef(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [retryVisible, setRetryVisible] = useState(false)
 
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function Finish() {
 
           if (error || !saved) {
             console.error("Erro ao salvar pedido:", error)
-            alert("⚠️ Erro ao registrar pedido no servidor. Por favor, avise o atendente.")
+            setRetryVisible(true)
             return
           }
 
@@ -32,7 +33,6 @@ export default function Finish() {
             order.created_at = saved.created_at
           }
           window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
-          clearCart()
         } catch (err) {
           console.error("Erro ao salvar pedido:", err)
         }

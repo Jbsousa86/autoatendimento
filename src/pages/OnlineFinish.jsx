@@ -11,6 +11,7 @@ export default function OnlineFinish() {
     const order = location.state?.order
     const hasProcessed = useRef(false)
     const [whatsappNumber, setWhatsappNumber] = useState("")
+    const [retryVisible, setRetryVisible] = useState(false)
 
     useEffect(() => {
         const processOrder = async () => {
@@ -20,10 +21,9 @@ export default function OnlineFinish() {
                     const { error } = await orderService.createOrder(order)
                     if (error) {
                         console.error("Erro ao salvar pedido:", error)
-                        alert("⚠️ Erro ao enviar pedido para o sistema. Por favor, avise o atendente ou tente novamente.")
+                        setRetryVisible(true)
                         return
                     }
-                    clearCart()
                 } catch (err) {
                     console.error("Erro ao salvar pedido:", err)
                 }
@@ -163,8 +163,25 @@ export default function OnlineFinish() {
                         ENVIAR WHATSAPP
                     </button>
 
+                    {retryVisible && (
+                        <div className="bg-red-500/20 border border-red-500/50 p-6 rounded-[32px] animate-in fade-in slide-in-from-top-4 duration-500">
+                           <p className="text-red-400 font-bold mb-4 text-sm uppercase tracking-wide">⚠️ Erro ao registrar no sistema</p>
+                           <button 
+                             onClick={() => {
+                               setRetryVisible(false)
+                               hasProcessed.current = false
+                               // O useEffect será disparado novamente por causa do hasProcessed
+                               window.location.reload() // Recarrega para processar novamente
+                             }}
+                             className="w-full bg-red-600 text-white h-16 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all"
+                           >
+                             Tentar Novamente
+                           </button>
+                        </div>
+                    )}
+
                     <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] pt-4 animate-pulse">
-                        Redirecionando em alguns segundos...
+                        {retryVisible ? "Verifique sua conexão e tente novamente" : "Redirecionando em alguns segundos..."}
                     </p>
                     
                     <button

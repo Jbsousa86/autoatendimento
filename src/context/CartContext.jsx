@@ -85,15 +85,21 @@ export function CartProvider({ children }) {
 
   function finalizeOrder(customerName = "Cliente", generalObs = "", paymentMethod = 'totem') {
     const freshTotal = getCartTotal()
+    // Criamos uma cópia rasa do carrinho atual para o objeto do pedido
+    const orderItems = [...cart]
+    
     const order = {
-      items: cart,
+      items: orderItems,
       total: freshTotal,
       orderNumber: Math.floor(Math.random() * 900) + 100,
       customerName: customerName || "Cliente",
       observation: generalObs,
-      cashierName: null, // Explicitamente indica que é do Totem
+      cashierName: null, 
       paymentMethod: paymentMethod || 'totem'
     }
+    
+    // Limpamos o carrinho IMEDIATAMENTE no contexto
+    setCart([])
     setLastOrder(order)
     return order
   }
