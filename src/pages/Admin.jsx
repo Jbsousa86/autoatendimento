@@ -178,12 +178,40 @@ export default function Admin() {
             const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase()
             
             // Lógica Robusta de Identificação de Origem
-            // Se não tem caixa e não é mesa, e tem nome de cliente ou pgto=whatsapp, é ONLINE
-            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa')
-            const isWhatsApp = pgtoMethod === 'whatsapp'
-            const isOnline = isWhatsApp || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente')
+            // 1. Usa o campo pgtoMethod já extraído acima
             
-            const pgto = (pgtoMethod || (order.cashier_name ? 'outro' : (isMesa ? 'totem' : 'whatsapp'))).toLowerCase()
+            // 2. Se for 'whatsapp', é ONLINE
+            // 3. Se for 'totem', é TOTEM
+            // 4. Se não tiver esses campos, usa a lógica de fallback legada
+            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa')
+            
+            let source = 'unknown'
+            if (pgtoMethod === 'whatsapp') {
+                source = 'online'
+            } else if (pgtoMethod === 'totem' || pgtoMethod === 'cartao' || pgtoMethod === 'pix' || pgtoMethod === 'dinheiro') {
+                // No Totem, o pgtoMethod pode ser totem (valor padrão) ou o método real escolhido no POS
+                // Se NÃO tem cashier_name, e é um desses métodos ou o 'totem' explícito, é TOTEM
+                if (!order.cashier_name) {
+                    source = isMesa ? 'mesa' : 'totem'
+                } else {
+                    source = 'cashier'
+                }
+            } else if (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem') {
+                // Fallback para pedidos antigos sem payment_method
+                source = 'online'
+            } else if (order.cashier_name && order.cashier_name.trim() !== "") {
+                source = 'cashier'
+            } else if (isMesa) {
+                source = 'mesa'
+            } else {
+                source = 'totem'
+            }
+
+            const isOnline = source === 'online'
+            const isTotem = source === 'totem'
+            const isCashier = source === 'cashier'
+            
+            const pgto = (pgtoMethod || (isCashier ? 'outro' : (isMesa ? 'totem' : 'whatsapp'))).toLowerCase()
             
             if (paymentBreakdown.hasOwnProperty(pgto)) {
                 paymentBreakdown[pgto] += val
@@ -195,7 +223,7 @@ export default function Admin() {
             if (isOnline) {
                 revenueOnline += val
                 countOnline++
-            } else if (order.cashier_name && order.cashier_name.trim() !== "") {
+            } else if (isCashier) {
                 revenueCashier += val
                 countCashier++
 
@@ -204,7 +232,7 @@ export default function Admin() {
                 }
                 cashierBreakdown[order.cashier_name].revenue += val
                 cashierBreakdown[order.cashier_name].count++
-            } else {
+            } else if (isTotem) {
                 revenueTotem += val
                 countTotem++
             }
@@ -859,17 +887,17 @@ export default function Admin() {
                                         {allOrders
                                             .filter(o => {
                                                 // Filtro de Categoria/Operador
-                                                const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase()
-                                                const isMesa = o.customer_name?.toLowerCase().startsWith('mesa')
-                                                const isWhatsApp = pgtoMethod === 'whatsapp'
-                                                const isOnline = isWhatsApp || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente')
+                                                const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
+                                                const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
+                                                const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente' && o.customer_name !== 'Totem');
+                                                const isCashier = o.cashier_name && o.cashier_name.trim() !== "";
+                                                const isTotem = !isCashier && !isOnline && !isMesa;
 
-                                                const matchFilter = reportFilter === 'all' ||
+                                                const matchFilter = (reportFilter === 'all') ||
                                                     (reportFilter === 'online' && isOnline) ||
-                                                    (reportFilter === 'totem' && !o.cashier_name && !isOnline && !isMesa) ||
-                                                    (reportFilter === 'mesa' && !o.cashier_name && isMesa) ||
-                                                    (reportFilter === 'cashier' && !!o.cashier_name) ||
-                                                    (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]);
+                                                    (reportFilter === 'totem' && isTotem) ||
+                                                    (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]) ||
+                                                    (reportFilter === 'cashier' && isCashier);
 
                                                 // Filtro de Busca (Número ou Nome)
                                                 const search = orderSearchQuery.toLowerCase();
@@ -894,8 +922,22 @@ export default function Admin() {
                                                                     👤 Operador: {order.cashier_name}
                                                                 </span>
                                                             ) : (
-                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'text-green-600' : 'text-blue-500'}`}>
-                                                                    { (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)'}
+                                                                <span className={`text-[10px] font-bold uppercase tracking-tighter ${ (() => {
+                                                                const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                return isOnline;
+                                                            })() ? 'text-green-600' : 'text-blue-500'}`}>
+                                                                    {(() => {
+                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                        const isCashier = order.cashier_name && order.cashier_name.trim() !== "";
+                                                                        
+                                                                        if (isCashier) return `👤 Caixa (${order.cashier_name})`;
+                                                                        if (isMesa) return '🪑 Mesa (QR Code)';
+                                                                        return isOnline ? '📱 Cardápio Online (WhatsApp)' : '🤖 Totem (Autoatendimento)';
+                                                                    })()}
                                                                 </span>
                                                             )}
                                                         </div>

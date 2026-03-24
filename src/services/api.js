@@ -107,9 +107,7 @@ export const orderService = {
 
         const newOrder = {
             order_number: String(orderData.orderNumber),
-            customer_name: orderData.observation
-                ? `${orderData.customerName || "Cliente"} (${orderData.observation})`
-                : (orderData.customerName || "Cliente"),
+            customer_name: orderData.customerName || "Cliente",
             total: Number(orderData.total),
             items: orderData.items,
             status: 'pending',

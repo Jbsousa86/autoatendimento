@@ -7,6 +7,7 @@ export function Cart() {
   const { cart, finalizeOrder, increase, decrease, updateObservation } = useCart()
   const [customerName, setCustomerName] = useState("") // Nome do cliente
   const [generalObservation, setGeneralObservation] = useState("") // Obs geral
+  const [paymentMethod, setPaymentMethod] = useState("") // Sem default agora, obriga escolher
   const navigate = useNavigate()
 
   // FORCE CALCULATION INLINE
@@ -115,10 +116,10 @@ export function Cart() {
 
         {/* INPUT NOME DO CLIENTE */}
         <div className="mb-4">
-          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest text-white drop-shadow-md">Para quem é o pedido?</label>
+          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest text-white drop-shadow-md">Seu Nome (Obrigatório)</label>
           <input
             type="text"
-            placeholder="Digite seu nome (Opcional)"
+            placeholder="Digite seu nome aqui..."
             className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-lg font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all shadow-lg"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
@@ -137,6 +138,31 @@ export function Cart() {
           />
         </div>
 
+        {/* ESCOLHA DO PAGAMENTO (NOVO) */}
+        <div className="mb-6">
+          <label className="block text-white text-[10px] font-black uppercase tracking-widest mb-3 drop-shadow-md">Como deseja pagar?</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'dinheiro', icon: '💵', label: 'Dinheiro' },
+              { id: 'cartao', icon: '💳', label: 'Cartão' },
+              { id: 'pix', icon: '💎', label: 'Pix' }
+            ].map((method) => (
+              <button
+                key={method.id}
+                onClick={() => setPaymentMethod(method.id)}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all gap-1 ${
+                  paymentMethod === method.id 
+                  ? 'bg-white border-white text-orange-600 shadow-xl scale-105' 
+                  : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                }`}
+              >
+                <span className="text-2xl">{method.icon}</span>
+                <span className="text-[10px] font-black uppercase tracking-tighter">{method.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex justify-between items-end mb-6">
           <span className="text-white font-bold text-xl mb-1 drop-shadow-md">Total a pagar:</span>
           <div className="text-right">
@@ -148,17 +174,23 @@ export function Cart() {
 
         <button
           onClick={() => {
-            const order = finalizeOrder(customerName, generalObservation)
+            if (!customerName.trim() || !paymentMethod) return
+            const order = finalizeOrder(customerName, generalObservation, paymentMethod)
             navigate("/finish", { state: { order } })
           }}
-          disabled={cart.length === 0}
-          className="w-full h-24 bg-black text-white text-3xl font-black rounded-3xl disabled:bg-black/50 disabled:text-gray-400 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center gap-3 border-4 border-white/20"
+          disabled={cart.length === 0 || !customerName.trim() || !paymentMethod}
+          className="w-full h-24 bg-black text-white text-3xl font-black rounded-3xl disabled:bg-black/30 disabled:text-white/30 hover:bg-gray-900 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl flex items-center justify-center flex-col gap-1 border-4 border-white/20"
         >
           {cart.length === 0 ? (
             "CARRINHO VAZIO"
+          ) : !customerName.trim() ? (
+            <span className="text-xl uppercase">Digite seu nome</span>
+          ) : !paymentMethod ? (
+            <span className="text-xl uppercase">Escolha o pagamento</span>
           ) : (
             <>
-              <span className="text-4xl">✅</span> FINALIZAR PEDIDO
+              <span className="text-4xl">✅</span>
+              <span className="leading-none">FINALIZAR</span>
             </>
           )}
         </button>

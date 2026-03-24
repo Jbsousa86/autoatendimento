@@ -83,7 +83,7 @@ export function CartProvider({ children }) {
     return cart.reduce((sum, item) => sum + (Number(item.price) * (item.qty || 1)), 0)
   }
 
-  function finalizeOrder(customerName = "Cliente", generalObs = "") {
+  function finalizeOrder(customerName = "Cliente", generalObs = "", paymentMethod = 'totem') {
     const freshTotal = getCartTotal()
     const order = {
       items: cart,
@@ -92,7 +92,7 @@ export function CartProvider({ children }) {
       customerName: customerName || "Cliente",
       observation: generalObs,
       cashierName: null, // Explicitamente indica que é do Totem
-      paymentMethod: 'totem'
+      paymentMethod: paymentMethod || 'totem'
     }
     setLastOrder(order)
     return order

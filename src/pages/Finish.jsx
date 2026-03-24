@@ -27,7 +27,10 @@ export default function Finish() {
             return
           }
 
-          if (saved && saved.id) order.id = saved.id
+          if (saved && saved.id) {
+            order.id = saved.id
+            order.created_at = saved.created_at
+          }
           window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
           clearCart()
         } catch (err) {
@@ -157,7 +160,7 @@ export default function Finish() {
             <strong>ENTREGA:</strong> {order.customer_address || order.customerAddress}
           </div>
         )}
-        <div className="text-[10px] mb-2 px-4">Data: {new Date().toLocaleString('pt-BR')}</div>
+        <div className="text-[10px] mb-2 px-4">Data: {new Date(order.created_at || Date.now()).toLocaleString('pt-BR')}</div>
         <div className="border-b border-black border-dashed my-2"></div>
         <table className="w-full text-left font-mono text-[10px]">
           <thead>

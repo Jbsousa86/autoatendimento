@@ -349,8 +349,8 @@ export default function Cashier() {
                 ...txt("CONTROLE DE PEDIDO"),
                 ...BOLD_ON, ...txt(`OPERADOR: ${order.cashierName || 'GERAL'}`), ...BOLD_OFF,
                 ...txt(`NR: ${order.orderNumber}`),
-                ...txt(`DATA: ${new Date().toLocaleDateString('pt-BR')}`),
-                ...txt(`HORA: ${new Date().toLocaleTimeString('pt-BR')}`),
+                ...txt(`DATA: ${new Date(order.created_at || Date.now()).toLocaleDateString('pt-BR')}`),
+                ...txt(`HORA: ${new Date(order.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`),
                 ...txt("--------------------------------"),
                 ...LEFT,
                 ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
@@ -359,9 +359,6 @@ export default function Cashier() {
                     : []),
                 ...((order.paymentMethod || order.payment_method)
                     ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
-                    : []),
-                ...(order.observation
-                    ? [...txt(`Obs: ${order.observation}`)]
                     : []),
                 ...txt("--------------------------------"),
             ]);
@@ -818,9 +815,9 @@ export default function Cashier() {
                                 <div className="flex justify-center gap-2 text-xs font-mono">
                                     <span>#{lastFinishedOrder.orderNumber}</span>
                                     <span>•</span>
-                                    <span>{new Date().toLocaleDateString('pt-BR')}</span>
+                                    <span>{new Date(lastFinishedOrder.created_at || Date.now()).toLocaleDateString('pt-BR')}</span>
                                     <span>•</span>
-                                    <span>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span>{new Date(lastFinishedOrder.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-1 mt-2">
                                     <div className="text-[10px] font-black bg-black text-white px-4 py-1.5 rounded-full inline-block uppercase tracking-widest">
@@ -1318,7 +1315,7 @@ export default function Cashier() {
                                                     .filter(o => {
                                                         const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
                                                         const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
-                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente');
+                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && o.customer_name !== 'Cliente' && o.customer_name !== 'Totem');
                                                         return isOnline && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA'));
                                                     })
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
@@ -1334,8 +1331,9 @@ export default function Cashier() {
                                                     .filter(o => {
                                                         const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
                                                         const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
-                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && o.customer_name !== 'Cliente');
-                                                        return !o.cashier_name && !isOnline && !isMesa && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate;
+                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && o.customer_name !== 'Cliente' && o.customer_name !== 'Totem');
+                                                        const isTotem = !o.cashier_name && !isOnline && !isMesa;
+                                                        return isTotem && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate;
                                                     })
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
                                                 }
@@ -1437,10 +1435,18 @@ export default function Cashier() {
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'bg-green-500' : 'bg-orange-500'}`}></span>
-                                                                    <span className={`text-[10px] font-black uppercase font-mono tracking-tighter ${ (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? 'text-green-600' : 'text-orange-900'}`}>
-                                                                        { (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && order.customer_name !== 'Cliente')) ? '📱 CARDÁPIO' : '🤖 TOTEM'}
-                                                                    </span>
+                                                                    <span className={`w-2 h-2 rounded-full animate-pulse ${ (() => {
+                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                        return isOnline;
+                                                                    })() ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                                                                    {(() => {
+                                                                        const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !isMesa && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                                        return isOnline ? '📱 CARDÁPIO' : '🤖 TOTEM';
+                                                                    })()}
                                                                 </div>
                                                             )}
                                                         </td>
@@ -1492,9 +1498,15 @@ export default function Cashier() {
                                                             <span className="text-[9px] font-black uppercase text-blue-500">👤 {order.cashier_name}</span>
                                                         ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
                                                             <span className="text-[9px] font-black uppercase text-teal-500">📱 MESA</span>
-                                                        ) : (
-                                                            <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
-                                                        )}
+                                                        ) : (() => {
+                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                            const isOnline = pgtoMethod === 'whatsapp' || (!order.cashier_name && !order.customer_name?.toLowerCase().startsWith('mesa') && order.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && order.customer_name !== 'Cliente' && order.customer_name !== 'Totem');
+                                                            return isOnline ? (
+                                                                <span className="text-[9px] font-black uppercase text-green-500">📱 CARDÁPIO</span>
+                                                            ) : (
+                                                                <span className="text-[9px] font-black uppercase text-orange-500">🤖 TOTEM</span>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <p className="text-[11px] text-gray-500 line-clamp-2 italic">
