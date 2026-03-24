@@ -184,7 +184,7 @@ export default function Admin() {
             // 2. Se for 'whatsapp', é ONLINE
             // 3. Se for 'totem', é TOTEM
             // 4. Se não tiver esses campos, usa a lógica de fallback legada
-            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa')
+            const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa')
             
             let source = 'unknown'
             if (pgtoMethod === 'whatsapp') {
@@ -879,7 +879,7 @@ export default function Admin() {
                                             .filter(o => {
                                                 // Filtro de Categoria/Operador
                                                 const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
-                                                const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
+                                                const isMesa = o.customer_name?.toLowerCase()?.startsWith('mesa');
                                                 const isOnline = pgtoMethod === 'whatsapp';
                                                 const isCashier = o.cashier_name && o.cashier_name.trim() !== "";
                                                 const isTotem = !isCashier && !isOnline && !isMesa;
@@ -925,19 +925,19 @@ export default function Admin() {
                                                                 })() }`}>
                                                                     <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
                                                                         const isOnline = pgtoMethod === 'whatsapp';
                                                                         return isOnline ? 'bg-green-500' : 'bg-blue-500';
                                                                     })() }`}></span>
                                                                     <span className={`text-[9px] font-black uppercase tracking-tighter ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                        const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
                                                                         const isOnline = pgtoMethod === 'whatsapp';
                                                                         return isOnline ? 'text-green-900' : 'text-blue-900';
                                                                     })() }`}>
                                                                         {(() => {
                                                                             const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                            const isMesa = order.customer_name?.toLowerCase().startsWith('mesa');
+                                                                            const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
                                                                             const isOnline = pgtoMethod === 'whatsapp';
                                                                             
                                                                             if (isMesa) return 'MESA (QR CODE)';

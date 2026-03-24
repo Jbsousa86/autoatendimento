@@ -18,6 +18,12 @@ export default function Finish() {
   useEffect(() => {
     const processOrder = async () => {
       if (order && !hasProcessed.current) {
+        // Verifica se já foi processado nesta sessão (evita duplicata em refresh)
+        if (sessionStorage.getItem(`processed_order_${order.orderNumber}`)) {
+          console.log("Pedido já processado, pulando criação duplicada.")
+          hasProcessed.current = true
+          return
+        }
         hasProcessed.current = true
         try {
           const { data: saved, error } = await orderService.createOrder(order)
@@ -33,6 +39,8 @@ export default function Finish() {
             order.created_at = saved.created_at
           }
           window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
+          // Marca como processado para evitar duplicatas em refresh
+          sessionStorage.setItem(`processed_order_${order.orderNumber}`, "true")
         } catch (err) {
           console.error("Erro ao salvar pedido:", err)
         }

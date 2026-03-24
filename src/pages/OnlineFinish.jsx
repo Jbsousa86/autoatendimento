@@ -16,6 +16,12 @@ export default function OnlineFinish() {
     useEffect(() => {
         const processOrder = async () => {
             if (order && !hasProcessed.current) {
+                // Check if already processed in this session (e.g. refresh)
+                if (sessionStorage.getItem(`processed_order_${order.orderNumber}`)) {
+                    console.log("Order already processed, skipping duplicate creation.")
+                    hasProcessed.current = true
+                    return
+                }
                 hasProcessed.current = true
                 try {
                     const { error } = await orderService.createOrder(order)
@@ -24,6 +30,8 @@ export default function OnlineFinish() {
                         setRetryVisible(true)
                         return
                     }
+                    // Marca como processado no sessionStorage para evitar duplicatas em refresh
+                    sessionStorage.setItem(`processed_order_${order.orderNumber}`, "true")
                 } catch (err) {
                     console.error("Erro ao salvar pedido:", err)
                 }

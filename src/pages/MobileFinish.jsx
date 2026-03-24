@@ -16,6 +16,12 @@ export default function MobileFinish() {
     useEffect(() => {
         const processOrder = async () => {
             if (order && !hasProcessed.current) {
+                // Previne duplicata em refresh
+                if (sessionStorage.getItem(`processed_order_${order.orderNumber}`)) {
+                    console.log("Mesa order already processed, skipping.")
+                    hasProcessed.current = true
+                    return
+                }
                 hasProcessed.current = true
                 try {
                     console.log("Saving order to DB...", order)
@@ -31,6 +37,8 @@ export default function MobileFinish() {
                         console.log("Order saved successfully!")
                         // Dispara evento para atualização imediata se estiver no mesmo navegador
                         window.dispatchEvent(new CustomEvent('new-order-placed', { detail: order }))
+                        // Marca como processado
+                        sessionStorage.setItem(`processed_order_${order.orderNumber}`, "true")
 
                         // Redireciona automaticamente após 3 segundos
                         setTimeout(() => {
