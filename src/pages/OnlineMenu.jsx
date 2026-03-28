@@ -287,21 +287,22 @@ export default function OnlineMenu() {
                                                 Sabor 2
                                             </button>
                                         ) : (
-                                            <div className="flex flex-col gap-3 w-full">
-                                                <div className="grid grid-cols-4 gap-1.5 w-full mt-1">
+                                            <div className="flex flex-col gap-2 w-full mt-1">
+                                                {/* Tamanhos Inteiros */}
+                                                <div className="grid grid-cols-3 gap-1.5 w-full">
                                                     <button
                                                         onClick={() => {
                                                             cancelHalfPizza();
                                                             addToCart({ ...p, id: `${p.id}-P`, name: `${p.name} (P)`, price: Number(p.price_p || (Number(p.price) * 0.8)) });
                                                         }}
-                                                        className="bg-white/10 text-white h-12 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
+                                                        className="bg-white/10 text-white h-11 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
                                                     >P</button>
                                                     <button
                                                         onClick={() => {
                                                             cancelHalfPizza();
                                                             addToCart({ ...p, id: `${p.id}-M`, name: `${p.name} (M)`, price: Number(p.price) });
                                                         }}
-                                                        className="bg-white/10 text-white h-12 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
+                                                        className="bg-white/10 text-white h-11 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
                                                     >M</button>
                                                     <button
                                                         onClick={() => {
@@ -309,12 +310,19 @@ export default function OnlineMenu() {
                                                             const gPrice = Number(p.price_g || (Number(p.price) * 1.2));
                                                             addToCart({ ...p, id: `${p.id}-G`, name: `${p.name} (G)`, price: gPrice });
                                                         }}
-                                                        className="bg-white/10 text-white h-12 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
+                                                        className="bg-white/10 text-white h-11 rounded-xl flex items-center justify-center font-black text-sm border border-white/5 active:bg-white/20 transition-all shadow-md"
                                                     >G</button>
+                                                </div>
+                                                {/* Metade-a-Metade */}
+                                                <div className="grid grid-cols-2 gap-1.5 w-full">
+                                                    <button
+                                                        onClick={() => startHalfPizza(p, 'M')}
+                                                        className="bg-orange-600/80 text-white h-9 rounded-xl flex items-center justify-center font-black text-[10px] uppercase shadow-md shadow-orange-600/20 active:bg-orange-700 transition-all tracking-wider border border-orange-500/40 gap-1"
+                                                    >🍕 1/2 M</button>
                                                     <button
                                                         onClick={() => startHalfPizza(p, 'G')}
-                                                        className="bg-orange-600 text-white h-12 rounded-xl flex items-center justify-center font-black text-xs uppercase shadow-lg shadow-orange-600/20 active:bg-orange-700 transition-all tracking-wider border border-orange-500/50"
-                                                    >1/2</button>
+                                                        className="bg-orange-600 text-white h-9 rounded-xl flex items-center justify-center font-black text-[10px] uppercase shadow-md shadow-orange-600/20 active:bg-orange-700 transition-all tracking-wider border border-orange-500/50 gap-1"
+                                                    >🍕 1/2 G</button>
                                                 </div>
                                             </div>
                                         )}
