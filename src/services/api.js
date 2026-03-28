@@ -138,7 +138,7 @@ export const orderService = {
       }
 
       // Tenta salvar incluindo o payment_method se o erro não foi nele
-      const isPaymentError = errField.includes("payment_method");
+      const isPaymentError = (response.error.message || "").includes("payment_method");
       if (!isPaymentError) {
         try {
           response = await supabase.from('orders').insert([{ ...finalMinOrder, payment_method: newOrder.payment_method }]).select();
