@@ -883,7 +883,7 @@ export default function Admin() {
                                                 // Filtro de Categoria/Operador
                                                 const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
                                                 const isMesa = o.customer_name?.toLowerCase()?.startsWith('mesa');
-                                                const isOnline = pgtoMethod === 'whatsapp';
+                                                const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                 const isCashier = o.cashier_name && o.cashier_name.trim() !== "";
                                                 const isTotem = !isCashier && !isOnline && !isMesa;
 
@@ -923,28 +923,28 @@ export default function Admin() {
                                                             ) : (
                                                                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border ${ (() => {
                                                                     const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                    const isOnline = pgtoMethod === 'whatsapp';
+                                                                    const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                     return isOnline ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
                                                                 })() }`}>
                                                                     <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
                                                                         const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
-                                                                        const isOnline = pgtoMethod === 'whatsapp';
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                         return isOnline ? 'bg-green-500' : 'bg-blue-500';
                                                                     })() }`}></span>
                                                                     <span className={`text-[9px] font-black uppercase tracking-tighter ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
                                                                         const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
-                                                                        const isOnline = pgtoMethod === 'whatsapp';
+                                                                        const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                         return isOnline ? 'text-green-900' : 'text-blue-900';
                                                                     })() }`}>
                                                                         {(() => {
                                                                             const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
                                                                             const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
-                                                                            const isOnline = pgtoMethod === 'whatsapp';
+                                                                            const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                             
                                                                             if (isMesa) return 'MESA (QR CODE)';
-                                                                            return isOnline ? 'CARDÁPIO ONLINE (WA)' : 'TOTEM AUTOATENDIMENTO';
+                                                                            return isOnline ? 'CARDÁPIO ONLINE' : 'TOTEM AUTOATENDIMENTO';
                                                                         })()}
                                                                     </span>
                                                                 </div>
@@ -958,14 +958,19 @@ export default function Admin() {
                                                         </div>
                                                     </td>
                                                     <td className="p-3">
-                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${(order.payment_method === 'dinheiro' || order.paymentMethod === 'dinheiro') ? 'bg-green-100 text-green-700' :
-                                                            (order.payment_method === 'cartao' || order.paymentMethod === 'cartao') ? 'bg-blue-100 text-blue-700' :
-                                                                (order.payment_method === 'pix' || order.paymentMethod === 'pix') ? 'bg-purple-100 text-purple-700' : 
-                                                                    (order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp') ? 'bg-green-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400'
-                                                            }`}>
-                                                            {order.payment_method === 'whatsapp' || order.paymentMethod === 'whatsapp' ? 'WhatsApp' : 
-                                                             (order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem'))}
-                                                        </span>
+                                                        {(() => {
+                                                            const pm = (order.payment_method || order.paymentMethod || "").toLowerCase();
+                                                            const isOnline = pm === 'whatsapp' || pm.startsWith('online_');
+                                                            const label = isOnline
+                                                                ? pm.replace('online_', '').toUpperCase() || 'ONLINE'
+                                                                : (order.payment_method || order.paymentMethod || (order.cashier_name ? 'N/A' : 'Totem'));
+                                                            const cls = pm === 'dinheiro' ? 'bg-green-100 text-green-700'
+                                                                : pm === 'cartao' ? 'bg-blue-100 text-blue-700'
+                                                                : pm === 'pix' ? 'bg-purple-100 text-purple-700'
+                                                                : isOnline ? 'bg-green-500 text-white shadow-sm'
+                                                                : 'bg-gray-100 text-gray-400';
+                                                            return <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${cls}`}>{label}</span>;
+                                                        })()}
                                                     </td>
                                                     <td className="p-3 text-right font-black text-gray-900">
                                                         {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
