@@ -176,6 +176,7 @@ export function Cart() {
           onClick={() => {
             if (!customerName.trim() || !paymentMethod) return
             const order = finalizeOrder(customerName, generalObservation, paymentMethod)
+            order.created_at_client = Date.now()
             navigate("/finish", { state: { order }, replace: true })
           }}
           disabled={cart.length === 0 || !customerName.trim() || !paymentMethod}

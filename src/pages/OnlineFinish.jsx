@@ -16,9 +16,17 @@ export default function OnlineFinish() {
     useEffect(() => {
         const processOrder = async () => {
             if (order && !hasProcessed.current) {
-                // Check if already processed in this session (e.g. refresh)
+                // Check se é um pedido muito antigo/fantasma (> 5 min)
+                const isGhost = !order.created_at_client || (Date.now() - order.created_at_client > 5 * 60 * 1000);
+                if (isGhost) {
+                    console.log("Pedido bloqueado por ser de uma aba expirada/fantasma.");
+                    hasProcessed.current = true;
+                    return;
+                }
+
+                // Check se já foi processado na sessão atual
                 if (sessionStorage.getItem(`processed_order_${order.orderNumber}`)) {
-                    console.log("Order already processed, skipping duplicate creation.")
+                    console.log("Pedido já processado nesta sessão, ignorando duplicata.")
                     hasProcessed.current = true
                     return
                 }

@@ -91,6 +91,7 @@ export default function OnlineMenu() {
         // Adiciona o endereço e identifica a origem com a forma escolhida
         order.customerAddress = customerAddress
         order.paymentMethod = `online_${paymentMethod}`
+        order.created_at_client = Date.now()
         navigate(`/cardapio/sucesso`, { state: { order }, replace: true })
     }
 
