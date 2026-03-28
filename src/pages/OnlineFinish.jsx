@@ -55,24 +55,26 @@ export default function OnlineFinish() {
         if (!order) return
 
         const waNum = whatsappNumber.replace(/\D/g, '') || "5563991038781"
-        
+
         let message = `*NOVO PEDIDO - HERO'S BURGER*\n\n`;
         message += `*Cliente:* ${order.customerName}\n`;
         message += `*Endereço:* ${order.customerAddress}\n`;
         message += `*Pedido:* #${order.orderNumber}\n`;
         message += `------------------------------\n`;
-        
+
         order.items.forEach(item => {
             message += `*${item.qty}x* ${item.name}\n`;
             message += `_R$ ${(item.price * item.qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}_\n`;
             if (item.observation) message += `_Obs: ${item.observation}_\n`;
             message += `\n`;
         });
-        
+
         message += `------------------------------\n`;
         if (order.observation) message += `*Obs Geral:* ${order.observation}\n`;
+        const paymentDisplay = (order.paymentMethod || order.payment_method || '').replace('online_', '').toUpperCase();
+        if (paymentDisplay) message += `*Forma de Pagamento:* ${paymentDisplay}\n`;
         message += `*TOTAL: R$ ${Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
-        message += `_Aguardando confirmação!_`;
+        message += `_Obrigado pela preferência!_`;
 
         const encoded = encodeURIComponent(message)
         window.open(`https://wa.me/${waNum}?text=${encoded}`, '_blank')
@@ -121,7 +123,7 @@ export default function OnlineFinish() {
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                         <ShoppingBag size={120} />
                     </div>
-                    
+
                     <div className="flex justify-between items-start mb-8">
                         <div>
                             <div className="flex items-center gap-2 text-green-500 mb-1">
@@ -173,25 +175,25 @@ export default function OnlineFinish() {
 
                     {retryVisible && (
                         <div className="bg-red-500/20 border border-red-500/50 p-6 rounded-[32px] animate-in fade-in slide-in-from-top-4 duration-500">
-                           <p className="text-red-400 font-bold mb-4 text-sm uppercase tracking-wide">⚠️ Erro ao registrar no sistema</p>
-                           <button 
-                             onClick={() => {
-                               setRetryVisible(false)
-                               hasProcessed.current = false
-                               // O useEffect será disparado novamente por causa do hasProcessed
-                               window.location.reload() // Recarrega para processar novamente
-                             }}
-                             className="w-full bg-red-600 text-white h-16 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all"
-                           >
-                             Tentar Novamente
-                           </button>
+                            <p className="text-red-400 font-bold mb-4 text-sm uppercase tracking-wide">⚠️ Erro ao registrar no sistema</p>
+                            <button
+                                onClick={() => {
+                                    setRetryVisible(false)
+                                    hasProcessed.current = false
+                                    // O useEffect será disparado novamente por causa do hasProcessed
+                                    window.location.reload() // Recarrega para processar novamente
+                                }}
+                                className="w-full bg-red-600 text-white h-16 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all"
+                            >
+                                Tentar Novamente
+                            </button>
                         </div>
                     )}
 
                     <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] pt-4 animate-pulse">
                         {retryVisible ? "Verifique sua conexão e tente novamente" : "Redirecionando em alguns segundos..."}
                     </p>
-                    
+
                     <button
                         onClick={() => navigate("/cardapio", { replace: true })}
                         className="flex items-center gap-2 mx-auto text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors pt-2"

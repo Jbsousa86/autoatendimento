@@ -187,14 +187,13 @@ export default function Admin() {
             const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa')
             
             let source = 'unknown'
-            if (pgtoMethod === 'whatsapp') {
+            if (pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_')) {
                 source = 'online'
             } else if (order.cashier_name && order.cashier_name.trim() !== "") {
                 source = 'cashier'
             } else if (isMesa) {
                 source = 'mesa'
             } else {
-                // Se não é whatsapp, não tem cashier_name, e não é mesa, é totem (ou um método de pagamento do totem)
                 source = 'totem'
             }
 
@@ -202,7 +201,8 @@ export default function Admin() {
             const isTotem = source === 'totem'
             const isCashier = source === 'cashier'
             
-            const pgto = (pgtoMethod || (isCashier ? 'outro' : (isMesa ? 'totem' : 'totem'))).toLowerCase()
+            const pgtoNorm = pgtoMethod.replace('online_', '')
+            const pgto = (pgtoNorm || (isCashier ? 'outro' : 'totem')).toLowerCase()
             
             if (paymentBreakdown.hasOwnProperty(pgto)) {
                 paymentBreakdown[pgto] += val
@@ -232,9 +232,11 @@ export default function Admin() {
         // 5. Itens Mais Vendidos
         const itemMap = {}
         orders.forEach(order => {
-            if (Array.isArray(order.items)) {
+            if (order && Array.isArray(order.items)) {
                 order.items.forEach(item => {
-                    itemMap[item.name] = (itemMap[item.name] || 0) + item.qty
+                    if (item && item.name) {
+                        itemMap[item.name] = (itemMap[item.name] || 0) + (item.qty || 1)
+                    }
                 })
             }
         })
@@ -575,10 +577,11 @@ export default function Admin() {
                                                         value={form.category}
                                                         onChange={e => handleChange('category', e.target.value)}
                                                     >
-                                                        <option value="burgers">Hambúrgueres</option>
-                                                        <option value="pizzas">Pizzas</option>
-                                                        <option value="drinks">Sucos</option>
-                                                        <option value="sodas">Refrigerantes</option>
+                                                        <option value="burgers">🍔 Hambúrgueres</option>
+                                                        <option value="pizzas">🍕 Pizzas</option>
+                                                        <option value="drinks">🧃 Sucos</option>
+                                                        <option value="sodas">🥤 Refrigerantes</option>
+                                                        <option value="vitaminas">🍹 Vitaminas</option>
                                                     </select>
                                                 </td>
                                                 <td className="p-4">
@@ -621,7 +624,7 @@ export default function Admin() {
                                             <>
                                                 <td className="p-4 font-mono text-xs text-gray-400">#{product.id}</td>
                                                 <td className="p-4 font-bold text-gray-800">{product.name}</td>
-                                                <td className="p-4 text-green-600 font-bold">R$ {parseFloat(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                <td className="p-4 text-green-600 font-bold">R$ {(Number(product.price) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                                                 <td className="p-4 text-gray-500 text-xs uppercase">{product.category}</td>
                                                 <td className="p-4 text-gray-500 text-sm max-w-xs truncate" title={product.description}>
                                                     {product.description || '-'}

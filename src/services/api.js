@@ -85,17 +85,16 @@ export const orderService = {
             }
 
             const { data, error } = await query
-
             if (error) {
                 console.error("❌ Erro Supabase (getOrders):", error)
                 // Se a coluna nova estiver dando erro no SELECT, tentamos sem ela como último recurso
                 if (error.message.includes("payment_method")) {
                     const fallback = await supabase.from('orders').select('id, created_at, order_number, customer_name, total, items, status, cashier_name, observation, customer_address').order('created_at', { ascending: false });
-                    return fallback.data || []
+                    return (fallback.data || []).map(o => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
                 }
                 return []
             }
-            return data || []
+            return (data || []).map(o => ({ ...o, items: Array.isArray(o.items) ? o.items : [] }))
         } catch (err) {
             console.error("❌ Erro Crítico (getOrders):", err)
             return []
@@ -103,7 +102,6 @@ export const orderService = {
     },
 
     async createOrder(orderData) {
-        console.log("💾 [API] Tentando salvar pedido...", orderData.orderNumber)
 
         const newOrder = {
             order_number: String(orderData.orderNumber),
@@ -123,9 +121,6 @@ export const orderService = {
 
     // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
     if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
-      const errField = response.error.message;
-      console.warn("⚠️ Erro de coluna detectado. Tentando fallback...", errField);
-
       // Prepara um nome que já inclua o endereço e observação se as colunas falharem
       let fallbackName = newOrder.customer_name;
       if (newOrder.customer_address) fallbackName += ` (${newOrder.customer_address})`;
@@ -152,10 +147,6 @@ export const orderService = {
         }
       } else {
         response = await supabase.from('orders').insert([finalMinOrder]).select();
-        if (!window.hasShownColumnAlert) {
-          console.warn("Coluna payment_method ausente.");
-          window.hasShownColumnAlert = true;
-        }
       }
     }
 
@@ -165,7 +156,6 @@ export const orderService = {
         }
 
         const data = response.data ? response.data[0] : null
-        if (data) console.log("✅ Pedido gravado no banco! ID:", data.id)
         return { data }
     },
 
@@ -212,7 +202,6 @@ export const orderService = {
 
     // INSCRIÇÃO EM TEMPO REAL (Para a Cozinha!)
     subscribeToOrders(callback) {
-        console.log("🔌 Conectando ao canal de pedidos em tempo real...")
         const channel = supabase
             .channel('db-changes')
             .on(
@@ -222,18 +211,9 @@ export const orderService = {
                     schema: 'public',
                     table: 'orders'
                 },
-                (payload) => {
-                    console.log('🔔 Alteração na tabela de pedidos:', payload.eventType, payload.new?.order_number)
-                    callback(payload)
-                }
+                (payload) => { callback(payload) }
             )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log("✅ Conexão Realtime ATIVA e sincronizada!")
-                } else {
-                    console.log("📡 Status Realtime:", status)
-                }
-            })
+            .subscribe()
 
         return channel
     }

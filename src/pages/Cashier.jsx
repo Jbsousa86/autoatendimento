@@ -33,6 +33,61 @@ export default function Cashier() {
     const [changeAmount, setChangeAmount] = useState("")
     const [needsChange, setNeedsChange] = useState(false)
 
+    // Helper robusto para identificar pedidos Cardápio Online, protegendo históricos antigos
+    const checkIfOnlineOrder = (o) => {
+        if (!o) return false;
+        const pgtoMethod = (o.payment_method || o.paymentMethod || '').toLowerCase();
+        const cNome = o.customer_name || o.customerName || '';
+        const checkMesa = cNome.toLowerCase().startsWith('mesa');
+        
+        // Detecção nativa reforçada (Suporte a versões passadas do WhatsApp puro e novas com Pagamento Mapeado 'online_X'): 
+        if (pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_')) return true;
+
+        return (!o.cashier_name && !o.cashierName && !checkMesa && cNome && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && cNome !== 'Cliente' && cNome !== 'Totem');
+    };
+
+    // Helper robusto para extrair endereço, observação e nome limpo de clientes, mesmo em versões de banco muito antigas e novas com fallback de colchetes.
+    const extractAddressAndObs = (order) => {
+        if (!order) return { name: "Balcão", address: "", obs: "" };
+        let cName = order.customer_name || order.customerName || "Balcão";
+        let addr = order.customer_address || order.customerAddress || "";
+        let obs = order.observation || order.observacao || "";
+
+        // 1. Limpa Observações presas no Nome do Cliente (comum em fallbacks novos "[Obs: ]")
+        const matchObsBracketsName = cName.match(/\[(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([^]]+)\]/i);
+        if (matchObsBracketsName) {
+            if (!obs) obs = matchObsBracketsName[1].trim();
+            cName = cName.replace(/\[(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*[^]]+\]/i, '').trim();
+        }
+        const matchObsTextName = cName.match(/(?:\s*-\s*|\s*\|\s*|\s+)?(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([\s\S]+?)$/i);
+        if (matchObsTextName) {
+            if (!obs) obs = matchObsTextName[1].trim();
+            cName = cName.replace(/(?:\s*-\s*|\s*\|\s*|\s+)?(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([\s\S]+?)$/i, '').trim();
+        }
+
+        // 2. Extrai endereço preso no nome, caso exista
+        if (cName.includes('(') && cName.includes(')')) {
+            const matchNameAddr = cName.match(/\(([^)]+)\)/);
+            if (matchNameAddr && !addr) addr = matchNameAddr[1].trim();
+            cName = cName.replace(/\([^)]+\)/, '').trim();
+        }
+
+        // 3. Verifica se há indicação de observação/complemento engolida pelo próprio endereço
+        const regexAddressObs = /(?:\s*-\s*|\s*\|\s*|\s*\(\s*|\s*\[\s*|\s+)?(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([\s\S]+?)(?:\)|\]|$)/i;
+        const matchAddrObs = addr.match(regexAddressObs);
+        if (matchAddrObs) {
+            obs = (obs ? obs + " | " : "") + matchAddrObs[1].trim();
+            addr = addr.replace(regexAddressObs, '').trim();
+        }
+
+        // 4. Limpezas finais globais (Tira colchetes/traços soltos que ficaram para trás nos cantos)
+        cName = cName.replace(/\[\s*\]/g, '').replace(/\[\s*$/, '').trim();
+        addr = addr.replace(/\[\s*$/, '').replace(/-\s*$/, '').trim();
+        obs = obs.replace(/\]\s*$/, '').trim();
+
+        return { name: cName, address: addr, obs: obs };
+    };
+
     // Refs para controle de áudio (Igual Cozinha)
     const knownIds = useRef(new Set())
     const isFirstLoad = useRef(true)
@@ -345,6 +400,9 @@ export default function Cashier() {
             const DOUBLE_OFF = new Uint8Array([0x1B, 0x21, 0x01]);
             const FEED = new Uint8Array([0x1D, 0x56, 0x41, 0x03]);
 
+            const isOnline = checkIfOnlineOrder(order);
+            const { name: finalName, address: finalAddress, obs: finalObs } = extractAddressAndObs(order);
+
             let data = new Uint8Array([
                 ...INIT, ...CENTER, ...BOLD_ON, ...DOUBLE_ON, ...txt("HERO'S BURGER"), ...DOUBLE_OFF,
                 ...txt("CONTROLE DE PEDIDO"),
@@ -354,12 +412,16 @@ export default function Cashier() {
                 ...txt(`HORA: ${new Date(order.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`),
                 ...txt("--------------------------------"),
                 ...LEFT,
-                ...txt(`Cliente: ${order.customerName || 'Nao informado'}`),
+                ...(isOnline ? [...CENTER, ...BOLD_ON, ...txt("CARDAPIO ONLINE"), ...BOLD_OFF, ...LEFT, ...txt("--------------------------------")] : []),
+                ...txt(`Cliente: ${finalName}`),
                 ...((order.customer_address || order.customerAddress)
-                    ? [...BOLD_ON, ...txt(`ENTREGA: ${order.customer_address || order.customerAddress}`), ...BOLD_OFF]
+                    ? [...BOLD_ON, ...txt(`ENTREGA: ${finalAddress}`), ...BOLD_OFF]
+                    : []),
+                ...(finalObs
+                    ? [...BOLD_ON, ...txt(`COMPLEMENTO: ${finalObs}`), ...BOLD_OFF]
                     : []),
                 ...((order.paymentMethod || order.payment_method)
-                    ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).toUpperCase()}`)]
+                    ? [...txt(`PAGAMENTO: ${(order.paymentMethod || order.payment_method).replace('online_', '').toUpperCase()}`)]
                     : []),
                 ...txt("--------------------------------"),
             ]);
@@ -370,35 +432,33 @@ export default function Cashier() {
                 const totalWidth = 32;
                 const name = item.name;
 
-                // Se o nome couber na mesma linha com qty e price
-                if (qty.length + name.length + price.length + 1 <= totalWidth) {
-                    const dotsCount = totalWidth - qty.length - name.length - price.length;
-                    const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
-                    data = new Uint8Array([...data, ...txt(`${qty}${name}${dots}${price}`)]);
+                if (isOnline) {
+                    data = new Uint8Array([
+                        ...data,
+                        ...BOLD_ON, ...txt(`${qty}${name}`), ...BOLD_OFF,
+                        ...txt(`R$ ${price}`)
+                    ]);
+                    if (item.observation) data = new Uint8Array([...data, ...txt(`  Obs: ${item.observation}`)]);
                 } else {
-                    // Nome longo: imprime o nome completo (quebra automática na impressora)
-                    // e o preço na linha de baixo alinhado à direita
-                    data = new Uint8Array([...data, ...txt(`${qty}${name}`)]);
-                    const dotsCount = totalWidth - price.length;
-                    const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
-                    data = new Uint8Array([...data, ...txt(`${dots}${price}`)]);
+                    // Se o nome couber na mesma linha com qty e price
+                    if (qty.length + name.length + price.length + 1 <= totalWidth) {
+                        const dotsCount = totalWidth - qty.length - name.length - price.length;
+                        const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
+                        data = new Uint8Array([...data, ...txt(`${qty}${name}${dots}${price}`)]);
+                    } else {
+                        // Nome longo: imprime o nome completo (quebra automática na impressora)
+                        // e o preço na linha de baixo alinhado à direita
+                        data = new Uint8Array([...data, ...txt(`${qty}${name}`)]);
+                        const dotsCount = totalWidth - price.length;
+                        const dots = dotsCount > 0 ? ".".repeat(dotsCount) : " ";
+                        data = new Uint8Array([...data, ...txt(`${dots}${price}`)]);
+                    }
+                    if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
                 }
-
-                if (item.observation) data = new Uint8Array([...data, ...txt(`  > ${item.observation}`)]);
 
                 // Espaçamento extra entre itens
                 data = new Uint8Array([...data, ...txt("")]);
             });
-
-            if (order.observation) {
-                data = new Uint8Array([
-                    ...data,
-                    ...txt("--------------------------------"),
-                    ...BOLD_ON, ...txt("OBS GERAL:"), ...BOLD_OFF,
-                    ...txt(order.observation),
-                    ...txt("--------------------------------")
-                ]);
-            }
 
             if (order.change_amount || order.changeAmount) {
                 const changeVal = Number(order.change_amount || order.changeAmount);
@@ -418,6 +478,13 @@ export default function Cashier() {
                 ...data,
                 ...txt("--------------------------------"),
                 ...BOLD_ON, ...txt(`TOTAL: R$ ${Number(order.total).toFixed(2)}`), ...BOLD_OFF,
+                ...txt("--------------------------------")
+            ]);
+
+            // Obs foi movida para o cabeçalho como complemento do endereço
+
+            data = new Uint8Array([
+                ...data,
                 ...CENTER, ...txt("\nObrigado pela preferencia!"), ...txt("\n"), ...FEED
             ]);
 
@@ -461,13 +528,44 @@ export default function Cashier() {
     }
 
     const handleReprint = async (order) => {
-        // Criamos o objeto de reimpressão com TODOS os campos presentes no pedido original
+        let cName = order.customer_name || order.customerName || "Balcão";
+        let cAddr = order.customer_address || order.customerAddress || "";
+        let cObs = order.observation || "";
+
+        // 1. Limpa e desmembra observação em formatação de colchetes (ex: "João [Obs: sem cebola]")
+        const matchObsBrackets = cName.match(/\[(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([^]]+)\]/i);
+        if (matchObsBrackets) {
+            if (!cObs) cObs = matchObsBrackets[1].trim();
+            cName = cName.replace(/\[(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*[^]]+\]/i, '').trim();
+        }
+        
+        // Limpeza de brackets genéricos que possam estar vazios ou não capturados (opcional/safety)
+        // cName = cName.replace(/\[\s*\]/g, '').trim();
+
+        // 2. Limpa e desmembra parênteses de endereço (ex: "João (Rua X)")
+        if (cName.includes('(') && cName.includes(')')) {
+            const matchAddr = cName.match(/\(([^)]+)\)/);
+            if (matchAddr && !cAddr) cAddr = matchAddr[1].trim();
+            cName = cName.replace(/\([^)]+\)/, '').trim();
+        }
+
+        // 3. Caso a observação não estivesse em colchetes e tenha sobrado no nome de forma solta (ex: "João - Complemento: Trazer troco")
+        const matchObsText = cName.match(/(?:\s*-\s*|\s*\|\s*|\s+)?(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([\s\S]+?)$/i);
+        if (matchObsText) {
+            if (!cObs) cObs = matchObsText[1].trim();
+            cName = cName.replace(/(?:\s*-\s*|\s*\|\s*|\s+)?(?:Obs\.?|Observação|Observacao|Observaçoes|Complemento|Ref\.?|Referência|Referencia|Ponto de refer[eê]ncia|Detalhes):?\s*([\s\S]+?)$/i, '').trim();
+        }
+
+        // Criamos o objeto de reimpressão
         const reprintData = {
-            ...order, // Copia tudo (incluindo observation, change_amount, etc)
-            orderNumber: order.order_number, // Mapeia snake_case para camelCase usado no print
-            cashierName: order.cashier_name || null, // Se for null, o sistema entende como Totem
-            customerName: order.customer_name || "Balcão",
-            paymentMethod: order.payment_method || ""
+            ...order,
+            orderNumber: order.order_number || order.orderNumber,
+            cashierName: order.cashier_name || order.cashierName || null,
+            customerName: cName || "Balcão",
+            customerAddress: cAddr,
+            paymentMethod: order.payment_method || order.paymentMethod || "",
+            changeAmount: order.change_amount || order.changeAmount || null,
+            observation: cObs
         }
         setLastFinishedOrder(reprintData)
     }
@@ -827,25 +925,31 @@ export default function Cashier() {
                                     </div>
                                 </div>
                                 <div className="text-xs mb-1 uppercase font-bold">
-                                    Cliente: {lastFinishedOrder.customerName || "Não informado"}
+                                    Cliente: {extractAddressAndObs(lastFinishedOrder).name}
                                 </div>
-                                {(lastFinishedOrder.customer_address || lastFinishedOrder.customerAddress) && (
+                                {extractAddressAndObs(lastFinishedOrder).address && (
                                     <div className="text-[10px] mb-2 uppercase border border-black p-1 bg-gray-50">
-                                        <strong>ENTREGA:</strong> {lastFinishedOrder.customer_address || lastFinishedOrder.customerAddress}
+                                        <strong>ENTREGA:</strong> {extractAddressAndObs(lastFinishedOrder).address}
                                     </div>
                                 )}
-                                {lastFinishedOrder.observation && (
-                                    <div className="text-[10px] mb-2 italic border-t border-black border-dashed pt-1">
-                                        <strong>Obs:</strong> {lastFinishedOrder.observation}
+                                {extractAddressAndObs(lastFinishedOrder).obs && (
+                                    <div className="text-[10px] mt-[-4px] mb-2 uppercase border border-black p-1 bg-gray-50 flex">
+                                        <strong>COMPLEMENTO:</strong> <span className="ml-1">{extractAddressAndObs(lastFinishedOrder).obs}</span>
+                                    </div>
+                                )}
+                                {checkIfOnlineOrder(lastFinishedOrder) && (
+                                    <div className="text-center py-1 bg-green-50 text-[10px] font-black text-green-700 border-y border-green-200 mb-2">
+                                        CARDÁPIO ONLINE
                                     </div>
                                 )}
                                 {(() => {
                                     const pgto = lastFinishedOrder?.paymentMethod || lastFinishedOrder?.payment_method;
                                     if (!pgto) return null;
+                                    const displayPgto = pgto.replace('online_', '');
                                     return (
                                         <>
                                             <div className="my-2 p-1 border-2 border-black text-center font-bold text-sm uppercase">
-                                                PAGAMENTO: {pgto.toUpperCase()}
+                                                PAGAMENTO: {displayPgto.toUpperCase()}
                                             </div>
                                             {/* Add more line feeds for Bluetooth print */}
                                             <div className="h-4"></div>
@@ -853,35 +957,58 @@ export default function Cashier() {
                                     );
                                 })()}
                                 <div className="border-b border-black border-dashed my-2"></div>
-                                <table className="w-full text-left mb-4">
-                                    <thead>
-                                        <tr className="text-xs border-b border-dashed border-black">
-                                            <th className="py-1 w-[10%]">Qtd</th>
-                                            <th className="py-1 w-[65%]">Item</th>
-                                            <th className="py-1 w-[25%] text-right">Preço</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {lastFinishedOrder.items.map((item, i) => (
-                                            <tr key={i} className="border-b border-black border-dashed last:border-0 font-bold">
-                                                <td className="py-3 align-top w-6">{item.qty}x</td>
-                                                <td className="py-3 align-top">
-                                                    <div className="leading-tight break-words">{item.name}</div>
-                                                    {item.observation && <div className="text-[10px] italic mt-1 font-normal">➔ {item.observation}</div>}
-                                                </td>
-                                                <td className="py-3 align-top text-right whitespace-nowrap pl-2">
-                                                    {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                {lastFinishedOrder.observation && (
-                                    <div className="border-y border-black border-dashed py-2 my-2 text-[10px]">
-                                        <div className="font-bold uppercase mb-1">Observações Gerais:</div>
-                                        <div className="italic break-words">{lastFinishedOrder.observation}</div>
-                                    </div>
-                                )}
+                                {/* RENDERING ITENS */}
+                                {(() => {
+                                    const isOnlineRec = checkIfOnlineOrder(lastFinishedOrder);
+
+                                    if (isOnlineRec) {
+                                        return (
+                                            <div className="space-y-4 mb-4">
+                                                {(lastFinishedOrder.items || []).map((item, i) => (
+                                                    <div key={i} className="border-b border-black border-dotted pb-2 last:border-0 font-bold">
+                                                        <div className="text-sm uppercase">{item.qty}x {item.name}</div>
+                                                        <div className="flex justify-between items-center text-[10px] italic text-gray-700">
+                                                            <span>R$ {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                            {item.observation && (
+                                                                <span className="bg-gray-100 px-1 rounded not-italic font-black text-black border border-black/10">
+                                                                    Obs: {item.observation}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
+                                    }
+                                    return (
+                                        <>
+                                            <div className="border-b border-black border-dashed my-2"></div>
+                                            <table className="w-full text-left mb-4">
+                                                <thead>
+                                                    <tr className="text-xs border-b border-dashed border-black">
+                                                        <th className="py-1 w-[10%]">Qtd</th>
+                                                        <th className="py-1 w-[65%]">Item</th>
+                                                        <th className="py-1 w-[25%] text-right">Preço</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(lastFinishedOrder.items || []).map((item, i) => (
+                                                        <tr key={i} className="border-b border-black border-dashed last:border-0 font-bold">
+                                                            <td className="py-3 align-top w-6">{item.qty}x</td>
+                                                            <td className="py-3 align-top">
+                                                                <div className="leading-tight break-words uppercase">{item.name}</div>
+                                                                {item.observation && <div className="text-[10px] italic mt-1 font-normal">➔ {item.observation}</div>}
+                                                            </td>
+                                                            <td className="py-3 align-top text-right whitespace-nowrap pl-2">
+                                                                {(Number(item.price) * (item.qty || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </>
+                                    );
+                                })()}
                                 {lastFinishedOrder.changeAmount && (
                                     <div className="border-t border-black border-dashed pt-2 my-2 text-sm font-bold">
                                         <div className="flex justify-between">
@@ -1317,7 +1444,7 @@ export default function Cashier() {
                                                     .filter(o => {
                                                         const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
                                                         const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
-                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && o.customer_name !== 'Cliente' && o.customer_name !== 'Totem');
+                                                        const isOnline = checkIfOnlineOrder(o);
                                                         return isOnline && new Date(o.created_at).toLocaleDateString('en-CA') === (user.can_view_reports ? reportDate : new Date().toLocaleDateString('en-CA'));
                                                     })
                                                     .reduce((acc, o) => acc + (Number(o.total) || 0), 0).toFixed(2)
@@ -1333,7 +1460,7 @@ export default function Cashier() {
                                                     .filter(o => {
                                                         const pgtoMethod = (o.payment_method || o.paymentMethod || "").toLowerCase();
                                                         const isMesa = o.customer_name?.toLowerCase().startsWith('mesa');
-                                                        const isOnline = pgtoMethod === 'whatsapp' || (!o.cashier_name && !isMesa && o.customer_name && !['totem', 'cartao', 'pix', 'dinheiro'].includes(pgtoMethod) && o.customer_name !== 'Cliente' && o.customer_name !== 'Totem');
+                                                        const isOnline = checkIfOnlineOrder(o);
                                                         const isTotem = !o.cashier_name && !isOnline && !isMesa;
                                                         return isTotem && new Date(o.created_at).toLocaleDateString('en-CA') === reportDate;
                                                     })
@@ -1428,9 +1555,9 @@ export default function Cashier() {
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2">
                                                                     <User size={12} className="text-gray-400" />
-                                                                    <span className="text-sm font-bold text-gray-800">{order.customer_name || "Cliente"}</span>
+                                                                    <span className="text-sm font-bold text-gray-800">{extractAddressAndObs(order).name || "Cliente"}</span>
                                                                 </div>
-                                                                
+
                                                                 {order.cashier_name ? (
                                                                     <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-0.5 rounded-full w-fit border border-blue-100">
                                                                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>
@@ -1443,24 +1570,22 @@ export default function Cashier() {
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border border-gray-100">
-                                                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
-                                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                            const isOnline = pgtoMethod === 'whatsapp';
+                                                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${(() => {
+                                                                            const isOnline = checkIfOnlineOrder(order);
                                                                             return isOnline ? 'bg-green-500' : 'bg-orange-500';
-                                                                        })() }`}></span>
+                                                                        })()}`}></span>
                                                                         <span className="text-[9px] font-black uppercase text-gray-500 tracking-tighter">
                                                                             {(() => {
-                                                                                const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                                const isOnline = pgtoMethod === 'whatsapp';
+                                                                                const isOnline = checkIfOnlineOrder(order);
                                                                                 return isOnline ? '📱 CARDÁPIO ONLINE' : '🤖 TOTEM';
                                                                             })()}
                                                                         </span>
                                                                     </div>
                                                                 )}
-                                                                {order.customer_address && (
+                                                                {extractAddressAndObs(order).address && (
                                                                     <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-100 w-fit">
                                                                         <MapPin size={10} className="text-red-400" />
-                                                                        <span className="truncate max-w-[150px]">{order.customer_address}</span>
+                                                                        <span className="truncate max-w-[150px]">{extractAddressAndObs(order).address}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -1473,7 +1598,7 @@ export default function Cashier() {
                                                                 <span className="text-[9px] text-gray-400 font-mono">Pedido #{order.order_number}</span>
                                                                 {order.payment_method && (
                                                                     <span className="text-[8px] bg-gray-100 text-gray-600 px-1 rounded font-black uppercase border border-gray-200">
-                                                                        {order.payment_method}
+                                                                        {order.payment_method.replace('online_', '')}
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -1517,8 +1642,7 @@ export default function Cashier() {
                                                         ) : order.customer_name?.toLowerCase()?.startsWith('mesa') ? (
                                                             <span className="text-[9px] font-black uppercase text-teal-500">📱 MESA</span>
                                                         ) : (() => {
-                                                            const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                            const isOnline = pgtoMethod === 'whatsapp';
+                                                            const isOnline = checkIfOnlineOrder(order);
                                                             return isOnline ? (
                                                                 <span className="text-[9px] font-black uppercase text-green-500">📱 CARDÁPIO</span>
                                                             ) : (
@@ -1527,12 +1651,12 @@ export default function Cashier() {
                                                         })()}
                                                     </div>
                                                     {order.customer_address && (
-                                                    <div className="mt-2 text-[11px] text-orange-900 bg-orange-50 p-2.5 rounded-xl border border-orange-100 flex items-center gap-2 shadow-sm font-bold">
-                                                        <MapPin size={14} className="text-orange-600 shrink-0" />
-                                                        <span className="line-clamp-2 leading-tight">{order.customer_address}</span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                                        <div className="mt-2 text-[11px] text-orange-900 bg-orange-50 p-2.5 rounded-xl border border-orange-100 flex items-center gap-2 shadow-sm font-bold">
+                                                            <MapPin size={14} className="text-orange-600 shrink-0" />
+                                                            <span className="line-clamp-2 leading-tight">{order.customer_address}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <p className="text-[11px] text-gray-500 line-clamp-2 italic">
                                                     {order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
                                                 </p>

@@ -33,6 +33,7 @@ export default function OnlineMenu() {
     const [generalObservation, setGeneralObservation] = useState("")
     const [customerName, setCustomerName] = useState("")
     const [customerAddress, setCustomerAddress] = useState("")
+    const [paymentMethod, setPaymentMethod] = useState("")
     const [showConfirmModal, setShowConfirmModal] = useState(false)
 
     useEffect(() => {
@@ -81,11 +82,15 @@ export default function OnlineMenu() {
             alert("Por favor, informe seu endereço para a entrega.")
             return
         }
+        if (!paymentMethod) {
+            alert("Por favor, selecione a forma de pagamento.")
+            return
+        }
         setShowConfirmModal(false)
         const order = finalizeOrder(customerName, generalObservation)
-        // Adiciona o endereço e identifica a origem como WhatsApp
+        // Adiciona o endereço e identifica a origem com a forma escolhida
         order.customerAddress = customerAddress
-        order.paymentMethod = 'whatsapp'
+        order.paymentMethod = `online_${paymentMethod}`
         navigate(`/cardapio/sucesso`, { state: { order }, replace: true })
     }
 
@@ -389,6 +394,21 @@ export default function OnlineMenu() {
                                         onChange={(e) => setCustomerAddress(e.target.value)}
                                     />
                                 </div>
+                                <div className="bg-white/5 rounded-[24px] p-5 border border-white/5">
+                                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 mb-3 tracking-[0.2em]">
+                                        <span className="text-orange-500 text-xs">💳</span> Forma de Pagamento
+                                    </label>
+                                    <select
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 transition-all appearance-none cursor-pointer"
+                                        value={paymentMethod}
+                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                    >
+                                        <option value="" className="bg-[#121212] text-gray-400">Como você prefere pagar?</option>
+                                        <option value="dinheiro" className="bg-[#121212] text-white font-bold">💵 Dinheiro</option>
+                                        <option value="cartao" className="bg-[#121212] text-white font-bold">💳 Cartão na Entrega</option>
+                                        <option value="pix" className="bg-[#121212] text-white font-bold">💠 PIX na Entrega</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div className="space-y-3">
@@ -440,6 +460,10 @@ export default function OnlineMenu() {
                                     }
                                     if (!customerAddress.trim()) {
                                         alert("Por favor, informe seu endereço para a entrega.");
+                                        return;
+                                    }
+                                    if (!paymentMethod) {
+                                        alert("Por favor, selecione a forma de pagamento para finalizarmos.");
                                         return;
                                     }
                                     setShowConfirmModal(true);

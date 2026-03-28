@@ -30,3 +30,13 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Scripts de debug / migração (não devem ir ao repositório)
+check_db.js
+test.js
+fix_receipt.js
+fix_receipt.ps1
+
+# Dumps de dados temporários
+*.json.bak
+temp_*.json
