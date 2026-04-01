@@ -12,6 +12,7 @@ export default function OnlineFinish() {
     const hasProcessed = useRef(false)
     const [whatsappNumber, setWhatsappNumber] = useState("")
     const [retryVisible, setRetryVisible] = useState(false)
+    const [isSaved, setIsSaved] = useState(false)
 
     useEffect(() => {
         const processOrder = async () => {
@@ -21,6 +22,7 @@ export default function OnlineFinish() {
                 if (isGhost) {
                     console.log("Pedido bloqueado por ser de uma aba expirada/fantasma.");
                     hasProcessed.current = true;
+                    setIsSaved(true);
                     return;
                 }
 
@@ -28,6 +30,7 @@ export default function OnlineFinish() {
                 if (sessionStorage.getItem(`processed_order_${order.orderNumber}`)) {
                     console.log("Pedido já processado nesta sessão, ignorando duplicata.")
                     hasProcessed.current = true
+                    setIsSaved(true);
                     return
                 }
                 hasProcessed.current = true
@@ -40,8 +43,10 @@ export default function OnlineFinish() {
                     }
                     // Marca como processado no sessionStorage para evitar duplicatas em refresh
                     sessionStorage.setItem(`processed_order_${order.orderNumber}`, "true")
+                    setIsSaved(true);
                 } catch (err) {
                     console.error("Erro ao salvar pedido:", err)
+                    setRetryVisible(true)
                 }
             }
         }
@@ -51,12 +56,6 @@ export default function OnlineFinish() {
             const waConfig = data.find(c => c.key === 'whatsapp')
             if (waConfig) setWhatsappNumber(waConfig.value)
         })
-
-        const timer = setTimeout(() => {
-            navigate("/cardapio", { replace: true })
-        }, 15000)
-
-        return () => clearTimeout(timer)
     }, [order, clearCart, navigate])
 
     const handleSendWhatsApp = () => {
@@ -86,6 +85,11 @@ export default function OnlineFinish() {
 
         const encoded = encodeURIComponent(message)
         window.open(`https://wa.me/${waNum}?text=${encoded}`, '_blank')
+
+        // Retorna automaticamente para o cardápio no fundo, limpando a tela de pedido finalizado
+        setTimeout(() => {
+            navigate("/cardapio", { replace: true })
+        }, 1000)
     }
 
     if (!order) {
@@ -173,13 +177,22 @@ export default function OnlineFinish() {
                 </div>
 
                 <div className="space-y-6">
-                    <button
-                        onClick={handleSendWhatsApp}
-                        className="w-full h-24 bg-green-600 text-white rounded-[32px] text-2xl font-black uppercase shadow-[0_20px_50px_rgba(22,163,74,0.3)] active:scale-95 transition-all flex items-center justify-center gap-4 animate-bounce hover:bg-green-500 border-b-8 border-green-800"
-                    >
-                        <MessageCircle size={36} fill="white" />
-                        ENVIAR WHATSAPP
-                    </button>
+                    {!isSaved && !retryVisible ? (
+                        <div className="w-full h-24 bg-white/5 border border-white/10 rounded-[32px] flex items-center justify-center gap-4 animate-pulse">
+                            <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-orange-500 font-black uppercase tracking-widest text-sm">Salvando Pedido...</span>
+                        </div>
+                    ) : null}
+
+                    {isSaved && !retryVisible ? (
+                        <button
+                            onClick={handleSendWhatsApp}
+                            className="w-full h-24 bg-green-600 text-white rounded-[32px] text-2xl font-black uppercase shadow-[0_20px_50px_rgba(22,163,74,0.3)] active:scale-95 transition-all flex items-center justify-center gap-4 animate-bounce hover:bg-green-500 border-b-8 border-green-800"
+                        >
+                            <MessageCircle size={36} fill="white" />
+                            ENVIAR WHATSAPP
+                        </button>
+                    ) : null}
 
                     {retryVisible && (
                         <div className="bg-red-500/20 border border-red-500/50 p-6 rounded-[32px] animate-in fade-in slide-in-from-top-4 duration-500">
@@ -198,15 +211,11 @@ export default function OnlineFinish() {
                         </div>
                     )}
 
-                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em] pt-4 animate-pulse">
-                        {retryVisible ? "Verifique sua conexão e tente novamente" : "Redirecionando em alguns segundos..."}
-                    </p>
-
                     <button
                         onClick={() => navigate("/cardapio", { replace: true })}
                         className="flex items-center gap-2 mx-auto text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors pt-2"
                     >
-                        <ArrowLeft size={14} /> Fazer outro pedido
+                        <ArrowLeft size={14} /> Voltar ao Cardápio
                     </button>
                 </div>
             </div>

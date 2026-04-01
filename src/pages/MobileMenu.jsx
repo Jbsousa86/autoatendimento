@@ -167,7 +167,7 @@ export default function MobileMenu() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col font-sans select-none overflow-x-hidden">
+        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
             {/* MODAL DE CONFIRMAÇÃO FINAL */}
             {showConfirmModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -325,7 +325,7 @@ export default function MobileMenu() {
             {/* CARRINHO DRAWER */}
             {isCartOpen && (
                 <>
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity" onClick={() => setIsCartOpen(false)} />
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsCartOpen(false)} />
                     <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-50 max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-full duration-500 shadow-[0_-20px_50px_rgba(0,0,0,0.3)]">
                         <div className="p-4 flex items-center justify-between border-b border-gray-50">
                             <h3 className="font-black text-xl text-gray-900">Meu Pedido</h3>
@@ -347,7 +347,7 @@ export default function MobileMenu() {
                                         </div>
                                         <input
                                             placeholder="Obs: Sem cebola..."
-                                            className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none"
+                                            className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none select-text"
                                             value={item.observation || ""}
                                             onChange={(e) => updateObservation(item.id, e.target.value)}
                                         />
@@ -358,7 +358,7 @@ export default function MobileMenu() {
                                 <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Observação Geral</label>
                                 <textarea
                                     rows={2}
-                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-xs font-bold outline-none"
+                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 text-xs font-bold outline-none select-text"
                                     placeholder="Ex: Embalar para viagem..."
                                     value={generalObservation}
                                     onChange={(e) => setGeneralObservation(e.target.value)}

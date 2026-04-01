@@ -99,7 +99,7 @@ export default function OnlineMenu() {
     const total = typeof getCartTotal === 'function' ? getCartTotal() : 0
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col font-sans select-none overflow-x-hidden relative">
+        <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col font-sans relative">
             {!isMenuOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" />
@@ -356,7 +356,7 @@ export default function OnlineMenu() {
             {/* CARRINHO DRAWER */}
             {isCartOpen && (
                 <>
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 transition-opacity" onClick={() => setIsCartOpen(false)} />
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-40 transition-opacity" onClick={() => setIsCartOpen(false)} />
                     <div className="fixed bottom-0 left-0 right-0 bg-[#121212] rounded-t-[48px] z-50 max-h-[90vh] flex flex-col animate-in slide-in-from-bottom-full duration-500 shadow-[0_-20px_60px_rgba(0,0,0,0.5)] border-t border-white/5">
                         <div className="p-8 flex items-center justify-between">
                             <h3 className="font-black text-2xl text-white uppercase tracking-tighter">🛒 Meu Pedido</h3>
@@ -386,7 +386,7 @@ export default function OnlineMenu() {
                                     <input
                                         type="text"
                                         placeholder="Digite seu nome..."
-                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 placeholder-gray-600 transition-all"
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 placeholder-gray-600 transition-all select-text"
                                         value={customerName}
                                         onChange={(e) => setCustomerName(e.target.value)}
                                     />
@@ -398,7 +398,7 @@ export default function OnlineMenu() {
                                     <input
                                         type="text"
                                         placeholder="Para onde entregamos?"
-                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 placeholder-gray-600 transition-all"
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 placeholder-gray-600 transition-all select-text"
                                         value={customerAddress}
                                         onChange={(e) => setCustomerAddress(e.target.value)}
                                     />
@@ -435,7 +435,7 @@ export default function OnlineMenu() {
                                             </div>
                                             <input
                                                 placeholder="Obs: Sem picles..."
-                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-[10px] font-bold text-white outline-none focus:border-orange-500/50 transition-all"
+                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-[10px] font-bold text-white outline-none focus:border-orange-500/50 transition-all select-text"
                                                 value={item.observation || ""}
                                                 onChange={(e) => updateObservation(item.id, e.target.value)}
                                             />
@@ -448,7 +448,7 @@ export default function OnlineMenu() {
                                 <label className="text-[10px] font-black uppercase text-gray-500 mb-3 block tracking-[0.2em] ml-1">Observações Gerais</label>
                                 <textarea
                                     rows={2}
-                                    className="w-full bg-black/40 border border-white/5 rounded-[24px] p-5 text-sm font-bold text-white outline-none focus:border-orange-500/50 placeholder-gray-700 transition-all resize-none"
+                                    className="w-full bg-black/40 border border-white/5 rounded-[24px] p-5 text-sm font-bold text-white outline-none focus:border-orange-500/50 placeholder-gray-700 transition-all resize-none select-text"
                                     placeholder="Algum detalhe extra?"
                                     value={generalObservation}
                                     onChange={(e) => setGeneralObservation(e.target.value)}
