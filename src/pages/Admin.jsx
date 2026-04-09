@@ -278,6 +278,10 @@ export default function Admin() {
     }
 
     const handleSave = async () => {
+        if (form.image && (form.image.startsWith('data:') || form.image.startsWith('dados:'))) {
+            alert("❌ ERRO: Imagem em formato Base64 detectada.\n\nPor favor, copie o endereço (URL) da imagem original da internet em vez de copiar a imagem em si. Imagens coladas diretamente ocupam muito espaço e afetam o limite do plano do banco de dados.");
+            return;
+        }
         await productService.saveProduct(form)
         setEditingId(null)
         loadData()
@@ -594,12 +598,37 @@ export default function Admin() {
                                                     />
                                                 </td>
                                                 <td className="p-4">
-                                                    <input
-                                                        className="border p-2 rounded w-full text-xs"
-                                                        placeholder="https://..."
-                                                        value={form.image || ''}
-                                                        onChange={e => handleChange('image', e.target.value)}
-                                                    />
+                                                    <div className="flex flex-col gap-2">
+                                                        <input
+                                                            className="border p-2 rounded w-full text-xs"
+                                                            placeholder="https://..."
+                                                            value={form.image || ''}
+                                                            onChange={e => handleChange('image', e.target.value)}
+                                                        />
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            className="text-[10px] text-gray-500 w-full"
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files[0];
+                                                                if (!file) return;
+                                                                
+                                                                // Validar se o usuário criou o Bucket
+                                                                try {
+                                                                    alert("Fazendo upload... Confirme e aguarde.");
+                                                                    const ext = file.name.split('.').pop();
+                                                                    const fileName = `${Date.now()}.${ext}`;
+                                                                    // Usa o serviço criado
+                                                                    const url = await productService.uploadImage(file, fileName);
+                                                                    handleChange('image', url);
+                                                                    alert("✅ Imagem enviada com sucesso! Guarde o produto para confirmar.");
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert("❌ Falha no Upload. Verifique se você criou o Bucket 'produtos' no Storage do Supabase conforme as instruções do assistente.");
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-center whitespace-nowrap">
                                                     <button

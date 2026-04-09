@@ -26,6 +26,13 @@ export const productService = {
         return data || []
     },
 
+    async uploadImage(file, fileName) {
+        const { data, error } = await supabase.storage.from('produtos').upload(fileName, file, { cacheControl: '3600', upsert: true });
+        if (error) throw error;
+        const { data: publicData } = supabase.storage.from('produtos').getPublicUrl(fileName);
+        return publicData.publicUrl;
+    },
+
     async saveProduct(product) {
         // Se tem ID, é atualização. Se não (ou se for temp timestamp), é criação.
         // O Supabase gera ID automático se mandarmos sem ID.
