@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-import { MapPin, User, Receipt, Clock, Calendar, DollarSign, BarChart3, TrendingUp, Package, Users, Settings, Search, Trash2 } from "lucide-react"
-import { productService, orderService, cashierService, configService } from "../services/api"
+import { MapPin, User, Receipt, Clock, Calendar, DollarSign, BarChart3, TrendingUp, Package, Users, Settings, Search, Trash2, Gift, Heart, Plus, Minus, History } from "lucide-react"
+import { productService, orderService, cashierService, configService, loyaltyService, phoneUtils } from "../services/api"
 import { products as defaultProducts } from "../data/menu"
 
 // ==========================================
@@ -17,7 +17,7 @@ export default function Admin() {
     const [passwordInput, setPasswordInput] = useState("")
 
     // Estados Gerais
-    const [activeTab, setActiveTab] = useState('products') // 'products' | 'reports'
+    const [activeTab, setActiveTab] = useState('products') // 'products' | 'reports' | 'users' | 'loyalty'
     const [devMode, setDevMode] = useState(false) // Modo secreto 🕵️
     const [titleClicks, setTitleClicks] = useState(0)
 
@@ -31,8 +31,9 @@ export default function Admin() {
         revenueTotem: 0, countTotem: 0,
         revenueOnline: 0, countOnline: 0,
         revenueCashier: 0, countCashier: 0,
+        revenueMesa: 0, countMesa: 0,
         cashierBreakdown: {},
-        paymentBreakdown: { dinheiro: 0, cartao: 0, pix: 0, totem: 0, whatsapp: 0, outro: 0 }
+        paymentBreakdown: { dinheiro: 0, cartao: 0, pix: 0, totem: 0, mesa: 0, whatsapp: 0, outro: 0 }
     })
     const [allOrders, setAllOrders] = useState([])
 
@@ -40,6 +41,15 @@ export default function Admin() {
     const [cashiers, setCashiers] = useState([])
     const [newCashierName, setNewCashierName] = useState("")
     const [newCashierPass, setNewCashierPass] = useState("")
+
+    // Estados de Fidelidade
+    const [loyaltyCustomers, setLoyaltyCustomers] = useState([])
+    const [loyaltySearch, setLoyaltySearch] = useState("")
+    const [selectedCustomer, setSelectedCustomer] = useState(null)
+    const [pointsToAdd, setPointsToAdd] = useState("")
+    const [loyaltyTransactions, setLoyaltyTransactions] = useState([])
+    const [customerDetails, setCustomerDetails] = useState(null) // Modal de detalhes
+    const [customerOrders, setCustomerOrders] = useState([]) // Pedidos do cliente
 
     // Configura data inicial para o PRIMEIRO dia do mês atual
     const getFirstDayOfMonth = () => {
@@ -55,13 +65,20 @@ export default function Admin() {
     const [orderSearchQuery, setOrderSearchQuery] = useState("")
     const [whatsappNumber, setWhatsappNumber] = useState("")
     const [merchantMessage, setMerchantMessage] = useState("")
+    const [tableBanners, setTableBanners] = useState([])
+    const [newBannerUrl, setNewBannerUrl] = useState("")
     const [isOnlineMenuOpen, setIsOnlineMenuOpen] = useState(true)
+    const [promoDays, setPromoDays] = useState([1, 2, 3, 4, 5])
+    const [startBanners, setStartBanners] = useState([])
+    const [newStartBannerUrl, setNewStartBannerUrl] = useState("")
+    const [startVideoUrl, setStartVideoUrl] = useState("")
 
     useEffect(() => {
         if (isAuthenticated) {
             loadData()
             loadSettings()
             if (activeTab === 'users') loadCashiers()
+            if (activeTab === 'loyalty') loadLoyaltyData()
         }
     }, [isAuthenticated, activeTab])
 
@@ -81,11 +98,39 @@ export default function Admin() {
         const waConfig = data.find(c => c.key === 'whatsapp')
         const msgConfig = data.find(c => c.key === 'merchant_message')
         const openConfig = data.find(c => c.key === 'is_open')
+        const tableBannerConfig = data.find(c => c.key === 'table_banner')
+        const promoDaysConfig = data.find(c => c.key === 'promo_days')
+        const startBannerConfig = data.find(c => c.key === 'start_banner')
+        const startVideoConfig = data.find(c => c.key === 'start_video')
 
         if (hoursConfig) setBusinessHours(hoursConfig.value)
         if (waConfig) setWhatsappNumber(waConfig.value)
         if (msgConfig) setMerchantMessage(msgConfig.value)
         if (openConfig) setIsOnlineMenuOpen(openConfig.value === 'true' || openConfig.value === true)
+        if (tableBannerConfig) {
+            try {
+                const parsed = JSON.parse(tableBannerConfig.value)
+                setTableBanners(Array.isArray(parsed) ? parsed : (tableBannerConfig.value ? [tableBannerConfig.value] : []))
+            } catch {
+                setTableBanners(tableBannerConfig.value ? [tableBannerConfig.value] : [])
+            }
+        }
+        if (promoDaysConfig) {
+            try {
+                setPromoDays(JSON.parse(promoDaysConfig.value))
+            } catch {
+                setPromoDays([1, 2, 3, 4, 5])
+            }
+        }
+        if (startBannerConfig) {
+            try {
+                const parsed = JSON.parse(startBannerConfig.value)
+                setStartBanners(Array.isArray(parsed) ? parsed : (startBannerConfig.value ? [startBannerConfig.value] : []))
+            } catch {
+                setStartBanners(startBannerConfig.value ? [startBannerConfig.value] : [])
+            }
+        }
+        if (startVideoConfig) setStartVideoUrl(startVideoConfig.value || "")
     }
 
     const handleSaveConfig = async () => {
@@ -94,6 +139,10 @@ export default function Admin() {
             await configService.updateSetting('whatsapp', whatsappNumber)
             await configService.updateSetting('merchant_message', merchantMessage)
             await configService.updateSetting('is_open', isOnlineMenuOpen)
+            await configService.updateSetting('table_banner', JSON.stringify(tableBanners))
+            await configService.updateSetting('promo_days', JSON.stringify(promoDays))
+            await configService.updateSetting('start_banner', JSON.stringify(startBanners))
+            await configService.updateSetting('start_video', startVideoUrl)
             alert("✅ Configurações atualizadas!")
         } catch (error) {
             alert("❌ Erro ao salvar configurações.")
@@ -106,9 +155,15 @@ export default function Admin() {
     }
 
     const loadReports = async () => {
-        // Conversão precisa considerando o fuso horário local
-        const startIso = new Date(startDate + 'T00:00:00').toISOString()
-        const endIso = new Date(endDate + 'T23:59:59.999').toISOString()
+        if (!startDate || !endDate) return;
+
+        // Construção segura da data usando componentes numéricos locais 
+        // Evita que o navegador interprete como UTC e corte pedidos noturnos
+        const [sYear, sMonth, sDay] = startDate.split('-').map(Number)
+        const startIso = new Date(sYear, sMonth - 1, sDay, 0, 0, 0).toISOString()
+
+        const [eYear, eMonth, eDay] = endDate.split('-').map(Number)
+        const endIso = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).toISOString()
 
         const orders = await orderService.getOrders(startIso, endIso)
         setAllOrders(orders)
@@ -152,6 +207,87 @@ export default function Admin() {
         }
     }
 
+    // ==========================================
+    // ❤️ FUNÇÕES DE FIDELIDADE
+    // ==========================================
+    const loadLoyaltyData = async () => {
+        const customers = await loyaltyService.getAllCustomers()
+        setLoyaltyCustomers(customers)
+        
+        const transactions = await loyaltyService.getTransactionHistory()
+        setLoyaltyTransactions(transactions)
+    }
+
+    const handleAddBonusPoints = async () => {
+        if (!selectedCustomer || !pointsToAdd || isNaN(pointsToAdd)) {
+            alert("Selecione um cliente e insira pontos válidos")
+            return
+        }
+
+        const points = parseInt(pointsToAdd)
+        const success = await loyaltyService.addBonusPoints(selectedCustomer.id, points, 'admin_bonus')
+        
+        if (success) {
+            alert(`✅ ${points} pontos adicionados!`)
+            setPointsToAdd("")
+            loadLoyaltyData()
+        } else {
+            alert("❌ Erro ao adicionar pontos")
+        }
+    }
+
+    const handleDeleteCustomer = async (customerId) => {
+        if (confirm("Remover este cliente do programa? Isso não pode ser desfeito.")) {
+            const success = await loyaltyService.deleteCustomer(customerId)
+            if (success) {
+                alert("✅ Cliente removido")
+                loadLoyaltyData()
+            } else {
+                alert("❌ Erro ao remover cliente")
+            }
+        }
+    }
+
+    const loadCustomerDetails = async (customer) => {
+        try {
+            // Busca todos os pedidos
+            const allOrders = await orderService.getOrders()
+            
+            // Filtra pedidos do cliente por telefone
+            const cleanPhone = customer.phone.replace(/\D/g, '')
+            const customerOrdersFiltered = allOrders.filter(order => {
+                const orderPhoneRaw = order.customer_phone || phoneUtils.autoDetectPhoneFromOrder(order) || ""
+                const orderPhone = orderPhoneRaw.replace(/\D/g, '')
+                return orderPhone === cleanPhone
+            })
+            
+            // Calcula estatísticas
+            const totalSpent = customerOrdersFiltered.reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+            const pointsGained = Math.floor(totalSpent) // 1 ponto por real
+            
+            // Busca transações de resgate do cliente
+            const allTransactions = loyaltyTransactions
+            const customerRedemptions = allTransactions.filter(tx => tx.customer_id === customer.id && tx.type === 'redemption')
+            const pointsRedeemed = customerRedemptions.reduce((sum, tx) => sum + Math.abs(tx.points || 0), 0)
+            
+            setCustomerDetails({
+                ...customer,
+                orders: customerOrdersFiltered,
+                stats: {
+                    totalOrders: customerOrdersFiltered.length,
+                    totalSpent,
+                    pointsGained,
+                    pointsRedeemed,
+                    discountUsed: (pointsRedeemed / 20),
+                    pointsBalance: customer.loyalty_points
+                }
+            })
+        } catch (error) {
+            console.error("Erro ao carregar detalhes:", error)
+            alert("❌ Erro ao carregar detalhes do cliente")
+        }
+    }
+
     const calculateStats = (orders) => {
         // 1. Faturamento Total (garantindo número)
         const revenue = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0)
@@ -169,8 +305,10 @@ export default function Admin() {
         let countOnline = 0
         let revenueCashier = 0
         let countCashier = 0
+        let revenueMesa = 0
+        let countMesa = 0
         const cashierBreakdown = {}
-        const paymentBreakdown = { dinheiro: 0, cartao: 0, pix: 0, totem: 0, whatsapp: 0, outro: 0 }
+        const paymentBreakdown = { dinheiro: 0, cartao: 0, pix: 0, totem: 0, mesa: 0, whatsapp: 0, outro: 0 }
 
         orders.forEach(order => {
             const val = Number(order.total) || 0
@@ -184,14 +322,14 @@ export default function Admin() {
             // 2. Se for 'whatsapp', é ONLINE
             // 3. Se for 'totem', é TOTEM
             // 4. Se não tiver esses campos, usa a lógica de fallback legada
-            const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa')
+            const checkMesa = order.customer_name?.toLowerCase()?.startsWith('mesa')
             
             let source = 'unknown'
             if (pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_')) {
                 source = 'online'
             } else if (order.cashier_name && order.cashier_name.trim() !== "") {
                 source = 'cashier'
-            } else if (isMesa) {
+            } else if (checkMesa) {
                 source = 'mesa'
             } else {
                 source = 'totem'
@@ -200,9 +338,10 @@ export default function Admin() {
             const isOnline = source === 'online'
             const isTotem = source === 'totem'
             const isCashier = source === 'cashier'
+            const isMesa = source === 'mesa'
             
             const pgtoNorm = pgtoMethod.replace('online_', '')
-            const pgto = (pgtoNorm || (isCashier ? 'outro' : 'totem')).toLowerCase()
+            const pgto = (pgtoNorm || (isCashier ? 'outro' : isMesa ? 'mesa' : 'totem')).toLowerCase()
             
             if (paymentBreakdown.hasOwnProperty(pgto)) {
                 paymentBreakdown[pgto] += val
@@ -210,13 +349,16 @@ export default function Admin() {
                 paymentBreakdown.outro += val
             }
 
-            // Origem: Online, Caixa ou Totem
+            // Origem: Online, Caixa, Totem ou Mesa
             if (isTotem) {
                 revenueTotem += val
                 countTotem++
             } else if (isOnline) {
                 revenueOnline += val
                 countOnline++
+            } else if (isMesa) {
+                revenueMesa += val
+                countMesa++
             } else if (isCashier) {
                 revenueCashier += val
                 countCashier++
@@ -251,6 +393,7 @@ export default function Admin() {
             revenueTotem, countTotem,
             revenueOnline, countOnline,
             revenueCashier, countCashier,
+            revenueMesa, countMesa,
             cashierBreakdown,
             paymentBreakdown
         })
@@ -294,7 +437,7 @@ export default function Admin() {
 
     const handleAddNew = () => {
         const tempId = Date.now()
-        const newProduct = { id: tempId, name: "", price: "", description: "", image: "", category: "burgers" }
+        const newProduct = { id: tempId, name: "", price: "", description: "", image: "", category: "promocoes" }
         setProducts([newProduct, ...products])
         setEditingId(tempId)
         setForm(newProduct) // Start editing immediately
@@ -446,7 +589,7 @@ export default function Admin() {
                             SAIR
                         </button>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-4 md:w-auto md:gap-4 scrollbar-hide">
+                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:grid md:grid-cols-5 md:w-auto md:gap-4 scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('products')}
                             className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'products' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
@@ -464,6 +607,12 @@ export default function Admin() {
                             className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'users' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                         >
                             👥 EQUIPE
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('loyalty')}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex-shrink-0 ${activeTab === 'loyalty' ? 'bg-black text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                        >
+                            ❤️ FIDELIDADE
                         </button>
                         <button
                             onClick={() => setActiveTab('config')}
@@ -581,6 +730,7 @@ export default function Admin() {
                                                         value={form.category}
                                                         onChange={e => handleChange('category', e.target.value)}
                                                     >
+                                                        <option value="promocoes">🔥 Promoções do Dia</option>
                                                         <option value="burgers">🍔 Hambúrgueres</option>
                                                         <option value="pizzas">🍕 Pizzas</option>
                                                         <option value="drinks">🧃 Sucos</option>
@@ -764,7 +914,7 @@ export default function Admin() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                         {/* DETALHE CARDÁPIO ONLINE */}
                         <div
                             onClick={() => setReportFilter('online')}
@@ -804,6 +954,20 @@ export default function Admin() {
                             </p>
                             <p className="text-xs text-gray-400 mt-2">
                                 {stats.countCashier} pedidos {reportFilter.startsWith('cashier:') ? `(Filtrado: ${reportFilter.split(':')[1]})` : '(CLIQUE PARA FILTRAR)'}
+                            </p>
+                        </div>
+
+                        {/* DETALHE MESAS */}
+                        <div
+                            onClick={() => setReportFilter('mesa')}
+                            className={`p-6 rounded-xl shadow-lg border-l-4 transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${reportFilter === 'mesa' ? 'bg-teal-50 border-teal-600 scale-[1.02]' : 'bg-white border-teal-500'}`}
+                        >
+                            <h3 className="text-teal-500 font-bold text-xs uppercase mb-2">📱 Vendas nas Mesas</h3>
+                            <p className="text-3xl font-black text-gray-800">
+                                {(stats.revenueMesa || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2">
+                                {stats.countMesa || 0} pedidos (CLIQUE PARA FILTRAR)
                             </p>
                         </div>
                     </div>
@@ -875,9 +1039,11 @@ export default function Admin() {
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-2xl font-bold text-gray-800">📋 Detalhamento</h2>
                                 <span className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest ${reportFilter === 'totem' ? 'bg-blue-100 text-blue-700' :
+                                    reportFilter === 'mesa' ? 'bg-teal-100 text-teal-700' :
                                     reportFilter.includes('cashier') ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
                                     }`}>
                                     {reportFilter === 'totem' ? 'Vendas no Totem' : 
+                                     reportFilter === 'mesa' ? 'Vendas nas Mesas' :
                                      reportFilter === 'online' ? 'Cardápio Online' :
                                      reportFilter.startsWith('cashier:') ? `Caixa: ${reportFilter.split(':')[1]}` : 
                                      reportFilter === 'cashier' ? 'Todos os Caixas' : 'Relatório Geral'}
@@ -919,6 +1085,7 @@ export default function Admin() {
                                                 const matchFilter = (reportFilter === 'all') ||
                                                     (reportFilter === 'online' && isOnline) ||
                                                     (reportFilter === 'totem' && isTotem) ||
+                                                    (reportFilter === 'mesa' && isMesa) ||
                                                     (reportFilter.startsWith('cashier:') && o.cashier_name === reportFilter.split(':')[1]) ||
                                                     (reportFilter === 'cashier' && isCashier);
 
@@ -1113,6 +1280,264 @@ export default function Admin() {
                         </div>
                     </div>
                 )}
+
+            {/* TAB FIDELIDADE */}
+            {activeTab === 'loyalty' && (
+                <div className="max-w-6xl mx-auto p-4 space-y-6">
+                    {/* Seção de Adicionar Pontos */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Heart className="text-blue-500" /> Gerenciar Pontos
+                        </h2>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-600 mb-2">Buscar Cliente (por Telefone)</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="tel"
+                                        placeholder="Telefone do cliente"
+                                        value={loyaltySearch}
+                                        onChange={(e) => {
+                                            const phone = e.target.value.replace(/\D/g, '')
+                                            setLoyaltySearch(phone)
+                                            const customer = loyaltyCustomers.find(c => c.phone.includes(phone))
+                                            if (customer) setSelectedCustomer(customer)
+                                        }}
+                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <Search className="w-5 h-5 text-gray-400 self-center -ml-10" />
+                                </div>
+                            </div>
+
+                            {selectedCustomer && (
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <p className="text-sm text-gray-600">Cliente</p>
+                                            <p className="font-bold text-lg">{selectedCustomer.phone}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm text-gray-600">Pontos Atuais</p>
+                                            <p className="font-bold text-2xl text-blue-600">{selectedCustomer.loyalty_points}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-600 mb-2">Adicionar Pontos</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    placeholder="Quantidade de pontos"
+                                                    value={pointsToAdd}
+                                                    onChange={(e) => setPointsToAdd(e.target.value)}
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <button
+                                                    onClick={handleAddBonusPoints}
+                                                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold flex items-center gap-2"
+                                                >
+                                                    <Plus className="w-4 h-4" /> Adicionar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setSelectedCustomer(null)
+                                                setLoyaltySearch("")
+                                                setPointsToAdd("")
+                                            }}
+                                            className="w-full py-2 text-gray-600 text-sm hover:bg-gray-100 rounded-lg"
+                                        >
+                                            Limpar seleção
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Lista de Clientes */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Users className="text-blue-500" /> Clientes ({loyaltyCustomers.length})
+                        </h2>
+
+                        {loyaltyCustomers.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-100 border-b-2 border-gray-200">
+                                        <tr>
+                                            <th className="p-4 text-left font-bold text-gray-600 text-sm">📱 Telefone</th>
+                                            <th className="p-4 text-center font-bold text-gray-600 text-sm">❤️ Pontos</th>
+                                            <th className="p-4 text-center font-bold text-gray-600 text-sm">💰 Desconto</th>
+                                            <th className="p-4 text-center font-bold text-gray-600 text-sm">📅 Última Compra</th>
+                                            <th className="p-4 text-center font-bold text-gray-600 text-sm">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {loyaltyCustomers.map(customer => (
+                                            <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="p-4 font-bold text-gray-800">{customer.phone}</td>
+                                                <td className="p-4 text-center font-bold text-blue-600 text-lg">{customer.loyalty_points}</td>
+                                            <td className="p-4 text-center font-bold text-green-600">R$ {(customer.loyalty_points / 20).toFixed(2)}</td>
+                                                <td className="p-4 text-center text-sm text-gray-600">
+                                                    {customer.last_purchase ? new Date(customer.last_purchase).toLocaleDateString('pt-BR') : '—'}
+                                                </td>
+                                                <td className="p-4 text-center space-x-2">
+                                                    <button
+                                                        onClick={() => loadCustomerDetails(customer)}
+                                                        className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 font-bold"
+                                                    >
+                                                        📊 Detalhes
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedCustomer(customer)
+                                                            setLoyaltySearch(customer.phone)
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                        }}
+                                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 font-bold"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteCustomer(customer.id)}
+                                                        className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 font-bold"
+                                                    >
+                                                        Remover
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center text-gray-400 italic">
+                                Nenhum cliente cadastrado ainda. Pontos começam a ser acumulados quando clientes fazem compras.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Histórico de Transações */}
+                    <div className="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <History className="text-purple-500" /> Histórico de Transações
+                        </h2>
+
+                        {loyaltyTransactions.length > 0 ? (
+                            <div className="space-y-2 max-h-96 overflow-y-auto">
+                                {loyaltyTransactions.map(tx => (
+                                    <div key={tx.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                        <div className="text-sm">
+                                            <p className="font-bold text-gray-800">{tx.loyalty_customers?.phone || 'Cliente'}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {new Date(tx.created_at).toLocaleDateString('pt-BR')} {new Date(tx.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`font-bold ${tx.type === 'purchase' ? 'text-green-600' : tx.type === 'redemption' ? 'text-red-600' : 'text-blue-600'}`}>
+                                                {tx.type === 'purchase' ? '+' : tx.type === 'redemption' ? '-' : '+'}{tx.points} pts
+                                            </p>
+                                            <p className="text-xs text-gray-500 capitalize">{tx.type}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center text-gray-400 italic">
+                                Nenhuma transação registrada.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* MODAL DE DETALHES DO CLIENTE */}
+                    {customerDetails && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                                <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 p-6 flex justify-between items-center">
+                                    <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        📊 Detalhes do Cliente
+                                    </h3>
+                                    <button
+                                        onClick={() => setCustomerDetails(null)}
+                                        className="text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center font-bold"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-6">
+                                    {/* Info do Cliente */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                            <p className="text-sm text-gray-600">📱 Telefone</p>
+                                            <p className="text-xl font-bold text-blue-600">{customerDetails.phone}</p>
+                                        </div>
+                                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                            <p className="text-sm text-gray-600">💰 Total Gasto</p>
+                                            <p className="text-xl font-bold text-green-600">R$ {customerDetails.stats.totalSpent.toFixed(2)}</p>
+                                        </div>
+                                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                            <p className="text-sm text-gray-600">❤️ Pontos Atuais</p>
+                                            <p className="text-xl font-bold text-yellow-600">{customerDetails.stats.pointsBalance}</p>
+                                        </div>
+                                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                                            <p className="text-sm text-gray-600">📝 Total de Pedidos</p>
+                                            <p className="text-xl font-bold text-purple-600">{customerDetails.stats.totalOrders}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats detalhados */}
+                                    <div className="grid grid-cols-3 gap-3 bg-gray-50 p-4 rounded-lg">
+                                        <div className="text-center">
+                                            <p className="text-xs text-gray-600 uppercase font-bold">Pontos Ganhos</p>
+                                            <p className="text-lg font-bold text-green-600">+{customerDetails.stats.pointsGained}</p>
+                                        </div>
+                                        <div className="text-center border-l border-r border-gray-300">
+                                            <p className="text-xs text-gray-600 uppercase font-bold">Pontos Resgatados</p>
+                                            <p className="text-lg font-bold text-red-600">-{customerDetails.stats.pointsRedeemed}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs text-gray-600 uppercase font-bold">Desconto Usado</p>
+                                            <p className="text-lg font-bold text-blue-600">R$ {customerDetails.stats.discountUsed.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Histórico de pedidos */}
+                                    <div>
+                                        <h4 className="font-bold text-gray-800 mb-3">📋 Histórico de Pedidos</h4>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {customerDetails.orders.length > 0 ? (
+                                                customerDetails.orders.map((order, idx) => (
+                                                    <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                                                        <div className="text-sm">
+                                                            <p className="font-bold">Pedido #{order.order_number}</p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {new Date(order.created_at).toLocaleDateString('pt-BR')} {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="font-bold text-green-600">R$ {(order.total || 0).toFixed(2)}</p>
+                                                            <p className="text-xs text-gray-500">{order.items?.length || 0} item(ns)</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-center text-gray-400 text-sm italic">Nenhum pedido encontrado</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* TAB CONFIGURAÇÕES */}
             {activeTab === 'config' && (
                 <div className="max-w-xl mx-auto">
@@ -1144,6 +1569,141 @@ export default function Admin() {
                                 >
                                     <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all shadow-sm ${isOnlineMenuOpen ? 'right-1' : 'left-1'}`} />
                                 </button>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Vídeo da Tela Inicial (Totem - Opcional)
+                                </label>
+                                <div className="flex flex-col gap-3">
+                                    {startVideoUrl ? (
+                                        <div className="relative group rounded-xl overflow-hidden shadow-sm border-2 border-gray-200 h-48 bg-black">
+                                            <video src={startVideoUrl} autoPlay loop muted className="w-full h-full object-contain" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setStartVideoUrl("")}
+                                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-3 p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
+                                            <p className="text-xs font-bold text-gray-500 uppercase">Adicionar Vídeo de Fundo (MP4)</p>
+                                            <input
+                                                type="text"
+                                                className="w-full border-2 border-gray-200 p-3 rounded-xl text-sm font-bold focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                                placeholder="Cole o link do vídeo (MP4/WebM)..."
+                                                value={startVideoUrl}
+                                                onChange={(e) => setStartVideoUrl(e.target.value)}
+                                            />
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                                <div className="text-center font-bold text-gray-400 text-xs">OU FAÇA UPLOAD</div>
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                            </div>
+                                            <input 
+                                                type="file" 
+                                                accept="video/mp4,video/webm" 
+                                                className="text-sm text-gray-500 w-full p-2 border-2 border-gray-200 rounded-xl bg-white"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (!file) return;
+                                                    try {
+                                                        alert("Fazendo upload do vídeo... O processo pode demorar alguns segundos dependendo do tamanho. Confirme e aguarde.");
+                                                        const ext = file.name.split('.').pop();
+                                                        const fileName = `start_video_${Date.now()}.${ext}`;
+                                                        const url = await productService.uploadImage(file, fileName);
+                                                        setStartVideoUrl(url);
+                                                        alert("✅ Vídeo enviado com sucesso! Lembre-se de clicar em SALVAR ALTERAÇÕES.");
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("❌ Falha no Upload. O vídeo pode ser muito grande ou o formato não é suportado pelo seu banco de dados.");
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Se um vídeo for configurado, ele substituirá as fotos da Tela Inicial e tocará repetidamente em plano de fundo sem som.
+                                </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Banners da Tela Inicial (Totem - Múltiplas Fotos)
+                                </label>
+                                <div className="flex flex-col gap-3">
+                                    {startBanners.length > 0 && (
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-2">
+                                            {startBanners.map((url, idx) => (
+                                                <div key={idx} className="relative group rounded-xl overflow-hidden shadow-sm border-2 border-gray-200 h-24">
+                                                    <img src={url} className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setStartBanners(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                        <div className="flex flex-col gap-3 p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
+                                            <p className="text-xs font-bold text-gray-500 uppercase">Adicionar Novo Banner Inicial</p>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    className="flex-1 border-2 border-gray-200 p-3 rounded-xl text-sm font-bold focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                                    placeholder="URL da imagem..."
+                                                    value={newStartBannerUrl}
+                                                    onChange={(e) => setNewStartBannerUrl(e.target.value)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if(newStartBannerUrl) {
+                                                            setStartBanners(prev => [...prev, newStartBannerUrl]);
+                                                            setNewStartBannerUrl("");
+                                                        }
+                                                    }}
+                                                    className="bg-green-600 text-white px-4 font-bold rounded-xl hover:bg-green-700 transition-colors"
+                                                >
+                                                    ADD
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                                <div className="text-center font-bold text-gray-400 text-xs">OU</div>
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                            </div>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="text-sm text-gray-500 w-full p-2 border-2 border-gray-200 rounded-xl bg-white"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (!file) return;
+                                                    try {
+                                                        alert("Fazendo upload... Aguarde a confirmação.");
+                                                        const ext = file.name.split('.').pop();
+                                                        const fileName = `start_banner_${Date.now()}.${ext}`;
+                                                        const url = await productService.uploadImage(file, fileName);
+                                                        setStartBanners(prev => [...prev, url]);
+                                                        alert("✅ Imagem do banner inicial enviada com sucesso! Lembre-se de clicar em SALVAR ALTERAÇÕES.");
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("❌ Falha no Upload. Verifique seu banco de dados.");
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                </div>
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Estes banners aparecerão como um carrossel na tela inicial de descanso do Totem de Autoatendimento.
+                                </p>
                             </div>
 
                             <div className="w-full">
@@ -1191,6 +1751,119 @@ export default function Admin() {
                                 />
                                 <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
                                     Esta mensagem aparecerá no topo do cardápio online.
+                                </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Banners das Mesas (Carrossel - Até 10 imagens)
+                                </label>
+                                <div className="flex flex-col gap-3">
+                                    {tableBanners.length > 0 && (
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-2">
+                                            {tableBanners.map((url, idx) => (
+                                                <div key={idx} className="relative group rounded-xl overflow-hidden shadow-sm border-2 border-gray-200 h-24">
+                                                    <img src={url} className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setTableBanners(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {tableBanners.length < 10 && (
+                                        <div className="flex flex-col gap-3 p-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
+                                            <p className="text-xs font-bold text-gray-500 uppercase">Adicionar Novo Banner</p>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    className="flex-1 border-2 border-gray-200 p-3 rounded-xl text-sm font-bold focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                                    placeholder="URL da imagem..."
+                                                    value={newBannerUrl}
+                                                    onChange={(e) => setNewBannerUrl(e.target.value)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if(newBannerUrl) {
+                                                            setTableBanners(prev => [...prev, newBannerUrl]);
+                                                            setNewBannerUrl("");
+                                                        }
+                                                    }}
+                                                    className="bg-green-600 text-white px-4 font-bold rounded-xl hover:bg-green-700 transition-colors"
+                                                >
+                                                    ADD
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                                <div className="text-center font-bold text-gray-400 text-xs">OU</div>
+                                                <div className="h-px bg-gray-200 flex-1"></div>
+                                            </div>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="text-sm text-gray-500 w-full p-2 border-2 border-gray-200 rounded-xl bg-white"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (!file) return;
+                                                    try {
+                                                        alert("Fazendo upload... Aguarde a confirmação.");
+                                                        const ext = file.name.split('.').pop();
+                                                        const fileName = `banner_${Date.now()}.${ext}`;
+                                                        const url = await productService.uploadImage(file, fileName);
+                                                        setTableBanners(prev => [...prev, url]);
+                                                        alert("✅ Imagem do banner enviada com sucesso! Lembre-se de clicar em SALVAR ALTERAÇÕES.");
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("❌ Falha no Upload. Verifique seu banco de dados.");
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                    {tableBanners.length >= 10 && (
+                                        <p className="text-orange-500 font-bold text-sm">⚠️ Limite máximo de 10 banners atingido.</p>
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Estes banners aparecerão como um carrossel na tela de pedidos das mesas (QR Code).
+                                </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Dias de Promoção Ativos
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        { id: 0, label: 'Domingo' },
+                                        { id: 1, label: 'Segunda' },
+                                        { id: 2, label: 'Terça' },
+                                        { id: 3, label: 'Quarta' },
+                                        { id: 4, label: 'Quinta' },
+                                        { id: 5, label: 'Sexta' },
+                                        { id: 6, label: 'Sábado' }
+                                    ].map(day => (
+                                        <button
+                                            key={day.id}
+                                            onClick={() => setPromoDays(prev => prev.includes(day.id) ? prev.filter(d => d !== day.id) : [...prev, day.id].sort())}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                                promoDays.includes(day.id)
+                                                    ? 'bg-green-600 text-white shadow-md'
+                                                    : 'bg-gray-100 text-gray-400 border-2 border-gray-200 hover:border-gray-300'
+                                            }`}
+                                        >
+                                            {day.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
+                                    Selecione em quais dias da semana a aba "Promoções" deve aparecer automaticamente para os clientes.
                                 </p>
                             </div>
 

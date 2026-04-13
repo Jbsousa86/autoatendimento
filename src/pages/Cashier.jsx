@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { MapPin, User, Receipt, Clock, ShoppingCart } from "lucide-react"
-import { productService, orderService, cashierService } from "../services/api"
+import { productService, orderService, cashierService, configService } from "../services/api"
 import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
 
@@ -19,6 +19,7 @@ export default function Cashier() {
     const [customerName, setCustomerName] = useState("")
     const [dailyOrders, setDailyOrders] = useState([])
     const [selectedCategory, setSelectedCategory] = useState("burgers")
+    const [isPromoDay, setIsPromoDay] = useState(false)
     const [lastFinishedOrder, setLastFinishedOrder] = useState(null)
     const [mobileCartOpen, setMobileCartOpen] = useState(false)
     const [printerDevice, setPrinterDevice] = useState(null)
@@ -31,7 +32,8 @@ export default function Cashier() {
     const [isPrinting, setIsPrinting] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState("") // 'dinheiro', 'cartao', 'pix'
     const [changeAmount, setChangeAmount] = useState("")
-    const [needsChange, setNeedsChange] = useState(false)
+    const [selectedTableDetails, setSelectedTableDetails] = useState(null)
+    const [tableLocks, setTableLocks] = useState({})
 
     // Helper robusto para identificar pedidos Cardápio Online, protegendo históricos antigos
     const checkIfOnlineOrder = (o) => {
@@ -91,6 +93,7 @@ export default function Cashier() {
     // Refs para controle de áudio (Igual Cozinha)
     const knownIds = useRef(new Set())
     const isFirstLoad = useRef(true)
+    const prevTableLocks = useRef({})
 
     // Verifica se já existe uma impressora pareada ao carregar
     useEffect(() => {
@@ -173,6 +176,19 @@ export default function Cashier() {
     }
 
     useEffect(() => {
+        configService.getSettings().then(data => {
+            const promoDaysConfig = data.find(c => c.key === 'promo_days')
+            let promoDays = [1, 2, 3, 4, 5]
+            if (promoDaysConfig) {
+                try { promoDays = JSON.parse(promoDaysConfig.value) } catch (e) {}
+            }
+            const isPromo = promoDays.includes(new Date().getDay())
+            setIsPromoDay(isPromo)
+            if (isPromo) setSelectedCategory("promocoes")
+        })
+    }, [])
+
+    useEffect(() => {
         if (user) {
             // Expor para teste
             window.playTestSound = playNotification
@@ -230,12 +246,48 @@ export default function Cashier() {
         setProducts(data)
     }
 
+    const fetchTableLocks = async () => {
+        try {
+            const settings = await configService.getSettings()
+            const locks = {}
+            const now = Date.now()
+            settings.forEach(s => {
+                if (s.key && s.key.startsWith('lock_mesa_')) {
+                    try {
+                        const val = JSON.parse(s.value)
+                        if (now - val.ts < 90000) { // 90 segundos de tolerância de inatividade
+                            locks[s.key.replace('lock_mesa_', '')] = true
+                        }
+                    } catch(e){}
+                }
+            })
+
+            // Lógica do bip para nova mesa ocupada (lendo cardápio)
+            let hasNewLock = false
+            Object.keys(locks).forEach(tableNum => {
+                if (!prevTableLocks.current[tableNum]) {
+                    hasNewLock = true
+                }
+            })
+            if (hasNewLock && !isFirstLoad.current) {
+                playNotification()
+            }
+            prevTableLocks.current = locks
+
+            setTableLocks(locks)
+        } catch(e) {}
+    }
+
     const loadDailyHistory = async (isPolling = false) => {
+        fetchTableLocks()
         const now = new Date()
         let orders;
 
         if (user.can_view_reports) {
-            orders = await orderService.getOrders()
+            // Traz apenas últimos 7 dias para visualização leve no caixa
+            const sevenDaysAgoIso = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+            const endIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
+            orders = await orderService.getOrders(sevenDaysAgoIso, endIso)
         } else {
             const startIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString()
             const endIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
@@ -709,7 +761,6 @@ export default function Cashier() {
         setCustomerAddress("")
         setPaymentMethod("") // Limpa o método de pagamento
         setChangeAmount("")
-        setNeedsChange(false)
         loadDailyHistory()
 
         // AUTO-PRINT: Tenta imprimir se houver uma impressora configurada/pronta
@@ -777,6 +828,17 @@ export default function Cashier() {
     // Render Dashboard
     const filteredProducts = products.filter(p => p.category === selectedCategory)
 
+    // Reatividade em Tempo Real para o Modal de Mesas
+    const activeModalTableNum = selectedTableDetails?.tableNum;
+    const activeModalOrders = activeModalTableNum ? dailyOrders.filter(o => {
+        const cName = o.customer_name?.toLowerCase() || '';
+        const tName = `mesa ${activeModalTableNum}`.toLowerCase();
+        return (cName === tName || cName.startsWith(`${tName} `) || cName.startsWith(`${tName}[`)) && 
+               !['finished', 'archived'].includes(o.status);
+    }) : [];
+    const activeModalIsOnlyLocked = activeModalTableNum ? (activeModalOrders.length === 0) : false;
+    const activeModalTableTotal = activeModalOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
             {/* HEADER */}
@@ -835,6 +897,12 @@ export default function Cashier() {
                             className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'history' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             📋 CAIXA
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('tables')}
+                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'tables' ? 'bg-white text-black shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            🍽️ MESAS
                         </button>
                         <button
                             onClick={() => window.open("/kitchen", "_blank")}
@@ -1144,7 +1212,7 @@ export default function Cashier() {
 
                                 {/* Categorias */}
                                 <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
-                                    {categories.map(cat => (
+                                    {categories.filter(cat => cat.id !== 'promocoes' || isPromoDay).map(cat => (
                                         <button
                                             key={cat.id}
                                             onClick={() => setSelectedCategory(cat.id)}
@@ -1167,7 +1235,7 @@ export default function Cashier() {
                                                 onClick={() => addToCart(product)}
                                                 className="bg-white p-3 md:p-4 rounded-lg shadow cursor-pointer active:scale-95 transition flex flex-col items-center text-center border border-gray-100"
                                             >
-                                                <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden mb-2">
+                                                <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden">
                                                     {product.image ? (
                                                         <img src={product.image} className="w-full h-full object-cover" />
                                                     ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
@@ -1566,7 +1634,7 @@ export default function Cashier() {
                                                                 ) : order.customer_name?.toLowerCase().startsWith('mesa') ? (
                                                                     <div className="flex items-center gap-1.5 bg-teal-50 px-2 py-0.5 rounded-full w-fit border border-teal-100">
                                                                         <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span>
-                                                                        <span className="text-[9px] font-black uppercase text-teal-900 font-mono tracking-tighter tracking-tighter">📱 MESA (QR)</span>
+                                                                        <span className="text-[9px] font-black uppercase text-teal-900 font-mono tracking-tighter">📱 MESA (QR)</span>
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full w-fit border border-gray-100">
@@ -1674,7 +1742,218 @@ export default function Cashier() {
                         </div>
                     )
                 }
-            </main >
-        </div >
+
+                {
+                    activeTab === 'tables' && (
+                        <div className="h-full flex flex-col p-4 md:p-8 overflow-y-auto bg-gray-50">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tighter">Gestão de Mesas</h2>
+                                    <p className="text-sm text-gray-500 font-bold mt-1">Acompanhe o consumo e libere as mesas ativas</p>
+                                </div>
+                                <div className="flex gap-4 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                                        <span className="text-xs font-black text-gray-600 uppercase tracking-widest">Livre</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 bg-orange-500 rounded-full shadow-[0_0_5px_rgba(249,115,22,0.5)] animate-pulse"></div>
+                                        <span className="text-xs font-black text-gray-600 uppercase tracking-widest">Ocupada</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {Array.from({ length: 20 }, (_, i) => i + 1).map(tableNum => {
+                                    const tableName = `Mesa ${tableNum}`;
+                                    // Encontrar pedidos ativos para esta mesa
+                                    const activeOrders = dailyOrders.filter(o => {
+                                        const cName = o.customer_name?.toLowerCase() || '';
+                                        const tName = tableName.toLowerCase();
+                                        return (cName === tName || cName.startsWith(`${tName} `) || cName.startsWith(`${tName}[`)) && 
+                                               !['finished', 'archived'].includes(o.status);
+                                    });
+                                    
+                                    const isOccupied = activeOrders.length > 0 || tableLocks[tableNum];
+                                    const tableTotal = activeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+                                    return (
+                                        <div 
+                                            key={tableNum} 
+                                            className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between min-h-[140px] ${
+                                                isOccupied 
+                                                    ? 'bg-white border-orange-400 shadow-md hover:shadow-lg hover:-translate-y-1' 
+                                                    : 'bg-white border-gray-100 hover:border-green-300 hover:shadow-sm'
+                                            }`}
+                                            onClick={() => {
+                                            if (isOccupied) {
+                                                setSelectedTableDetails({ tableNum, activeOrders, tableTotal, isOnlyLocked: activeOrders.length === 0 });
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <span className={`text-3xl font-black tracking-tighter ${isOccupied ? 'text-orange-600' : 'text-gray-300'}`}>
+                                                    {tableNum}
+                                                </span>
+                                                <div className={`w-3 h-3 rounded-full ${isOccupied ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.6)]' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]'}`}></div>
+                                            </div>
+                                            
+                                            <div className="mt-4">
+                                                {activeOrders.length > 0 ? (
+                                                    <>
+                                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Consumo</p>
+                                                        <p className="text-xl font-black text-gray-900 leading-none mt-1">
+                                                            {tableTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                        </p>
+                                                        <p className="text-[10px] text-orange-500 font-bold mt-2 bg-orange-50 w-fit px-2 py-0.5 rounded">
+                                                            {activeOrders.length} pedido(s)
+                                                        </p>
+                                                    </>
+                                                ) : isOccupied ? (
+                                                    <>
+                                                        <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Lendo Cardápio</p>
+                                                        <p className="text-[10px] text-orange-500 font-bold mt-2 bg-orange-50 w-fit px-2 py-0.5 rounded">
+                                                            Aguardando pedido...
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Mesa Disponível</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )
+                }
+
+                {/* MODAL DETALHES DA MESA */}
+                {selectedTableDetails && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 w-full max-w-lg max-h-[90vh] flex flex-col border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Mesa {activeModalTableNum}</h2>
+                                    <p className="text-sm font-bold text-gray-400 mt-1">Detalhes do Consumo</p>
+                                </div>
+                                <button 
+                                    onClick={() => setSelectedTableDetails(null)} 
+                                    className="w-10 h-10 bg-gray-100 hover:bg-red-100 hover:text-red-500 text-gray-500 rounded-full flex items-center justify-center font-black transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                                {activeModalIsOnlyLocked ? (
+                                    <div className="text-center py-10">
+                                        <div className="text-6xl mb-4">📱</div>
+                                        <h3 className="text-xl font-black text-gray-800 uppercase">Lendo Cardápio</h3>
+                                        <p className="text-gray-500 font-medium mt-2">O cliente acessou o QR Code desta mesa, mas ainda não enviou nenhum pedido.</p>
+                                    </div>
+                                ) : (
+                                    activeModalOrders.map(order => (
+                                        <div key={order.id} className="bg-gray-50 border border-gray-200 p-4 rounded-2xl relative overflow-hidden">
+                                        <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-black uppercase rounded-bl-xl ${
+                                            order.status === 'pending' ? 'bg-gray-200 text-gray-600' :
+                                            order.status === 'preparing' ? 'bg-yellow-200 text-yellow-700' :
+                                            'bg-green-500 text-white shadow-sm'
+                                        }`}>
+                                            {order.status === 'pending' ? 'Pendente' : order.status === 'preparing' ? 'Preparando' : 'Pronto'}
+                                        </div>
+
+                                        <div className="mb-3">
+                                            <span className="font-black text-gray-800 text-lg">Pedido #{order.order_number}</span>
+                                            <span className="text-xs text-gray-400 font-bold ml-2">
+                                                {new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        
+                                        <ul className="text-sm text-gray-600 space-y-1.5 mb-4">
+                                            {order.items.map((item, idx) => (
+                                                <li key={idx} className="flex justify-between font-medium">
+                                                    <span><span className="font-black">{item.qty}x</span> {item.name}</span>
+                                                    <span className="text-gray-400 font-bold">
+                                                        {(Number(item.price) * item.qty).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        
+                                        <div className="flex justify-between items-end border-t border-gray-200 pt-3">
+                                            <button 
+                                                onClick={() => handleReprint(order)}
+                                                className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors uppercase tracking-widest"
+                                            >
+                                                🖨️ Imprimir
+                                            </button>
+                                            <div className="text-right">
+                                                <span className="text-[10px] font-black uppercase text-gray-400 block mb-0.5 tracking-widest">Subtotal</span>
+                                                <span className="font-black text-gray-900 text-xl leading-none">
+                                                    {Number(order.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            
+                            <div className="mt-6 pt-6 border-t-2 border-gray-100">
+                                {!activeModalIsOnlyLocked && (
+                                    <div className="flex justify-between items-center mb-6">
+                                        <span className="text-sm font-black text-gray-400 uppercase tracking-widest">Total a Pagar</span>
+                                        <span className="text-4xl font-black text-orange-600 tracking-tighter">
+                                            {activeModalTableTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                        </span>
+                                    </div>
+                                )}
+                                
+                                <button 
+                                    onClick={async () => {
+                                        const actionText = activeModalIsOnlyLocked ? 'Liberar a' : 'Encerrar a';
+                                        if(confirm(`${actionText} Mesa ${activeModalTableNum}?`)) {
+                                            try {
+                                                if (!activeModalIsOnlyLocked) {
+                                                    for (const order of activeModalOrders) {
+                                                        await orderService.updateStatus(order.id, 'finished');
+                                                    }
+                                                }
+                                                
+                                                // Tenta forçar a liberação da trava no banco (Protegido pois o caixa pode não ter permissão na tabela)
+                                                try {
+                                                    await configService.updateSetting(`lock_mesa_${activeModalTableNum}`, JSON.stringify({ sid: 'force_clear', ts: 0 }));
+                                                } catch (lockError) {
+                                                    console.warn("Aviso: Sem permissão para limpar trava no banco. A interface atualizará localmente.");
+                                                }
+                                                
+                                                // Limpa a trava localmente na mesma hora para a mesa ficar verde imediatamente
+                                                setTableLocks(prev => {
+                                                    const newLocks = { ...prev };
+                                                    delete newLocks[activeModalTableNum];
+                                                    return newLocks;
+                                                });
+                                                
+                                                setSelectedTableDetails(null);
+                                                loadDailyHistory();
+                                                alert(`Mesa ${activeModalTableNum} liberada com sucesso!`);
+                                            } catch (err) {
+                                                console.error("Erro ao encerrar mesa:", err);
+                                                alert("Ocorreu um erro ao processar. Tente novamente.");
+                                            }
+                                        }
+                                    }}
+                                    className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl hover:bg-orange-700 active:scale-95 transition-all uppercase text-lg shadow-xl shadow-orange-600/20 flex justify-center items-center gap-2"
+                                >
+                                    <span>{activeModalIsOnlyLocked ? '🔓' : '💳'}</span> 
+                                    {activeModalIsOnlyLocked ? 'Forçar Liberação da Mesa' : 'Encerrar e Pagar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
     )
 }

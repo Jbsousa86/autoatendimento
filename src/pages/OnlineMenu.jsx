@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Utensils, Clock, Minus, Plus, X, ShoppingBag, User, Share2 } from "lucide-react"
+import { Search, Utensils, Clock, Minus, Plus, X, ShoppingBag, User, Share2, Heart } from "lucide-react"
 import { categories } from "../data/menu"
-import { productService, configService } from "../services/api"
+import { productService, configService, loyaltyService } from "../services/api"
 import Logo from "../assets/herosburger.jpg"
 import BurgerHeader from "../assets/burger_header.png"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 
 export default function OnlineMenu() {
     const navigate = useNavigate()
@@ -25,16 +25,23 @@ export default function OnlineMenu() {
     } = useCart()
 
     const [selectedCategory, setSelectedCategory] = useState("burgers")
+    const [isPromoDay, setIsPromoDay] = useState(false)
     const [products, setProducts] = useState([])
     const [settingsHours, setSettingsHours] = useState("18:00 — 00:00")
     const [merchantMessage, setMerchantMessage] = useState("")
+    const [tableBanners, setTableBanners] = useState([])
+    const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
+    const [fullScreenImage, setFullScreenImage] = useState(null)
     const [isMenuOpen, setIsMenuOpen] = useState(true)
     const [isCartOpen, setIsCartOpen] = useState(false)
     const [generalObservation, setGeneralObservation] = useState("")
     const [customerName, setCustomerName] = useState("")
     const [customerAddress, setCustomerAddress] = useState("")
+    const [customerPhone, setCustomerPhone] = useState("")
     const [paymentMethod, setPaymentMethod] = useState("")
     const [showConfirmModal, setShowConfirmModal] = useState(false)
+    const [loyaltyDiscount, setLoyaltyDiscount] = useState(0)
+    const [loyaltyPoints, setLoyaltyPoints] = useState(0)
 
     useEffect(() => {
         productService.getProducts().then(data => {
@@ -48,9 +55,36 @@ export default function OnlineMenu() {
                 if (msgConfig) setMerchantMessage(msgConfig.value)
                 const openConfig = data.find(c => c.key === 'is_open')
                 if (openConfig) setIsMenuOpen(openConfig.value === 'true' || openConfig.value === true)
+                const tableBannerConfig = data.find(c => c.key === 'table_banner')
+                if (tableBannerConfig) {
+                    try {
+                        const parsed = JSON.parse(tableBannerConfig.value)
+                        setTableBanners(Array.isArray(parsed) ? parsed : (tableBannerConfig.value ? [tableBannerConfig.value] : []))
+                    } catch {
+                        setTableBanners(tableBannerConfig.value ? [tableBannerConfig.value] : [])
+                    }
+                }
+
+                const promoDaysConfig = data.find(c => c.key === 'promo_days')
+                let promoDays = [1, 2, 3, 4, 5]
+                if (promoDaysConfig) {
+                    try { promoDays = JSON.parse(promoDaysConfig.value) } catch (e) {}
+                }
+                const isPromo = promoDays.includes(new Date().getDay())
+                setIsPromoDay(isPromo)
+                if (isPromo) setSelectedCategory("promocoes")
             }
         })
     }, [])
+
+    useEffect(() => {
+        if (tableBanners.length > 1) {
+            const timer = setInterval(() => {
+                setCurrentBannerIndex((prev) => (prev + 1) % tableBanners.length)
+            }, 4000)
+            return () => clearInterval(timer)
+        }
+    }, [tableBanners.length])
 
     const handleShare = async () => {
         if (navigator.share) {
@@ -67,6 +101,38 @@ export default function OnlineMenu() {
             navigator.clipboard.writeText(window.location.href)
             alert("Link copiado!")
         }
+    }
+
+    const handleCheckLuoyalty = async () => {
+        if (!customerPhone.trim()) {
+            alert("Informe seu telefone para consultar pontos")
+            return
+        }
+        
+        const customer = await loyaltyService.getCustomerByPhone(customerPhone)
+        if (customer) {
+            setLoyaltyPoints(customer.loyalty_points)
+            alert(`Você tem ${customer.loyalty_points} pontos disponíveis!`)
+        } else {
+            setLoyaltyPoints(0)
+            alert("Telefone não encontrado. Seus pontos começarão a ser acumulados neste pedido!")
+        }
+    }
+
+    const applyLoyaltyDiscount = () => {
+        if (loyaltyPoints < 20) {
+            alert("Mínimo 20 pontos para resgatar desconto")
+            return
+        }
+        const discount = Math.floor(loyaltyPoints / 20) // 20 pontos = R$ 1,00
+        setLoyaltyDiscount(discount)
+        setLoyaltyPoints(0)
+        alert(`✅ Desconto de R$ ${discount.toFixed(2)} aplicado!`)
+    }
+
+    const getCartTotalWithDiscount = () => {
+        const subtotal = typeof getCartTotal === 'function' ? getCartTotal() : 0
+        return Math.max(0, subtotal - loyaltyDiscount)
     }
 
     const filteredProducts = (products || []).filter(
@@ -87,19 +153,40 @@ export default function OnlineMenu() {
             return
         }
         setShowConfirmModal(false)
-        const order = finalizeOrder(customerName, generalObservation)
-        // Adiciona o endereço e identifica a origem com a forma escolhida
+        const order = finalizeOrder(customerName, generalObservation, 'online', customerPhone, loyaltyDiscount)
+        // Adiciona o endereço, telefone, desconto e identifica a origem com a forma escolhida
         order.customerAddress = customerAddress
+        order.customerPhone = customerPhone
         order.paymentMethod = `online_${paymentMethod}`
+        order.loyaltyDiscount = loyaltyDiscount
+        order.total = getCartTotalWithDiscount()
         order.created_at_client = Date.now()
         navigate(`/cardapio/sucesso`, { state: { order }, replace: true })
     }
 
     const cartCount = (cart || []).reduce((sum, item) => sum + (item.qty || 0), 0)
-    const total = typeof getCartTotal === 'function' ? getCartTotal() : 0
+    const total = getCartTotalWithDiscount()
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col font-sans relative">
+            {/* MODAL DE IMAGEM EM TELA CHEIA */}
+            {fullScreenImage && (
+                <div 
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md transition-opacity p-4" 
+                    onClick={() => setFullScreenImage(null)}
+                >
+                    <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors z-10">
+                        <X size={24} />
+                    </button>
+                    <img 
+                        src={fullScreenImage} 
+                        alt="Promoção Ampliada" 
+                        className="w-full h-auto max-h-[90vh] object-contain animate-in zoom-in duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
+
             {!isMenuOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" />
@@ -214,7 +301,7 @@ export default function OnlineMenu() {
 
             {/* CATEGORIAS */}
             <nav className="fixed top-[180px] left-0 right-0 z-50 bg-[#0a0a0a] border-b border-white/5 overflow-x-auto no-scrollbar py-5 px-6 flex gap-3 transition-all">
-                {(categories || []).map((cat) => (
+                {(categories || []).filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
                     <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
@@ -230,9 +317,36 @@ export default function OnlineMenu() {
 
             {/* LISTA DE PRODUTOS */}
             <main className="flex-1 mt-[260px] pb-40 px-6 z-10">
+                {tableBanners.length > 0 && (
+                    <div className="mb-8 rounded-[32px] overflow-hidden shadow-2xl border border-white/5 bg-white/5 relative backdrop-blur-sm">
+                        <div 
+                            className="flex transition-transform duration-500 ease-in-out"
+                            style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+                        >
+                            {tableBanners.map((url, idx) => (
+                                <div key={idx} className="w-full flex-shrink-0 p-3">
+                                    <img
+                                        src={url}
+                                        alt={`Promoção ${idx + 1}`}
+                                        className="w-full h-44 object-cover rounded-[24px] shadow-lg border border-white/10 cursor-pointer active:scale-[0.98] transition-transform"
+                                        onClick={() => setFullScreenImage(url)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        {tableBanners.length > 1 && (
+                            <div className="absolute bottom-5 left-0 right-0 flex justify-center gap-1.5 z-10">
+                                {tableBanners.map((_, idx) => (
+                                    <button key={idx} onClick={() => setCurrentBannerIndex(idx)} className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentBannerIndex ? 'w-5 bg-orange-500' : 'w-1.5 bg-white/30 hover:bg-white/60'}`} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
-                        {categories.find(c => c.id === selectedCategory)?.name || "Menu"}
+                        {categories.find(c => c.id === selectedCategory)?.name || "Promoções"}
                     </h2>
                     <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{filteredProducts.length} Itens</span>
                 </div>
@@ -393,8 +507,38 @@ export default function OnlineMenu() {
                                 </div>
                                 <div className="bg-white/5 rounded-[24px] p-5 border border-white/5">
                                     <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 mb-3 tracking-[0.2em]">
-                                        <span className="text-orange-500 text-xs">📍</span> Endereço
+                                        <Heart size={12} className="text-blue-500" /> Fidelidade
                                     </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="tel"
+                                            placeholder="Telefone para consultar pontos..."
+                                            className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-500/20 placeholder-gray-600 transition-all select-text"
+                                            value={customerPhone}
+                                            onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                                        />
+                                        <button
+                                            onClick={handleCheckLuoyalty}
+                                            className="px-4 py-2.5 bg-blue-600/20 text-blue-400 rounded-xl hover:bg-blue-600/40 transition-all font-bold text-xs whitespace-nowrap border border-blue-500/30"
+                                        >
+                                            Consultar
+                                        </button>
+                                    </div>
+                                    {loyaltyPoints > 0 && (
+                                        <div className="mt-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-blue-400 font-bold text-sm">Pontos disponíveis: {loyaltyPoints}</span>
+                                                <button
+                                                    onClick={applyLoyaltyDiscount}
+                                                    className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition-all"
+                                                >
+                                                    Resgatar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="bg-white/5 rounded-[24px] p-5 border border-white/5">
                                     <input
                                         type="text"
                                         placeholder="Para onde entregamos?"
@@ -457,9 +601,15 @@ export default function OnlineMenu() {
                         </div>
 
                         <div className="p-8 pb-10 bg-black/40 backdrop-blur-3xl border-t border-white/5">
+                            {loyaltyDiscount > 0 && (
+                                <div className="mb-4 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 flex justify-between items-center">
+                                    <span className="text-blue-400 font-bold text-sm">❤️ Desconto de Fidelidade</span>
+                                    <span className="text-blue-400 font-bold">-R$ {loyaltyDiscount.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex items-center justify-between mb-6">
                                 <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em]">Total</span>
-                                <span className="text-4xl font-black text-white tracking-tighter">{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                <span className="text-4xl font-black text-white tracking-tighter">{getCartTotalWithDiscount().toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                             </div>
                             <button
                                 onClick={() => {

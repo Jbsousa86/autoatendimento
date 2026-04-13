@@ -1,17 +1,16 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 import { orderService } from "../services/api"
 
 export default function Finish() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { lastOrder, clearCart } = useCart()
+  const { lastOrder } = useCart()
 
   const order = location.state?.order || lastOrder
   const [tempName, setTempName] = useState(order?.customerName || "Cliente")
   const hasProcessed = useRef(false)
-  const [isPrinting, setIsPrinting] = useState(false)
   const [retryVisible, setRetryVisible] = useState(false)
 
 
@@ -67,7 +66,7 @@ export default function Finish() {
       window.removeEventListener('afterprint', handleAfterPrint)
       clearTimeout(safetyTimer)
     }
-  }, [order, clearCart])
+  }, [order])
 
   const handleUpdateName = async () => {
     if (order?.id) await orderService.updateOrderName(order.id, tempName)
@@ -77,24 +76,6 @@ export default function Finish() {
   function handleNewOrder() {
     navigate("/", { replace: true })
   }
-
-  const [configClickCount, setConfigClickCount] = useState(0)
-  const [showAdminConfig, setShowAdminConfig] = useState(false)
-
-  const handleAdminUnlock = () => {
-    const newCount = configClickCount + 1
-    if (newCount >= 7) {
-      setShowAdminConfig(true)
-      setConfigClickCount(0)
-    } else {
-      setConfigClickCount(newCount)
-    }
-  }
-
-  useEffect(() => {
-    const timer = setTimeout(() => setConfigClickCount(0), 3000)
-    return () => clearTimeout(timer)
-  }, [configClickCount])
 
   if (!order || !order.orderNumber) {
     return (
@@ -109,7 +90,7 @@ export default function Finish() {
 
   return (
     <div className="min-h-screen w-screen bg-green-600 flex flex-col items-center pt-10 pb-20 text-white overflow-y-auto print:bg-white print:p-0">
-      <h1 onClick={handleAdminUnlock} className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none screen-only">
+      <h1 className="text-5xl font-extrabold mb-6 text-center animate-bounce cursor-default select-none screen-only">
         ✅ SUCESSO!
       </h1>
 
@@ -128,9 +109,9 @@ export default function Finish() {
         {order.orderNumber}
       </div>
 
-      {order.orderObservation && (
+    {order.observation && (
         <div className="mb-10 bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20 screen-only">
-          <p className="text-2xl italic text-white font-medium italic">"{order.orderObservation}"</p>
+        <p className="text-2xl italic text-white font-medium">"{order.observation}"</p>
         </div>
       )}
 

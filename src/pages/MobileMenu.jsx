@@ -4,7 +4,7 @@ import { Search, Utensils, Clock, Minus, Plus, X, ShoppingBag } from "lucide-rea
 import { categories } from "../data/menu"
 import { productService, configService } from "../services/api"
 import Logo from "../assets/herosburger.jpg"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 
 export default function MobileMenu() {
     const { tableId } = useParams()
@@ -24,12 +24,18 @@ export default function MobileMenu() {
     } = useCart()
 
     const [selectedCategory, setSelectedCategory] = useState("burgers")
+    const [isPromoDay, setIsPromoDay] = useState(false)
     const [products, setProducts] = useState([])
     const [settingsHours, setSettingsHours] = useState("18:00 — 00:00")
+    const [merchantMessage, setMerchantMessage] = useState("")
+    const [tableBanners, setTableBanners] = useState([])
+    const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
     const [isCartOpen, setIsCartOpen] = useState(false)
     const [generalObservation, setGeneralObservation] = useState("")
+    const [customerPhone, setCustomerPhone] = useState("") // Para fidelidade
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [isTableLocked, setIsTableLocked] = useState(false)
+    const [fullScreenImage, setFullScreenImage] = useState(null)
     const { clearCart } = useCart()
 
     // Gera um ID de sessão único para este dispositivo durante esta visita
@@ -123,9 +129,38 @@ export default function MobileMenu() {
             if (data && Array.isArray(data)) {
                 const hoursConfig = data.find(c => c.key === 'hours')
                 if (hoursConfig) setSettingsHours(hoursConfig.value)
+                const msgConfig = data.find(c => c.key === 'merchant_message')
+                if (msgConfig) setMerchantMessage(msgConfig.value)
+                const tableBannerConfig = data.find(c => c.key === 'table_banner')
+                if (tableBannerConfig) {
+                    try {
+                        const parsed = JSON.parse(tableBannerConfig.value)
+                        setTableBanners(Array.isArray(parsed) ? parsed : (tableBannerConfig.value ? [tableBannerConfig.value] : []))
+                    } catch {
+                        setTableBanners(tableBannerConfig.value ? [tableBannerConfig.value] : [])
+                    }
+                }
+
+                const promoDaysConfig = data.find(c => c.key === 'promo_days')
+                let promoDays = [1, 2, 3, 4, 5]
+                if (promoDaysConfig) {
+                    try { promoDays = JSON.parse(promoDaysConfig.value) } catch (e) {}
+                }
+                const isPromo = promoDays.includes(new Date().getDay())
+                setIsPromoDay(isPromo)
+                if (isPromo) setSelectedCategory("promocoes")
             }
         })
     }, [])
+
+    useEffect(() => {
+        if (tableBanners.length > 1) {
+            const timer = setInterval(() => {
+                setCurrentBannerIndex((prev) => (prev + 1) % tableBanners.length)
+            }, 4000)
+            return () => clearInterval(timer)
+        }
+    }, [tableBanners.length])
 
     const filteredProducts = (products || []).filter(
         (p) => p.category === selectedCategory
@@ -134,7 +169,7 @@ export default function MobileMenu() {
     const handleFinalize = () => {
         setShowConfirmModal(false)
         const customerName = `Mesa ${tableId || "?"}`
-        const order = finalizeOrder(customerName, generalObservation)
+        const order = finalizeOrder(customerName, generalObservation, 'mesa', customerPhone)
         order.created_at_client = Date.now()
         navigate(`/mesa/${tableId}/sucesso`, { state: { order }, replace: true })
     }
@@ -168,6 +203,24 @@ export default function MobileMenu() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+            {/* MODAL DE IMAGEM EM TELA CHEIA */}
+            {fullScreenImage && (
+                <div 
+                    className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity" 
+                    onClick={() => setFullScreenImage(null)}
+                >
+                    <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors z-10">
+                        <X size={24} />
+                    </button>
+                    <img 
+                        src={fullScreenImage} 
+                        alt="Promoção Ampliada" 
+                        className="w-full h-auto max-h-[90vh] object-contain p-4 animate-in zoom-in duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
+
             {/* MODAL DE CONFIRMAÇÃO FINAL */}
             {showConfirmModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -181,6 +234,18 @@ export default function MobileMenu() {
                             <p className="text-gray-500 font-medium mb-8 leading-tight">
                                 Seu pedido de <span className="text-gray-900 font-bold">{total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> será enviado diretamente para a cozinha.
                             </p>
+
+                            {/* Campo opcional de telefone para fidelidade */}
+                            <div className="mb-6">
+                                <label className="text-xs font-bold text-gray-600 mb-2 block">📱 Telefone (opcional - para acumular pontos)</label>
+                                <input
+                                    type="tel"
+                                    placeholder="Seu telefone"
+                                    value={customerPhone}
+                                    onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none font-bold"
+                                />
+                            </div>
 
                             <div className="space-y-3">
                                 <button
@@ -222,7 +287,7 @@ export default function MobileMenu() {
 
             {/* CATEGORIAS */}
             <nav className="fixed top-[60px] left-0 right-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 overflow-x-auto no-scrollbar py-3 px-4 flex gap-2 transition-all duration-300">
-                {(categories || []).map((cat) => (
+                {(categories || []).filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
                     <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
@@ -238,9 +303,44 @@ export default function MobileMenu() {
 
             {/* LISTA DE PRODUTOS */}
             <main className="flex-1 mt-[120px] pb-32 px-4">
+                {merchantMessage && (
+                    <div className="mb-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 shadow-lg shadow-orange-500/20 relative overflow-hidden border border-orange-400/50 animate-in fade-in zoom-in duration-500">
+                        <p className="text-[11px] font-black text-white text-center leading-relaxed uppercase tracking-[0.15em] relative z-10 italic drop-shadow-md">
+                            "{merchantMessage}"
+                        </p>
+                    </div>
+                )}
+
+                {tableBanners.length > 0 && (
+                    <div className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-gray-100 bg-white relative">
+                        <div 
+                            className="flex transition-transform duration-500 ease-in-out"
+                            style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+                        >
+                            {tableBanners.map((url, idx) => (
+                                <div key={idx} className="w-full flex-shrink-0 p-3 bg-white">
+                                    <img
+                                        src={url}
+                                        alt={`Promoção ${idx + 1}`}
+                                        className="w-full h-44 object-cover rounded-3xl shadow-md border border-gray-100 cursor-pointer active:scale-95 transition-transform"
+                                        onClick={() => setFullScreenImage(url)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        {tableBanners.length > 1 && (
+                            <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10">
+                                {tableBanners.map((_, idx) => (
+                                    <button key={idx} onClick={() => setCurrentBannerIndex(idx)} className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentBannerIndex ? 'w-5 bg-orange-500' : 'w-1.5 bg-gray-300 hover:bg-gray-400'}`} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-black text-gray-900 uppercase tracking-tighter">
-                        {categories.find(c => c.id === selectedCategory)?.name || "Menu"}
+                        {categories.find(c => c.id === selectedCategory)?.name || "Promoções"}
                     </h2>
                     <span className="text-[10px] text-gray-400 font-bold uppercase">{filteredProducts.length} Itens</span>
                 </div>
@@ -329,7 +429,22 @@ export default function MobileMenu() {
                     <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-50 max-h-[85vh] flex flex-col animate-in slide-in-from-bottom-full duration-500 shadow-[0_-20px_50px_rgba(0,0,0,0.3)]">
                         <div className="p-4 flex items-center justify-between border-b border-gray-50">
                             <h3 className="font-black text-xl text-gray-900">Meu Pedido</h3>
-                            <button onClick={() => setIsCartOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-400"><X size={20} /></button>
+                            <div className="flex items-center gap-2">
+                                {cart.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm("Deseja realmente limpar seu pedido?")) {
+                                                clearCart();
+                                                setIsCartOpen(false);
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-red-500/10 text-red-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-500/20 active:bg-red-500 hover:text-white transition-all"
+                                    >
+                                        Limpar
+                                    </button>
+                                )}
+                                <button onClick={() => setIsCartOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-400"><X size={20} /></button>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -373,7 +488,12 @@ export default function MobileMenu() {
                             </div>
                             <button
                                 onClick={() => setShowConfirmModal(true)}
-                                className="w-full h-16 bg-black text-white rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95"
+                                disabled={cart.length === 0}
+                                className={`w-full h-16 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95 ${
+                                    cart.length === 0 
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                                        : 'bg-black text-white hover:bg-gray-900'
+                                }`}
                             >
                                 <ShoppingBag size={20} /> Finalizar na Mesa
                             </button>

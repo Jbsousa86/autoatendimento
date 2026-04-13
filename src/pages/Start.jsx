@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState, useEffect } from "react"
+import { configService } from "../services/api"
 import Logo from "../assets/herosburger.jpg"
 
 const BACKGROUND_IMAGES = [
@@ -12,49 +13,89 @@ const BACKGROUND_IMAGES = [
 export default function Start() {
   const navigate = useNavigate()
   const [currentImg, setCurrentImg] = useState(0)
+  const [backgroundImages, setBackgroundImages] = useState(BACKGROUND_IMAGES)
+  const [startVideo, setStartVideo] = useState("")
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentImg((prev) => (prev + 1) % BACKGROUND_IMAGES.length)
-    }, 5000)
-    return () => clearInterval(timer)
+    configService.getSettings().then(data => {
+      const startBannerConfig = data.find(c => c.key === 'start_banner')
+      if (startBannerConfig) {
+        try {
+          const parsed = JSON.parse(startBannerConfig.value)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setBackgroundImages(parsed)
+          }
+        } catch (e) {}
+      }
+
+      const startVideoConfig = data.find(c => c.key === 'start_video')
+      if (startVideoConfig && startVideoConfig.value) {
+        setStartVideo(startVideoConfig.value)
+      }
+    })
   }, [])
 
+  useEffect(() => {
+    if (backgroundImages.length <= 1) return; // Não faz animação se tiver só 1 imagem
+    const timer = setInterval(() => {
+      setCurrentImg((prev) => (prev + 1) % backgroundImages.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [backgroundImages.length])
+
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center text-white relative overflow-hidden bg-gray-900">
-      {/* BACKGROUND SLIDESHOW */}
-      {BACKGROUND_IMAGES.map((img, idx) => (
-        <div
-          key={img}
-          className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out`}
-          style={{
-            backgroundImage: `url('${img}')`,
-            opacity: currentImg === idx ? 0.4 : 0
-          }}
+    <div 
+      onClick={() => navigate("/menu")}
+      className="h-screen w-screen flex flex-col items-center justify-end pb-16 text-white relative overflow-hidden bg-gray-900 cursor-pointer select-none"
+    >
+      {/* BACKGROUND VIDEO OU SLIDESHOW */}
+      {startVideo ? (
+        <video
+          src={startVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-100 transition-opacity duration-1000"
         />
-      ))}
+      ) : (
+        backgroundImages.map((img, idx) => (
+          <div
+            key={img}
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out`}
+            style={{
+              backgroundImage: `url('${img}')`,
+              opacity: currentImg === idx ? 1 : 0
+            }}
+          />
+        ))
+      )}
 
-      {/* Dark Overlay for better contrast */}
-      <div className="absolute inset-0 bg-black/40"></div>
+      {/* Gradient Overlay: Escuro em baixo para ler os textos, topo 100% transparente */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
 
-      {/* Conteúdo ORIGINAL */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in-up">
+      {/* LOGO E SLOGAN (SUPERIOR DIREITO) */}
+      <div className="absolute top-8 right-8 md:top-12 md:right-12 z-20 flex flex-col items-end group">
         <img
           src={Logo}
           alt="Logo Hero's Burger"
-          className="w-64 h-64 object-contain mb-8 rounded-full shadow-2xl border-4 border-white/10"
+          className="w-24 h-24 md:w-28 md:h-28 object-contain mb-3 rounded-full shadow-2xl border-2 border-white/20 opacity-60 group-hover:opacity-100 transition-opacity duration-300"
         />
-
-        <p className="text-2xl mb-12 text-gray-200 uppercase tracking-widest font-bold text-center">
+        <p className="text-[10px] md:text-xs text-white uppercase tracking-widest font-bold text-right drop-shadow-lg opacity-60 group-hover:opacity-100 transition-opacity duration-300">
           O melhor sabor da cidade
         </p>
+      </div>
 
-        <button
-          onClick={() => navigate("/menu")}
-          className="w-96 py-8 bg-green-600 hover:bg-green-500 text-white text-3xl font-black rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 border-4 border-white/20 animate-pulse"
-        >
-          FAZER PEDIDO
-        </button>
+      {/* INSTRUÇÃO DE TOQUE (RODAPÉ) */}
+      <div className="relative z-10 flex flex-col items-center animate-fade-in-up">
+        <div className="mt-4 flex flex-col items-center">
+          <span className="text-3xl md:text-4xl font-light tracking-widest uppercase text-white/90 mb-1 drop-shadow-md">
+            Toque na Tela
+          </span>
+          <span className="text-xs md:text-sm font-medium tracking-[0.3em] uppercase text-white/50 drop-shadow-md">
+            Para iniciar seu pedido
+          </span>
+        </div>
       </div>
     </div>
   )

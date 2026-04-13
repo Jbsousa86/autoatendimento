@@ -1,9 +1,9 @@
 import { useState } from "react"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 import { useNavigate } from "react-router-dom"
 import Logo from "../assets/herosburger.jpg" // Importanto Logo
 
-export function Cart() {
+export function Cart({ customerPhone = "", setCustomerPhone = null }) {
   const { cart, finalizeOrder, increase, decrease, updateObservation } = useCart()
   const [customerName, setCustomerName] = useState("") // Nome do cliente
   const [generalObservation, setGeneralObservation] = useState("") // Obs geral
@@ -42,7 +42,7 @@ export function Cart() {
           cart.map((item) => (
             <div
               // CARTÃO FLUTUANTE (Floating Card Style)
-              key={`${item.id}-${item.qty}`}
+                  key={item.id}
               className="bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl hover:scale-105 transition-all outline outline-2 outline-transparent hover:outline-orange-400 group"
             >
               {/* Nome e Preço Unitário */}
@@ -116,7 +116,7 @@ export function Cart() {
 
         {/* INPUT NOME DO CLIENTE */}
         <div className="mb-4">
-          <label className="block text-gray-800 text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest text-white drop-shadow-md">Seu Nome (Obrigatório)</label>
+          <label className="block text-white text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest drop-shadow-md">Seu Nome (Obrigatório)</label>
           <input
             type="text"
             placeholder="Digite seu nome aqui..."
@@ -137,6 +137,20 @@ export function Cart() {
             onChange={(e) => setGeneralObservation(e.target.value)}
           />
         </div>
+
+        {/* TELEFONE PARA FIDELIDADE (OPCIONAL) */}
+        {setCustomerPhone && (
+          <div className="mb-4">
+            <label className="block text-white text-sm font-bold mb-1 ml-1 uppercase text-[10px] tracking-widest drop-shadow-md">📱 Telefone (opcional - para pontuar na fidelidade)</label>
+            <input
+              type="tel"
+              placeholder="Seu telefone para acumular pontos..."
+              className="w-full bg-white/80 border-2 border-white/50 rounded-xl p-3 text-sm font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-orange-400/50 transition-all shadow-lg"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
+          </div>
+        )}
 
         {/* ESCOLHA DO PAGAMENTO (NOVO) */}
         <div className="mb-6">
@@ -175,7 +189,7 @@ export function Cart() {
         <button
           onClick={() => {
             if (!customerName.trim() || !paymentMethod) return
-            const order = finalizeOrder(customerName, generalObservation, paymentMethod)
+            const order = finalizeOrder(customerName, generalObservation, paymentMethod, customerPhone)
             order.created_at_client = Date.now()
             navigate("/finish", { state: { order }, replace: true })
           }}

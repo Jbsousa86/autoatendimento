@@ -6,14 +6,15 @@ import { CategoryButton } from "../components/CategoryButton"
 import { ProductCard } from "../components/ProductCard"
 import { Cart } from "../components/Cart"
 import Logo from "../assets/herosburger.jpg"
-import { useCart } from "../context/CartContext"
-
+import { useCart } from "../context/useCart"
 
 export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState("burgers")
+  const [isPromoDay, setIsPromoDay] = useState(false)
   const [products, setProducts] = useState([])
   const [settingsHours, setSettingsHours] = useState("18:00 — 00:00")
   const [time, setTime] = useState(new Date())
+  const [customerPhone, setCustomerPhone] = useState("") // Para fidelidade
   const navigate = useNavigate()
   const { hfPizza, hfSize, cancelHalfPizza } = useCart()
 
@@ -23,6 +24,15 @@ export default function Menu() {
     configService.getSettings().then(data => {
       const hoursConfig = data.find(c => c.key === 'hours')
       if (hoursConfig) setSettingsHours(hoursConfig.value)
+
+      const promoDaysConfig = data.find(c => c.key === 'promo_days')
+      let promoDays = [1, 2, 3, 4, 5]
+      if (promoDaysConfig) {
+        try { promoDays = JSON.parse(promoDaysConfig.value) } catch (e) {}
+      }
+      const isPromo = promoDays.includes(new Date().getDay())
+      setIsPromoDay(isPromo)
+      if (isPromo) setSelectedCategory("promocoes")
     })
 
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -78,7 +88,7 @@ export default function Menu() {
         </div>
 
         <div className="w-full space-y-4 pb-10">
-          {categories.map((cat) => (
+          {categories.filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
             <CategoryButton
               key={cat.id}
               text={cat.name}
@@ -106,7 +116,7 @@ export default function Menu() {
       </main>
 
       {/* COLUNA 3 — CARRINHO */}
-      <Cart />
+      <Cart customerPhone={customerPhone} setCustomerPhone={setCustomerPhone} />
 
     </div>
   )

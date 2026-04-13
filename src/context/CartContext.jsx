@@ -1,9 +1,11 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useState } from "react"
+import { loyaltyService, phoneUtils } from "../services/api"
 
-const CartContext = createContext()
+export const CartContext = createContext()
 
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([])
+  const [lastOrder, setLastOrder] = useState(null)
   const [hfPizza, setHfPizza] = useState(null)
   const [hfSize, setHfSize] = useState(null)
 
@@ -83,7 +85,7 @@ export function CartProvider({ children }) {
     return cart.reduce((sum, item) => sum + (Number(item.price) * (item.qty || 1)), 0)
   }
 
-  function finalizeOrder(customerName = "Cliente", generalObs = "", paymentMethod = 'totem') {
+  function finalizeOrder(customerName = "Cliente", generalObs = "", paymentMethod = 'totem', customerPhone = null, loyaltyDiscount = 0) {
     const freshTotal = getCartTotal()
     // Criamos uma cópia rasa do carrinho atual para o objeto do pedido
     const orderItems = [...cart]
@@ -95,7 +97,25 @@ export function CartProvider({ children }) {
       customerName: customerName || "Cliente",
       observation: generalObs,
       cashierName: null, 
-      paymentMethod: paymentMethod || 'totem'
+      paymentMethod: paymentMethod || 'totem',
+      customerPhone: customerPhone
+    }
+    
+    // 🤖 AUTO-DETECT TELEFONE PARA WHATSAPP
+    const finalPhone = phoneUtils.autoDetectPhoneFromOrder(order) || customerPhone
+    
+    // Atualiza o número no objeto se foi detectado
+    if (finalPhone && !order.customerPhone) {
+      order.customerPhone = finalPhone
+      console.log("📱 Telefone detectado automaticamente para WhatsApp:", finalPhone)
+    }
+    
+    // Registra pontos de fidelidade se houver telefone
+    if (finalPhone) {
+      console.log("❤️ Registrando pontos de fidelidade para:", finalPhone)
+      loyaltyService.createOrUpdateCustomer(finalPhone, freshTotal, loyaltyDiscount).catch(err => {
+        console.error("❌ Erro ao registrar pontos de fidelidade:", err)
+      })
     }
     
     // Limpamos o carrinho IMEDIATAMENTE no contexto
@@ -103,8 +123,6 @@ export function CartProvider({ children }) {
     setLastOrder(order)
     return order
   }
-
-  const [lastOrder, setLastOrder] = useState(null)
 
   return (
     <CartContext.Provider
@@ -127,8 +145,4 @@ export function CartProvider({ children }) {
       {children}
     </CartContext.Provider>
   )
-}
-
-export function useCart() {
-  return useContext(CartContext)
 }

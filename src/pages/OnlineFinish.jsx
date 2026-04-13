@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
 import { CheckCircle, ShoppingBag, MessageCircle, ArrowLeft, MapPin, User, Hash } from "lucide-react"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 import { orderService, configService } from "../services/api"
 
 export default function OnlineFinish() {

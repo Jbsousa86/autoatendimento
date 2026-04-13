@@ -1,21 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { orderService } from "../services/api"
 
-const DING_SOUND = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU" +
-    "tvT19AACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg" +
-    "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC" +
-    "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg" +
-    "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC" +
-    "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg" +
-    "//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAG1xUAALDkAALDkAAAL5hTbTDKwCYQ" +
-    "sP/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1mq4If/5UkFnPlPpHgCJ1m" +
-    "q4If7ktF+6EAAAAAB1xUAACw5AACw5AAAC+YU20wysAmELD/+VJBZz5T6R4AidZquCH/+VJBZz5T6R" +
-    "4AidZquCH/+VJBZz5T6R4AidZquCH/+VJBZz5T6R4AidZquCH+5LRfuhAAAAAAHAAaAAAAAAAAAAAg" +
-    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAA" +
-    "AAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAg" +
-    "AAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAAAAAAAgAAAAAAAA" +
-    "AAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-
 // ⚠️ O Base64 acima ainda pode falhar se corrompido na cópia.
 // Vamos usar um LINK REAL E CONFIÁVEL de fallback que toca em qualquer lugar.
 // A estratégia de incorporação direta é boa, mas links CDN são mais seguros para MP3s complexos.
@@ -39,8 +24,14 @@ export default function Kitchen() {
         window.playTestSound = playNotification
 
         const loadOrders = async () => {
-            // Buscamos os pedidos. A cozinha filtra apenas os pendentes/preparando.
-            const data = await orderService.getOrders()
+            // Para a cozinha, não precisamos buscar 10.000 pedidos antigos. 
+            // Buscamos apenas das últimas 24 horas para garantir performance imediata.
+            const start = new Date()
+            start.setHours(start.getHours() - 24)
+            const end = new Date()
+            end.setHours(end.getHours() + 24)
+            
+            const data = await orderService.getOrders(start.toISOString(), end.toISOString())
             const safeData = Array.isArray(data) ? data : []
 
             // Logica do BIP: Verificar se tem novidade
@@ -67,8 +58,29 @@ export default function Kitchen() {
         loadOrders()
 
         // INSCRIÇÃO REALTIME (Dispara o loadOrders)
-        const subscription = orderService.subscribeToOrders(() => {
-            loadOrders() // A lógica do som agora está dentro do loadOrders
+        const subscription = orderService.subscribeToOrders((payload) => {
+            const { eventType, new: newOrder, old: oldOrder } = payload;
+            
+            setOrders(prev => {
+                let updated = [...prev];
+                if (eventType === 'INSERT') {
+                    if (!updated.some(o => o.id === newOrder.id)) {
+                        if (newOrder.status === 'pending') {
+                            console.log("🔔 Novo pedido detectado via Realtime! Tocando som...");
+                            window.playTestSound && window.playTestSound();
+                            knownIds.current.add(newOrder.id);
+                        }
+                        // Garante que items seja array ao chegar do realtime
+                        const processedOrder = { ...newOrder, items: Array.isArray(newOrder.items) ? newOrder.items : [] };
+                        updated.unshift(processedOrder);
+                    }
+                } else if (eventType === 'UPDATE') {
+                    updated = updated.map(o => o.id === newOrder.id ? { ...newOrder, items: Array.isArray(newOrder.items) ? newOrder.items : [] } : o);
+                } else if (eventType === 'DELETE') {
+                    updated = updated.filter(o => o.id !== oldOrder.id);
+                }
+                return updated.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            });
         })
 
         // FALBACK: Polling a cada 5 segundos
@@ -143,7 +155,7 @@ export default function Kitchen() {
                                 <div className="text-right">
                                     <span className="block text-xs text-gray-400">Aberto às</span>
                                     <span className="font-mono text-lg">{formatTime(order.created_at)}</span>
-                                    {order.status === 'pending' && <span className="block mt-1 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full text-center text-black">AGUARDANDO</span>}
+                                    {order.status === 'pending' && <span className="block mt-1 text-xs font-bold bg-gray-200 px-2 py-0.5 rounded-full text-center text-black">AGUARDANDO</span>}
                                     {order.status === 'preparing' && <span className="block mt-1 text-xs font-bold text-yellow-900 bg-yellow-500 px-2 py-0.5 rounded-full text-center animate-pulse">PREPARANDO</span>}
                                 </div>
                             </div>

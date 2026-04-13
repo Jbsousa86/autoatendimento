@@ -1,7 +1,7 @@
 import { useNavigate, useLocation, useParams } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
 import { CheckCircle, ArrowLeft, Home, ShoppingBag } from "lucide-react"
-import { useCart } from "../context/CartContext"
+import { useCart } from "../context/useCart"
 import { orderService } from "../services/api"
 
 export default function MobileFinish() {
