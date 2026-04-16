@@ -138,9 +138,6 @@
     }
 
     /* Esconde o conteúdo principal se não for o recibo */
-    #root>div:not(.print-container) {
-        /* Se o recibo estiver fora do fluxo principal, isso ajuda */
-    }
 
     /* 3. FORMATAÇÃO DO RECIBO PARA IMPRESSÃO */
     #receipt {
@@ -161,6 +158,27 @@
     /* Garante que imagens e decorações sejam removidas */
     img {
         display: none !important;
+    }
+
+    /* Garantia forte: esconde todo o resto e deixa apenas o recibo visível
+       Isso evita que modais, relatórios ou outros painéis acabem sendo enviados
+       para a impressora quando o usuário aciona `window.print()` */
+    body * {
+        visibility: hidden !important;
+    }
+
+    #receipt, #receipt * {
+        visibility: visible !important;
+    }
+
+    /* Posiciona o recibo sozinho na página de impressão */
+    #receipt {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 70mm !important;
+        margin: 0 !important;
+        padding: 5mm 2mm !important;
     }
 
     /* Ajustes internos do recibo */
