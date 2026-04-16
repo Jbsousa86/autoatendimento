@@ -188,7 +188,7 @@
     }
 
     #receipt tr {
-        border-bottom: 1pt dashed #000 !important;
+        border-bottom: 1pt solid #000 !important;
     }
 
     #receipt td {
@@ -198,5 +198,26 @@
     #receipt .flex {
         display: flex !important;
         justify-content: space-between !important;
+    }
+
+    /* Forçar cor preta, remover opacidades e garantir ajuste de cor na impressão */
+    /* Isso ajuda impressoras térmicas/Wi-Fi que podem renderizar texto muito claro */
+    #receipt,
+    #receipt *,
+    #receipt *::before,
+    #receipt *::after {
+        color: #000 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        -webkit-filter: none !important;
+        filter: none !important;
+        text-shadow: none !important;
+        opacity: 1 !important;
+        background: transparent !important;
+    }
+
+    /* Aumenta peso das fontes no recibo para melhorar legibilidade */
+    #receipt {
+        font-weight: 600 !important;
     }
 }
