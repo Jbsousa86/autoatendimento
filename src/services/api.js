@@ -47,22 +47,42 @@ export const productService = {
             price_g: product.price_g ? parseFloat(product.price_g) : null,
             description: product.description,
             image: product.image,
-            category: product.category
+            category: product.category,
+            out_of_stock: product.out_of_stock || false,
+            is_promo: product.is_promo || false,
+            old_price: product.old_price ? parseFloat(product.old_price) : null
         }
 
-        if (!isNew) {
-            // Atualizar
-            const { error } = await supabase
-                .from('products')
-                .update(productToSave)
-                .eq('id', product.id)
-            if (error) throw error
-        } else {
-            // Criar
-            const { error } = await supabase
-                .from('products')
-                .insert([productToSave])
-            if (error) throw error
+        try {
+            if (!isNew) {
+                // Atualizar
+                const { error } = await supabase
+                    .from('products')
+                    .update(productToSave)
+                    .eq('id', product.id)
+                if (error) throw error
+            } else {
+                // Criar
+                const { error } = await supabase
+                    .from('products')
+                    .insert([productToSave])
+                if (error) throw error
+            }
+        } catch (error) {
+            if (error.code === '42703' || error.message?.includes("out_of_stock") || error.message?.includes("is_promo") || error.message?.includes("old_price")) {
+                console.warn("Colunas novas ausentes. Salvando sem elas...");
+                delete productToSave.out_of_stock;
+                delete productToSave.is_promo;
+                delete productToSave.old_price;
+                
+                const fallbackQuery = !isNew ? supabase.from('products').update(productToSave).eq('id', product.id) : supabase.from('products').insert([productToSave]);
+                const { error: err2 } = await fallbackQuery;
+                if (err2) throw err2;
+                
+                alert("⚠️ AVISO: O banco de dados precisa ser atualizado!\nCrie as colunas 'out_of_stock', 'is_promo' (booleanos) e 'old_price' (numeric / float8) na sua tabela 'products' do Supabase.");
+            } else {
+                throw error;
+            }
         }
     },
 
@@ -447,6 +467,9 @@ export const phoneUtils = {
 
 // ==========================================
 export const loyaltyService = {
+    // Validade dos pontos (dias de inatividade)
+    EXPIRY_DAYS: 30,
+
     async getCustomerByPhone(phone) {
         const cleanPhone = phone.replace(/\D/g, '')
         
@@ -466,8 +489,15 @@ export const loyaltyService = {
     async createOrUpdateCustomer(phone, total, discountToRedeem = 0) {
         const cleanPhone = phone.replace(/\D/g, '')
         
-        // Calcula pontos: 1 ponto a cada R$ 1,00 gasto
-        const pointsToAdd = Math.floor(total)
+        // Busca configurações dinâmicas
+        const settings = await configService.getSettings()
+        const earnRateConf = settings.find(c => c.key === 'loyalty_earn_rate')
+        const redeemRateConf = settings.find(c => c.key === 'loyalty_redeem_rate')
+        const earnRate = Math.max(0.1, earnRateConf ? Number(earnRateConf.value) || 2 : 2)
+        const redeemRate = Math.max(1, redeemRateConf ? Number(redeemRateConf.value) || 10 : 10)
+
+        // Calcula pontos
+        const pointsToAdd = Math.floor(total / earnRate)
 
         // Primeiro tenta buscar o cliente
         const existing = await this.getCustomerByPhone(cleanPhone)
@@ -475,7 +505,7 @@ export const loyaltyService = {
         if (existing) {
             let pointsToRedeem = 0;
             if (discountToRedeem > 0) {
-                pointsToRedeem = discountToRedeem * 20;
+                pointsToRedeem = discountToRedeem * redeemRate;
             }
             
             const finalPoints = existing.loyalty_points + pointsToAdd - pointsToRedeem;
@@ -565,8 +595,13 @@ export const loyaltyService = {
                 return null
             }
 
-            // Calcula pontos gastos: R$ 0,05 por ponto (ou seja, 20 pontos = R$ 1,00)
-            const pointsToRedeem = discount * 20
+            // Busca configuração dinâmica
+            const settings = await configService.getSettings()
+            const redeemRateConf = settings.find(c => c.key === 'loyalty_redeem_rate')
+            const redeemRate = Math.max(1, redeemRateConf ? Number(redeemRateConf.value) || 10 : 10)
+
+            // Calcula pontos gastos
+            const pointsToRedeem = discount * redeemRate
 
             if (customer.loyalty_points < pointsToRedeem) {
                 console.error("Pontos insuficientes")
@@ -632,7 +667,17 @@ export const loyaltyService = {
             console.error("Erro ao buscar clientes:", error)
             return []
         }
-        return data || []
+        
+        const now = new Date()
+        return (data || []).map(customer => {
+            if (customer.last_purchase) {
+                const diffDays = (now - new Date(customer.last_purchase)) / (1000 * 60 * 60 * 24)
+                if (diffDays > this.EXPIRY_DAYS && customer.loyalty_points > 0) {
+                    customer.loyalty_points = 0 // Exibe zerado no painel caso esteja expirado
+                }
+            }
+            return customer;
+        })
     },
 
     async updateCustomerPoints(customerId, newPoints) {
@@ -683,7 +728,7 @@ export const loyaltyService = {
             const newPoints = customer.loyalty_points + points
             const { error } = await supabase
                 .from('loyalty_customers')
-                .update({ loyalty_points: newPoints })
+                .update({ loyalty_points: newPoints, last_purchase: new Date().toISOString() })
                 .eq('id', customerId)
 
             if (error) return null

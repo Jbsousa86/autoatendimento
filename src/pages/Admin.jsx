@@ -50,6 +50,7 @@ export default function Admin() {
     const [loyaltyTransactions, setLoyaltyTransactions] = useState([])
     const [customerDetails, setCustomerDetails] = useState(null) // Modal de detalhes
     const [customerOrders, setCustomerOrders] = useState([]) // Pedidos do cliente
+    const [loyaltyCustomerPage, setLoyaltyCustomerPage] = useState(0) // Paginação de clientes
 
     // Configura data inicial para o PRIMEIRO dia do mês atual
     const getFirstDayOfMonth = () => {
@@ -72,6 +73,8 @@ export default function Admin() {
     const [startBanners, setStartBanners] = useState([])
     const [newStartBannerUrl, setNewStartBannerUrl] = useState("")
     const [startVideoUrl, setStartVideoUrl] = useState("")
+    const [loyaltyEarnRate, setLoyaltyEarnRate] = useState(2)
+    const [loyaltyRedeemRate, setLoyaltyRedeemRate] = useState(10)
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -130,6 +133,11 @@ export default function Admin() {
                 setStartBanners(startBannerConfig.value ? [startBannerConfig.value] : [])
             }
         }
+        const earnRateConfig = data.find(c => c.key === 'loyalty_earn_rate')
+        const redeemRateConfig = data.find(c => c.key === 'loyalty_redeem_rate')
+        if (earnRateConfig) setLoyaltyEarnRate(Math.max(0.1, Number(earnRateConfig.value) || 2))
+        if (redeemRateConfig) setLoyaltyRedeemRate(Math.max(1, Number(redeemRateConfig.value) || 10))
+
         if (startVideoConfig) setStartVideoUrl(startVideoConfig.value || "")
     }
 
@@ -143,6 +151,8 @@ export default function Admin() {
             await configService.updateSetting('promo_days', JSON.stringify(promoDays))
             await configService.updateSetting('start_banner', JSON.stringify(startBanners))
             await configService.updateSetting('start_video', startVideoUrl)
+            await configService.updateSetting('loyalty_earn_rate', loyaltyEarnRate)
+            await configService.updateSetting('loyalty_redeem_rate', loyaltyRedeemRate)
             alert("✅ Configurações atualizadas!")
         } catch (error) {
             alert("❌ Erro ao salvar configurações.")
@@ -263,12 +273,13 @@ export default function Admin() {
             
             // Calcula estatísticas
             const totalSpent = customerOrdersFiltered.reduce((sum, o) => sum + (Number(o.total) || 0), 0)
-            const pointsGained = Math.floor(totalSpent) // 1 ponto por real
+            const pointsGained = Math.floor(totalSpent / loyaltyEarnRate)
             
             // Busca transações de resgate do cliente
             const allTransactions = loyaltyTransactions
             const customerRedemptions = allTransactions.filter(tx => tx.customer_id === customer.id && tx.type === 'redemption')
             const pointsRedeemed = customerRedemptions.reduce((sum, tx) => sum + Math.abs(tx.points || 0), 0)
+            const pointsExpired = allTransactions.filter(tx => tx.customer_id === customer.id && tx.type === 'expired').reduce((sum, tx) => sum + Math.abs(tx.points || 0), 0)
             
             setCustomerDetails({
                 ...customer,
@@ -278,7 +289,8 @@ export default function Admin() {
                     totalSpent,
                     pointsGained,
                     pointsRedeemed,
-                    discountUsed: (pointsRedeemed / 20),
+                    pointsExpired,
+                    discountUsed: (pointsRedeemed / loyaltyRedeemRate),
                     pointsBalance: customer.loyalty_points
                 }
             })
@@ -437,7 +449,7 @@ export default function Admin() {
 
     const handleAddNew = () => {
         const tempId = Date.now()
-        const newProduct = { id: tempId, name: "", price: "", description: "", image: "", category: "promocoes" }
+        const newProduct = { id: tempId, name: "", price: "", old_price: "", description: "", image: "", category: "burgers", out_of_stock: false, is_promo: false }
         setProducts([newProduct, ...products])
         setEditingId(tempId)
         setForm(newProduct) // Start editing immediately
@@ -649,8 +661,75 @@ export default function Admin() {
 
             {/* TAB PRODUTOS */}
             {activeTab === 'products' && (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden overflow-x-auto">
-                    <div className="min-w-[800px]"> {/* Force min width for table */}
+                <div className="space-y-6">
+                    {/* BLOCO ESPECIAL: PROMOÇÕES DO DIA */}
+                    <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-3xl shadow-md overflow-hidden">
+                        <div className="p-5 border-b border-orange-200 flex justify-between items-center bg-white/50 backdrop-blur-sm">
+                            <div>
+                                <h2 className="text-xl font-black text-orange-800 flex items-center gap-2 uppercase tracking-tighter">
+                                    🔥 Promoções do Dia
+                                </h2>
+                                <p className="text-xs text-orange-600 font-bold mt-1 uppercase tracking-widest">Destaques no início do cardápio</p>
+                            </div>
+                            <span className="bg-orange-500 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-sm">
+                                {products.filter(p => p.category === 'promocoes' || p.is_promo).length} itens ativos
+                            </span>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                            {products.filter(p => p.category === 'promocoes' || p.is_promo).map(product => (
+                                <div key={product.id} className={`bg-white p-4 rounded-2xl shadow-sm border transition-all flex flex-col gap-3 relative overflow-hidden group ${product.out_of_stock ? 'border-red-200 opacity-70' : 'border-orange-100 hover:border-orange-300 hover:shadow-md'}`}>
+                                    {product.out_of_stock && (
+                                        <div className="absolute top-3 right-[-20px] bg-red-600 text-white text-[9px] font-black px-8 py-0.5 rotate-45 uppercase shadow-sm">Esgotado</div>
+                                    )}
+                                    <div className="flex gap-3 items-center">
+                                        <div className="w-14 h-14 rounded-xl bg-gray-50 overflow-hidden shrink-0 border border-gray-100 shadow-inner relative">
+                                            {product.image ? (
+                                                <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🍔</div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-black text-gray-800 text-sm leading-tight truncate" title={product.name}>{product.name}</h3>
+                                            <p className="text-orange-600 font-black text-sm mt-1">
+                                                {product.old_price && <span className="text-gray-400 line-through text-[10px] mr-1 font-medium">R$ {Number(product.old_price).toFixed(2)}</span>}
+                                                R$ {(Number(product.price) || 0).toFixed(2)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            handleEdit(product);
+                                            setTimeout(() => {
+                                                const tableEl = document.getElementById('tabela-produtos');
+                                                if (tableEl) {
+                                                    const y = tableEl.getBoundingClientRect().top + window.scrollY - 100;
+                                                    window.scrollTo({ top: y, behavior: 'smooth' });
+                                                }
+                                            }, 50);
+                                        }}
+                                        className="w-full bg-orange-100 text-orange-700 py-2.5 rounded-xl text-[10px] font-black hover:bg-orange-200 active:scale-95 transition-all uppercase tracking-widest mt-auto border border-orange-200"
+                                    >
+                                        Editar Produto
+                                    </button>
+                                </div>
+                            ))}
+                            {products.filter(p => p.category === 'promocoes' || p.is_promo).length === 0 && (
+                                <div className="col-span-full py-8 text-center flex flex-col items-center justify-center">
+                                    <span className="text-4xl mb-3 opacity-50">🏷️</span>
+                                    <p className="text-orange-500 font-black text-lg tracking-tight uppercase">Nenhuma promoção ativa</p>
+                                    <p className="text-orange-400 text-sm mt-1 font-medium">Edite um produto na tabela abaixo e marque a opção "Destacar em Promoções".</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4 px-2">
+                        <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter">📦 Gerenciar Todos os Produtos</h2>
+                    </div>
+
+                    <div id="tabela-produtos" className="bg-white rounded-xl shadow-lg overflow-hidden overflow-x-auto">
+                        <div className="min-w-[800px]"> {/* Force min width for table */}
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-200 text-gray-600 uppercase text-sm font-bold">
                                 <tr>
@@ -694,13 +773,23 @@ export default function Admin() {
                                                             </div>
                                                             <div className="flex items-center gap-1">
                                                                 <span className="text-xs font-bold text-gray-700 w-4">M:</span>
-                                                                <input
-                                                                    className="border p-1 rounded w-20 text-sm font-bold"
-                                                                    type="number"
-                                                                    placeholder="0.00"
-                                                                    value={form.price}
-                                                                    onChange={e => handleChange('price', e.target.value)}
-                                                                />
+                                                                <div className="flex flex-col gap-1">
+                                                                    <input
+                                                                        className="border p-1 rounded w-20 text-[10px] text-gray-500 line-through"
+                                                                        type="number"
+                                                                        placeholder="De R$"
+                                                                        value={form.old_price || ''}
+                                                                        onChange={e => handleChange('old_price', e.target.value)}
+                                                                        title="Preço antigo (Opcional)"
+                                                                    />
+                                                                    <input
+                                                                        className="border p-1 rounded w-20 text-sm font-bold"
+                                                                        type="number"
+                                                                        placeholder="0.00"
+                                                                        value={form.price}
+                                                                        onChange={e => handleChange('price', e.target.value)}
+                                                                    />
+                                                                </div>
                                                             </div>
                                                             <div className="flex items-center gap-1">
                                                                 <span className="text-xs font-bold text-green-600 w-4">G:</span>
@@ -715,13 +804,23 @@ export default function Admin() {
                                                         </div>
                                                     ) : (
                                                         /* OUTROS PRODUTOS (APENAS 1 PREÇO) */
-                                                        <input
-                                                            className="border p-2 rounded w-20"
-                                                            type="number"
-                                                            placeholder="0.00"
-                                                            value={form.price}
-                                                            onChange={e => handleChange('price', e.target.value)}
-                                                        />
+                                                        <div className="flex flex-col gap-1">
+                                                            <input
+                                                                className="border p-1 rounded w-20 text-xs text-gray-500 line-through"
+                                                                type="number"
+                                                                placeholder="De: 0.00"
+                                                                value={form.old_price || ''}
+                                                                onChange={e => handleChange('old_price', e.target.value)}
+                                                                title="Preço antigo (Opcional)"
+                                                            />
+                                                            <input
+                                                                className="border p-2 rounded w-20 border-green-200 focus:border-green-500"
+                                                                type="number"
+                                                                placeholder="Por: 0.00"
+                                                                value={form.price}
+                                                                onChange={e => handleChange('price', e.target.value)}
+                                                            />
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td className="p-4">
@@ -737,6 +836,24 @@ export default function Admin() {
                                                         <option value="sodas">🥤 Refrigerantes</option>
                                                         <option value="vitaminas">🍹 Vitaminas</option>
                                                     </select>
+                                                    <label className="flex items-center gap-2 mt-3 cursor-pointer p-2 bg-red-50 rounded border border-red-100 w-full">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-4 h-4 accent-red-600"
+                                                            checked={form.out_of_stock || false}
+                                                            onChange={e => handleChange('out_of_stock', e.target.checked)}
+                                                        />
+                                                        <span className="text-xs font-black text-red-600 uppercase">Marcar como Esgotado</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 mt-3 cursor-pointer p-2 bg-orange-50 rounded border border-orange-100 w-full">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-4 h-4 accent-orange-600"
+                                                            checked={form.is_promo || false}
+                                                            onChange={e => handleChange('is_promo', e.target.checked)}
+                                                        />
+                                                        <span className="text-xs font-black text-orange-600 uppercase">Destacar em Promoções</span>
+                                                    </label>
                                                 </td>
                                                 <td className="p-4">
                                                     <textarea
@@ -802,8 +919,15 @@ export default function Admin() {
                                             // MODO VISUALIZAÇÃO
                                             <>
                                                 <td className="p-4 font-mono text-xs text-gray-400">#{product.id}</td>
-                                                <td className="p-4 font-bold text-gray-800">{product.name}</td>
-                                                <td className="p-4 text-green-600 font-bold">R$ {(Number(product.price) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                <td className="p-4 font-bold text-gray-800">
+                                                    {product.name}
+                                                    {product.out_of_stock && <span className="ml-2 bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded font-black uppercase">Esgotado</span>}
+                                                    {product.is_promo && <span className="ml-2 bg-orange-100 text-orange-600 text-[10px] px-2 py-0.5 rounded font-black uppercase">🔥 Promoção</span>}
+                                                </td>
+                                                <td className="p-4 text-green-600 font-bold">
+                                                    {product.old_price && <span className="text-gray-400 line-through text-[10px] block font-normal leading-none mb-1">R$ {(Number(product.old_price) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
+                                                    R$ {(Number(product.price) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                </td>
                                                 <td className="p-4 text-gray-500 text-xs uppercase">{product.category}</td>
                                                 <td className="p-4 text-gray-500 text-sm max-w-xs truncate" title={product.description}>
                                                     {product.description || '-'}
@@ -840,6 +964,7 @@ export default function Admin() {
                         </div>
                     </div>
                 </div>
+            </div>
             )}
 
             {/* TAB RELATÓRIOS */}
@@ -1284,6 +1409,47 @@ export default function Admin() {
             {/* TAB FIDELIDADE */}
             {activeTab === 'loyalty' && (
                 <div className="max-w-6xl mx-auto p-4 space-y-6">
+                    {/* VISÃO GERAL DE FIDELIDADE */}
+                    {(() => {
+                        const totalLoyaltyCustomers = loyaltyCustomers.length;
+                        const totalActivePoints = loyaltyCustomers.reduce((sum, c) => sum + (Number(c.loyalty_points) || 0), 0);
+                        const totalDiscountGiven = loyaltyTransactions
+                            .filter(t => t.type === 'redemption')
+                            .reduce((sum, t) => sum + (Number(t.discount_amount) || Math.abs(Number(t.points) / loyaltyRedeemRate) || 0), 0);
+                        const totalRedemptions = loyaltyTransactions.filter(t => t.type === 'redemption').length;
+                        
+                        return (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Total de Clientes</h3>
+                                    <p className="text-2xl font-black text-blue-600">{totalLoyaltyCustomers}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Cadastrados no programa</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Pontos Ativos</h3>
+                                    <p className="text-2xl font-black text-yellow-500">{totalActivePoints}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Prontos para resgate</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Descontos Concedidos</h3>
+                                    <p className="text-2xl font-black text-green-600">{totalDiscountGiven.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Economia gerada</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-purple-500">
+                                    <h3 className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mb-1">Resgates Feitos</h3>
+                                    <p className="text-2xl font-black text-purple-600">{totalRedemptions}</p>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-bold italic">Prêmios trocados</p>
+                                </div>
+                            </div>
+                        )
+                    })()}
+
+                    {/* AVISO DE VALIDADE */}
+                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 flex items-start gap-3">
+                        <span className="text-xl">⚠️</span>
+                        <p className="text-sm text-yellow-800 font-medium"><strong>Regra de Validade:</strong> Os pontos dos clientes expiram automaticamente caso fiquem mais de <strong>30 dias</strong> sem fazer nenhum pedido na loja.</p>
+                    </div>
+
                     {/* Seção de Adicionar Pontos */}
                     <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
                         <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -1301,8 +1467,11 @@ export default function Admin() {
                                         onChange={(e) => {
                                             const phone = e.target.value.replace(/\D/g, '')
                                             setLoyaltySearch(phone)
-                                            const customer = loyaltyCustomers.find(c => c.phone.includes(phone))
-                                            if (customer) setSelectedCustomer(customer)
+                                        const customerIndex = loyaltyCustomers.findIndex(c => c.phone.includes(phone))
+                                        if (customerIndex !== -1 && phone.length >= 4) {
+                                            setSelectedCustomer(loyaltyCustomers[customerIndex])
+                                            setLoyaltyCustomerPage(Math.floor(customerIndex / 10))
+                                        }
                                         }}
                                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
@@ -1366,9 +1535,10 @@ export default function Admin() {
                         </h2>
 
                         {loyaltyCustomers.length > 0 ? (
+                            <>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gray-100 border-b-2 border-gray-200">
+                                    <thead className="bg-gray-100 border-b-2 border-gray-200 sticky top-0">
                                         <tr>
                                             <th className="p-4 text-left font-bold text-gray-600 text-sm">📱 Telefone</th>
                                             <th className="p-4 text-center font-bold text-gray-600 text-sm">❤️ Pontos</th>
@@ -1378,11 +1548,11 @@ export default function Admin() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {loyaltyCustomers.map(customer => (
+                                        {loyaltyCustomers.slice(loyaltyCustomerPage * 10, (loyaltyCustomerPage + 1) * 10).map(customer => (
                                             <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="p-4 font-bold text-gray-800">{customer.phone}</td>
                                                 <td className="p-4 text-center font-bold text-blue-600 text-lg">{customer.loyalty_points}</td>
-                                            <td className="p-4 text-center font-bold text-green-600">R$ {(customer.loyalty_points / 20).toFixed(2)}</td>
+                                            <td className="p-4 text-center font-bold text-green-600">R$ {(customer.loyalty_points / loyaltyRedeemRate).toFixed(2)}</td>
                                                 <td className="p-4 text-center text-sm text-gray-600">
                                                     {customer.last_purchase ? new Date(customer.last_purchase).toLocaleDateString('pt-BR') : '—'}
                                                 </td>
@@ -1415,6 +1585,30 @@ export default function Admin() {
                                     </tbody>
                                 </table>
                             </div>
+                            
+                            {/* CONTROLES DE PAGINAÇÃO */}
+                            {loyaltyCustomers.length > 10 && (
+                                <div className="flex justify-between items-center mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <button
+                                        disabled={loyaltyCustomerPage === 0}
+                                        onClick={() => setLoyaltyCustomerPage(p => p - 1)}
+                                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-bold transition-colors shadow-sm"
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span className="text-sm font-bold text-gray-500 uppercase tracking-widest">
+                                        Página {loyaltyCustomerPage + 1} de {Math.ceil(loyaltyCustomers.length / 10)}
+                                    </span>
+                                    <button
+                                        disabled={(loyaltyCustomerPage + 1) * 10 >= loyaltyCustomers.length}
+                                        onClick={() => setLoyaltyCustomerPage(p => p + 1)}
+                                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-bold transition-colors shadow-sm"
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            )}
+                            </>
                         ) : (
                             <div className="p-8 text-center text-gray-400 italic">
                                 Nenhum cliente cadastrado ainda. Pontos começam a ser acumulados quando clientes fazem compras.
@@ -1439,10 +1633,10 @@ export default function Admin() {
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className={`font-bold ${tx.type === 'purchase' ? 'text-green-600' : tx.type === 'redemption' ? 'text-red-600' : 'text-blue-600'}`}>
-                                                {tx.type === 'purchase' ? '+' : tx.type === 'redemption' ? '-' : '+'}{tx.points} pts
+                                            <p className={`font-bold ${tx.type === 'purchase' ? 'text-green-600' : tx.type === 'redemption' ? 'text-red-600' : tx.type === 'expired' ? 'text-gray-500' : 'text-blue-600'}`}>
+                                                {tx.type === 'purchase' || tx.type === 'bonus' ? '+' : '-'}{Math.abs(tx.points)} pts
                                             </p>
-                                            <p className="text-xs text-gray-500 capitalize">{tx.type}</p>
+                                            <p className="text-xs text-gray-500 capitalize">{tx.type === 'expired' ? 'expirado' : tx.type}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -1492,14 +1686,18 @@ export default function Admin() {
                                     </div>
 
                                     {/* Stats detalhados */}
-                                    <div className="grid grid-cols-3 gap-3 bg-gray-50 p-4 rounded-lg">
+                                    <div className="grid grid-cols-4 gap-3 bg-gray-50 p-4 rounded-lg">
                                         <div className="text-center">
                                             <p className="text-xs text-gray-600 uppercase font-bold">Pontos Ganhos</p>
                                             <p className="text-lg font-bold text-green-600">+{customerDetails.stats.pointsGained}</p>
                                         </div>
                                         <div className="text-center border-l border-r border-gray-300">
-                                            <p className="text-xs text-gray-600 uppercase font-bold">Pontos Resgatados</p>
+                                            <p className="text-xs text-gray-600 uppercase font-bold">Resgatados</p>
                                             <p className="text-lg font-bold text-red-600">-{customerDetails.stats.pointsRedeemed}</p>
+                                        </div>
+                                        <div className="text-center border-r border-gray-300">
+                                            <p className="text-xs text-gray-600 uppercase font-bold">Expirados</p>
+                                            <p className="text-lg font-bold text-gray-500">-{customerDetails.stats.pointsExpired}</p>
                                         </div>
                                         <div className="text-center">
                                             <p className="text-xs text-gray-600 uppercase font-bold">Desconto Usado</p>
@@ -1865,6 +2063,32 @@ export default function Admin() {
                                 <p className="mt-2 text-xs text-gray-400 font-medium ml-1">
                                     Selecione em quais dias da semana a aba "Promoções" deve aparecer automaticamente para os clientes.
                                 </p>
+                            </div>
+
+                            <div className="w-full">
+                                <label className="block text-green-600 text-sm font-black uppercase mb-2 ml-1">
+                                    Regras do Programa de Fidelidade
+                                </label>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <div className="flex-1 bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm">
+                                        <label className="block text-gray-600 text-xs font-bold uppercase mb-2">Reais (R$) gastos para ganhar 1 Ponto</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-2 border-gray-200 p-3 rounded-lg text-lg font-bold focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                            value={loyaltyEarnRate}
+                                            onChange={(e) => setLoyaltyEarnRate(Math.max(0.1, Number(e.target.value)))}
+                                        />
+                                    </div>
+                                    <div className="flex-1 bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm">
+                                        <label className="block text-gray-600 text-xs font-bold uppercase mb-2">Pontos necessários para R$ 1 de Desconto</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-2 border-gray-200 p-3 rounded-lg text-lg font-bold focus:border-green-400 focus:outline-none transition-all shadow-inner"
+                                            value={loyaltyRedeemRate}
+                                            onChange={(e) => setLoyaltyRedeemRate(Math.max(1, Number(e.target.value)))}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <button

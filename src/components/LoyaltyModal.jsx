@@ -1,12 +1,24 @@
 import { useState, useEffect } from "react"
 import { Gift, Phone, X } from "lucide-react"
-import { loyaltyService } from "../services/api"
+import { loyaltyService, configService } from "../services/api"
 
 export default function LoyaltyModal({ isOpen, onClose, onApplyDiscount }) {
   const [phone, setPhone] = useState("")
   const [customer, setCustomer] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [loyaltyRedeemRate, setLoyaltyRedeemRate] = useState(10)
+
+  useEffect(() => {
+    if (isOpen) {
+      configService.getSettings().then(data => {
+        if (data && Array.isArray(data)) {
+          const redeemRateConfig = data.find(c => c.key === 'loyalty_redeem_rate')
+          if (redeemRateConfig) setLoyaltyRedeemRate(Math.max(1, Number(redeemRateConfig.value) || 10))
+        }
+      })
+    }
+  }, [isOpen])
 
   const handleSearchCustomer = async () => {
     if (!phone.trim()) return
@@ -34,7 +46,7 @@ export default function LoyaltyModal({ isOpen, onClose, onApplyDiscount }) {
 
     setLoading(true)
     try {
-      const discount = Math.floor(customer.loyalty_points / 10) // 1 ponto = R$ 0,10
+      const discount = Math.floor(customer.loyalty_points / loyaltyRedeemRate)
       const result = await loyaltyService.redeemPoints(customer.id, discount)
       
       if (result) {
@@ -110,11 +122,11 @@ export default function LoyaltyModal({ isOpen, onClose, onApplyDiscount }) {
                   <p className="text-sm text-gray-600">Pontos Disponíveis</p>
                   <p className="text-3xl font-bold text-red-600">{customer.loyalty_points}</p>
                   <p className="text-xs text-gray-600 mt-1">
-                    = R$ {(customer.loyalty_points / 10).toFixed(2)}
+                    = R$ {(customer.loyalty_points / loyaltyRedeemRate).toFixed(2)}
                   </p>
                 </div>
 
-                {customer.loyalty_points >= 10 ? (
+                {customer.loyalty_points >= loyaltyRedeemRate ? (
                   <button
                     onClick={handleRedeemPoints}
                     disabled={loading}
@@ -124,7 +136,7 @@ export default function LoyaltyModal({ isOpen, onClose, onApplyDiscount }) {
                   </button>
                 ) : (
                   <div className="p-3 bg-yellow-100 text-yellow-700 rounded-lg text-sm">
-                    Mínimo 10 pontos para resgatar
+                    Mínimo {loyaltyRedeemRate} pontos para resgatar
                   </div>
                 )}
               </div>

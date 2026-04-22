@@ -39,9 +39,22 @@ export default function Menu() {
     return () => clearInterval(timer)
   }, [])
 
-  const filteredProducts = products.filter(
-    (p) => p.category === selectedCategory
-  )
+  const filteredProducts = products.filter((p) => {
+    if (selectedCategory === 'promocoes') {
+      return isPromoDay && (p.category === 'promocoes' || p.is_promo)
+    }
+    return p.category === selectedCategory
+  }).map((p) => {
+    // Se não for dia de promoção, remove o desconto visual e usa o preço original
+    if (!isPromoDay && p.is_promo && p.old_price) {
+      return { ...p, price: p.old_price, old_price: null }
+    }
+    return p
+  })
+
+  const displayCategories = categories.some(c => c.id === 'promocoes') 
+      ? categories
+      : [{ id: 'promocoes', name: 'Promoções do Dia 🔥' }, ...categories];
 
   return (
     <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 relative">
@@ -88,7 +101,7 @@ export default function Menu() {
         </div>
 
         <div className="w-full space-y-4 pb-10">
-          {categories.filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
+          {displayCategories.map((cat) => (
             <CategoryButton
               key={cat.id}
               text={cat.name}
@@ -110,7 +123,9 @@ export default function Menu() {
         {filteredProducts.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-white opacity-40">
             <span className="text-9xl mb-4">🍕</span>
-            <p className="text-3xl font-black uppercase tracking-widest">Nenhum item nesta categoria</p>
+            <p className="text-3xl font-black uppercase tracking-widest text-center px-4">
+              {selectedCategory === 'promocoes' && !isPromoDay ? "Promoções indisponíveis hoje" : "Nenhum item nesta categoria"}
+            </p>
           </div>
         )}
       </main>

@@ -42,6 +42,8 @@ export default function OnlineMenu() {
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [loyaltyDiscount, setLoyaltyDiscount] = useState(0)
     const [loyaltyPoints, setLoyaltyPoints] = useState(0)
+    const [loyaltyExpiryDate, setLoyaltyExpiryDate] = useState(null)
+    const [loyaltyRedeemRate, setLoyaltyRedeemRate] = useState(10)
 
     useEffect(() => {
         productService.getProducts().then(data => {
@@ -64,6 +66,9 @@ export default function OnlineMenu() {
                         setTableBanners(tableBannerConfig.value ? [tableBannerConfig.value] : [])
                     }
                 }
+
+                const redeemRateConfig = data.find(c => c.key === 'loyalty_redeem_rate')
+                if (redeemRateConfig) setLoyaltyRedeemRate(Math.max(1, Number(redeemRateConfig.value) || 10))
 
                 const promoDaysConfig = data.find(c => c.key === 'promo_days')
                 let promoDays = [1, 2, 3, 4, 5]
@@ -112,21 +117,30 @@ export default function OnlineMenu() {
         const customer = await loyaltyService.getCustomerByPhone(customerPhone)
         if (customer) {
             setLoyaltyPoints(customer.loyalty_points)
+            if (customer.loyalty_points > 0 && customer.last_purchase) {
+                const lastPurchase = new Date(customer.last_purchase)
+                const expiryDate = new Date(lastPurchase.getTime() + (loyaltyService.EXPIRY_DAYS * 24 * 60 * 60 * 1000))
+                setLoyaltyExpiryDate(expiryDate.toLocaleDateString('pt-BR'))
+            } else {
+                setLoyaltyExpiryDate(null)
+            }
             alert(`Você tem ${customer.loyalty_points} pontos disponíveis!`)
         } else {
             setLoyaltyPoints(0)
+            setLoyaltyExpiryDate(null)
             alert("Telefone não encontrado. Seus pontos começarão a ser acumulados neste pedido!")
         }
     }
 
     const applyLoyaltyDiscount = () => {
-        if (loyaltyPoints < 20) {
-            alert("Mínimo 20 pontos para resgatar desconto")
+        if (loyaltyPoints < loyaltyRedeemRate) {
+            alert(`Mínimo ${loyaltyRedeemRate} pontos para resgatar desconto`)
             return
         }
-        const discount = Math.floor(loyaltyPoints / 20) // 20 pontos = R$ 1,00
+        const discount = Math.floor(loyaltyPoints / loyaltyRedeemRate)
         setLoyaltyDiscount(discount)
         setLoyaltyPoints(0)
+        setLoyaltyExpiryDate(null)
         alert(`✅ Desconto de R$ ${discount.toFixed(2)} aplicado!`)
     }
 
@@ -135,9 +149,17 @@ export default function OnlineMenu() {
         return Math.max(0, subtotal - loyaltyDiscount)
     }
 
-    const filteredProducts = (products || []).filter(
-        (p) => p.category === selectedCategory
-    )
+    const filteredProducts = (products || []).filter((p) => {
+        if (selectedCategory === 'promocoes') {
+            return isPromoDay && (p.category === 'promocoes' || p.is_promo)
+        }
+        return p.category === selectedCategory
+    }).map(p => {
+        if (!isPromoDay && p.is_promo && p.old_price) {
+            return { ...p, price: p.old_price, old_price: null }
+        }
+        return p
+    })
 
     const handleFinalize = () => {
         if (!customerName.trim()) {
@@ -166,6 +188,10 @@ export default function OnlineMenu() {
 
     const cartCount = (cart || []).reduce((sum, item) => sum + (item.qty || 0), 0)
     const total = getCartTotalWithDiscount()
+
+    const displayCategories = categories.some(c => c.id === 'promocoes') 
+        ? categories
+        : [{ id: 'promocoes', name: 'Promoções do Dia 🔥' }, ...categories];
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col font-sans relative">
@@ -301,7 +327,7 @@ export default function OnlineMenu() {
 
             {/* CATEGORIAS */}
             <nav className="fixed top-[180px] left-0 right-0 z-50 bg-[#0a0a0a] border-b border-white/5 overflow-x-auto no-scrollbar py-5 px-6 flex gap-3 transition-all">
-                {(categories || []).filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
+                {displayCategories.map((cat) => (
                     <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
@@ -365,8 +391,13 @@ export default function OnlineMenu() {
                     {filteredProducts.map((p) => {
                         const isPizza = p.category && p.category.toLowerCase().includes('pizza');
                         return (
-                            <div key={p.id} className="bg-white/5 backdrop-blur-md rounded-[32px] p-4 border border-white/10 flex gap-4 active:scale-[0.98] transition-all duration-300">
-                                <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-white/5 border border-white/5 shadow-inner">
+                            <div key={p.id} className={`bg-white/5 backdrop-blur-md rounded-[32px] p-4 border border-white/10 flex gap-4 transition-all duration-300 relative overflow-hidden ${p.out_of_stock ? 'grayscale opacity-60 pointer-events-none' : 'active:scale-[0.98]'}`}>
+                                {p.out_of_stock && (
+                                    <div className="absolute inset-0 bg-black/40 z-10 flex items-center justify-center backdrop-blur-[2px]">
+                                        <span className="bg-red-600 text-white font-black px-4 py-1.5 rounded-lg tracking-widest text-sm shadow-xl -rotate-6 border border-red-400">ESGOTADO</span>
+                                    </div>
+                                )}
+                                <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-white/5 border border-white/5 shadow-inner relative">
                                     {p.image ? (
                                         <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
                                     ) : (
@@ -383,7 +414,10 @@ export default function OnlineMenu() {
                                         </p>
                                     </div>
                                     <div className="flex items-center justify-between mt-2">
-                                        <span className="font-black text-yellow-400 text-xl tracking-tight">R$ {Number(p.price).toFixed(2)}</span>
+                                        <div className="flex flex-col">
+                                            {p.old_price && <span className="text-xs text-gray-500 line-through leading-none mb-1">R$ {Number(p.old_price).toFixed(2)}</span>}
+                                            <span className="font-black text-yellow-400 text-xl tracking-tight leading-none">R$ {Number(p.price).toFixed(2)}</span>
+                                        </div>
 
                                         {!isPizza ? (
                                             <button
@@ -446,6 +480,12 @@ export default function OnlineMenu() {
                             </div>
                         )
                     })}
+                {filteredProducts.length === 0 && selectedCategory === 'promocoes' && !isPromoDay && (
+                    <div className="py-12 text-center text-gray-500 flex flex-col items-center">
+                        <span className="text-4xl mb-3 opacity-50">🏷️</span>
+                        <p className="font-black uppercase tracking-widest text-sm">Promoções indisponíveis hoje</p>
+                    </div>
+                )}
                 </div>
             </main>
 
@@ -535,6 +575,11 @@ export default function OnlineMenu() {
                                                     Resgatar
                                                 </button>
                                             </div>
+                                            {loyaltyExpiryDate && (
+                                                <p className="text-[10px] text-blue-400/70 font-bold uppercase tracking-widest">
+                                                    Válidos até: {loyaltyExpiryDate}
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                 </div>

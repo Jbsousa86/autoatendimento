@@ -162,9 +162,17 @@ export default function MobileMenu() {
         }
     }, [tableBanners.length])
 
-    const filteredProducts = (products || []).filter(
-        (p) => p.category === selectedCategory
-    )
+    const filteredProducts = (products || []).filter((p) => {
+        if (selectedCategory === 'promocoes') {
+            return isPromoDay && (p.category === 'promocoes' || p.is_promo)
+        }
+        return p.category === selectedCategory
+    }).map(p => {
+        if (!isPromoDay && p.is_promo && p.old_price) {
+            return { ...p, price: p.old_price, old_price: null }
+        }
+        return p
+    })
 
     const handleFinalize = () => {
         setShowConfirmModal(false)
@@ -176,6 +184,10 @@ export default function MobileMenu() {
 
     const cartCount = (cart || []).reduce((sum, item) => sum + (item.qty || 0), 0)
     const total = typeof getCartTotal === 'function' ? getCartTotal() : 0
+
+    const displayCategories = categories.some(c => c.id === 'promocoes') 
+        ? categories
+        : [{ id: 'promocoes', name: 'Promoções do Dia 🔥' }, ...categories];
 
     if (isTableLocked) {
         return (
@@ -287,7 +299,7 @@ export default function MobileMenu() {
 
             {/* CATEGORIAS */}
             <nav className="fixed top-[60px] left-0 right-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 overflow-x-auto no-scrollbar py-3 px-4 flex gap-2 transition-all duration-300">
-                {(categories || []).filter(cat => cat.id !== 'promocoes' || isPromoDay).map((cat) => (
+                {displayCategories.map((cat) => (
                     <button
                         key={cat.id}
                         onClick={() => setSelectedCategory(cat.id)}
@@ -327,6 +339,12 @@ export default function MobileMenu() {
                                     />
                                 </div>
                             ))}
+                {filteredProducts.length === 0 && selectedCategory === 'promocoes' && !isPromoDay && (
+                    <div className="py-10 text-center text-gray-400 flex flex-col items-center">
+                        <span className="text-4xl mb-3 opacity-50">🏷️</span>
+                        <p className="font-black uppercase tracking-widest text-xs">Promoções indisponíveis hoje</p>
+                    </div>
+                )}
                         </div>
                         {tableBanners.length > 1 && (
                             <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-10">
@@ -357,8 +375,13 @@ export default function MobileMenu() {
 
                 <div className="space-y-3">
                     {filteredProducts.map((p) => (
-                        <div key={p.id} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-3 active:scale-[0.98] transition-transform">
-                            <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-gray-50 border border-gray-50">
+                        <div key={p.id} className={`bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex gap-3 transition-transform relative overflow-hidden ${p.out_of_stock ? 'grayscale opacity-60 pointer-events-none' : 'active:scale-[0.98]'}`}>
+                            {p.out_of_stock && (
+                                <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
+                                    <span className="bg-red-600 text-white font-black px-3 py-1 rounded-lg tracking-widest text-xs shadow-xl -rotate-6 border border-red-500">ESGOTADO</span>
+                                </div>
+                            )}
+                            <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-gray-50 border border-gray-50 relative">
                                 {p.image ? (
                                     <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
                                 ) : (
@@ -375,7 +398,10 @@ export default function MobileMenu() {
                                     </p>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="font-black text-orange-600 text-base">R$ {Number(p.price).toFixed(2)}</span>
+                                    <div className="flex flex-col">
+                                        {p.old_price && <span className="text-[10px] text-gray-400 line-through leading-none mb-0.5">R$ {Number(p.old_price).toFixed(2)}</span>}
+                                        <span className="font-black text-orange-600 text-base leading-none">R$ {Number(p.price).toFixed(2)}</span>
+                                    </div>
 
                                     {!['pizzas', 'pizza'].includes(p.category.toLowerCase()) ? (
                                         <button

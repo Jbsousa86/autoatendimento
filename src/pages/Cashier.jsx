@@ -826,7 +826,21 @@ export default function Cashier() {
     }
 
     // Render Dashboard
-    const filteredProducts = products.filter(p => p.category === selectedCategory)
+    const filteredProducts = products.filter(p => {
+        if (selectedCategory === 'promocoes') {
+            return isPromoDay && (p.category === 'promocoes' || p.is_promo)
+        }
+        return p.category === selectedCategory
+    }).map(p => {
+        if (!isPromoDay && p.is_promo && p.old_price) {
+            return { ...p, price: p.old_price, old_price: null }
+        }
+        return p
+    })
+
+    const displayCategories = categories.some(c => c.id === 'promocoes') 
+        ? categories
+        : [{ id: 'promocoes', name: 'Promoções do Dia 🔥' }, ...categories];
 
     // Reatividade em Tempo Real para o Modal de Mesas
     const activeModalTableNum = selectedTableDetails?.tableNum;
@@ -1212,7 +1226,7 @@ export default function Cashier() {
 
                                 {/* Categorias */}
                                 <div className="p-4 flex gap-2 overflow-x-auto border-b border-gray-100 scrollbar-hide">
-                                    {categories.filter(cat => cat.id !== 'promocoes' || isPromoDay).map(cat => (
+                                    {displayCategories.map(cat => (
                                         <button
                                             key={cat.id}
                                             onClick={() => setSelectedCategory(cat.id)}
@@ -1224,6 +1238,12 @@ export default function Cashier() {
                                             {cat.name}
                                         </button>
                                     ))}
+                                    {filteredProducts.length === 0 && selectedCategory === 'promocoes' && !isPromoDay && (
+                                        <div className="col-span-full py-10 text-center text-gray-400 flex flex-col items-center">
+                                            <span className="text-4xl mb-2 opacity-50">🏷️</span>
+                                            <p className="font-black uppercase text-xs tracking-widest">Promoções indisponíveis hoje</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Grid Produtos */}
@@ -1232,16 +1252,31 @@ export default function Cashier() {
                                         {filteredProducts.map(product => (
                                             <div
                                                 key={product.id}
-                                                onClick={() => addToCart(product)}
-                                                className="bg-white p-3 md:p-4 rounded-lg shadow cursor-pointer active:scale-95 transition flex flex-col items-center text-center border border-gray-100"
+v
+                                                onClick={() => {
+                                                    if (product.out_of_stock) {
+                                                        alert("Este produto está esgotado no momento!");
+                                                        return;
+                                                    }
+                                                    addToCart(product);
+                                                }}
+                                                className={`bg-white p-3 md:p-4 rounded-lg shadow transition flex flex-col items-center text-center border border-gray-100 ${product.out_of_stock ? 'opacity-60 cursor-not-allowed grayscale' : 'cursor-pointer active:scale-95'}`}
                                             >
-                                                <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden">
+                                                <div className="h-20 md:h-24 w-full bg-gray-100 rounded mb-2 overflow-hidden relative">
+                                                    {product.out_of_stock && (
+                                                        <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                                            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest shadow-lg rotate-[-5deg]">Esgotado</span>
+                                                        </div>
+                                                    )}
                                                     {product.image ? (
                                                         <img src={product.image} className="w-full h-full object-cover" />
                                                     ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">Sem foto</div>}
                                                 </div>
                                                 <h3 className="font-bold text-[11px] md:text-sm text-gray-800 leading-tight mb-1 line-clamp-2">{product.name}</h3>
-                                                <p className="text-green-600 font-black text-xs md:text-sm">R$ {parseFloat(product.price).toFixed(2)}</p>
+                                                <div className="flex flex-col items-center mt-auto pt-1">
+                                                    {product.old_price && <span className="text-[9px] text-gray-400 line-through leading-none mb-0.5">R$ {parseFloat(product.old_price).toFixed(2)}</span>}
+                                                    <p className="text-green-600 font-black text-xs md:text-sm leading-none">R$ {parseFloat(product.price).toFixed(2)}</p>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

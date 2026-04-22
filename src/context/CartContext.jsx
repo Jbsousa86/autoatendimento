@@ -10,6 +10,11 @@ export function CartProvider({ children }) {
   const [hfSize, setHfSize] = useState(null)
 
   function addToCart(product) {
+    if (product.out_of_stock) {
+      alert("Este produto está esgotado no momento.");
+      return;
+    }
+
     if (hfPizza) {
       const p1 = hfPizza
       const p2 = product
