@@ -131,7 +131,7 @@ export default function Menu() {
       </main>
 
       {/* COLUNA 3 — CARRINHO */}
-      <Cart customerPhone={customerPhone} setCustomerPhone={setCustomerPhone} />
+      <Cart customerPhone={customerPhone} setCustomerPhone={setCustomerPhone} enablePrint />
 
     </div>
   )

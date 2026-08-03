@@ -3,7 +3,7 @@ import { useCart } from "../context/useCart"
 import { useNavigate } from "react-router-dom"
 import Logo from "../assets/herosburger.jpg" // Importanto Logo
 
-export function Cart({ customerPhone = "", setCustomerPhone = null }) {
+export function Cart({ customerPhone = "", setCustomerPhone = null, enablePrint = false }) {
   const { cart, finalizeOrder, increase, decrease, updateObservation } = useCart()
   const [customerName, setCustomerName] = useState("") // Nome do cliente
   const [generalObservation, setGeneralObservation] = useState("") // Obs geral
@@ -16,6 +16,18 @@ export function Cart({ customerPhone = "", setCustomerPhone = null }) {
   cart.forEach(item => {
     finalTotal += (Number(item.price) * (Number(item.qty) || 0))
   })
+
+  const sendAutoPrint = (order) => {
+    if (!enablePrint) return
+
+    fetch('http://localhost:3001/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order })
+    }).catch((error) => {
+      console.error('Falha ao enviar para o serviço local:', error)
+    })
+  }
 
   return (
     <aside className="w-1/4 bg-white/40 backdrop-blur-3xl border-l border-white/20 flex flex-col h-full shadow-2xl z-50 transition-all">
@@ -191,6 +203,8 @@ export function Cart({ customerPhone = "", setCustomerPhone = null }) {
             if (!customerName.trim() || !paymentMethod) return
             const order = finalizeOrder(customerName, generalObservation, paymentMethod, customerPhone)
             order.created_at_client = Date.now()
+            sendAutoPrint(order)
+
             navigate("/finish", { state: { order }, replace: true })
           }}
           disabled={cart.length === 0 || !customerName.trim() || !paymentMethod}
