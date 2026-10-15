@@ -1,42 +1,37 @@
-import { useCallback, useEffect, useState } from "react"
-import { MapPin, Package, Phone, RefreshCw, Search, Truck } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { RefreshCw, Search, Truck } from "lucide-react"
 import { orderService } from "../services/api"
 
-const steps = [
-    { id: "pending", label: "Pedido recebido" },
-    { id: "preparing", label: "Em preparo" },
-    { id: "ready", label: "Pronto para entrega" },
-    { id: "finished", label: "Pedido finalizado" }
-]
-
 const statusLabels = {
-    pending: "Pedido recebido",
+    pending: "Aguardando cozinha",
     preparing: "Em preparo",
     ready: "Pronto para entrega",
-    finished: "Pedido finalizado",
-    archived: "Pedido encerrado"
+    finished: "Finalizado",
+    archived: "Encerrado"
+}
+
+const statusStyles = {
+    pending: "bg-gray-700 text-gray-200",
+    preparing: "bg-yellow-400/20 text-yellow-200",
+    ready: "bg-green-400/20 text-green-200",
+    finished: "bg-blue-400/20 text-blue-200",
+    archived: "bg-gray-700 text-gray-300"
 }
 
 export default function DeliveryTracking() {
-    const [orderNumber, setOrderNumber] = useState("")
-    const [phoneLast4, setPhoneLast4] = useState("")
-    const [searchKey, setSearchKey] = useState(null)
-    const [order, setOrder] = useState(null)
-    const [loading, setLoading] = useState(false)
+    const [orders, setOrders] = useState([])
+    const [filter, setFilter] = useState("")
+    const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
     const [lastUpdated, setLastUpdated] = useState(null)
 
-    const refreshOrder = useCallback(async (key, showLoading = false) => {
-        if (!key) return
+    const loadOrders = useCallback(async (showLoading = false) => {
         if (showLoading) setLoading(true)
-        const result = await orderService.trackDeliveryOrder(key.orderNumber, key.phoneLast4)
+        const result = await orderService.getDeliveryOrdersToday()
         if (result.error) {
-            setError("Não foi possível consultar agora. Verifique a conexão e tente novamente.")
-        } else if (!result.data) {
-            setOrder(null)
-            setError("Pedido de hoje não encontrado. Confira o número e os últimos quatro dígitos do telefone.")
+            setError("Não foi possível carregar os pedidos. Verifique a conexão e tente novamente.")
         } else {
-            setOrder(result.data)
+            setOrders(Array.isArray(result.data) ? result.data : [])
             setError("")
             setLastUpdated(new Date())
         }
@@ -44,122 +39,93 @@ export default function DeliveryTracking() {
     }, [])
 
     useEffect(() => {
-        if (!searchKey) return undefined
-        const interval = window.setInterval(() => refreshOrder(searchKey), 10000)
-        return () => window.clearInterval(interval)
-    }, [searchKey, refreshOrder])
-
-    const handleSubmit = (event) => {
-        event.preventDefault()
-        const normalizedNumber = orderNumber.trim()
-        const normalizedPhone = phoneLast4.replace(/\D/g, "").slice(-4)
-        if (!normalizedNumber || normalizedPhone.length !== 4) {
-            setError("Informe o número do pedido e os últimos quatro dígitos do telefone.")
-            return
+        const initialLoad = window.setTimeout(() => loadOrders(true), 0)
+        const interval = window.setInterval(() => loadOrders(), 10000)
+        return () => {
+            window.clearTimeout(initialLoad)
+            window.clearInterval(interval)
         }
-        setOrder(null)
-        setError("")
-        const key = { orderNumber: normalizedNumber, phoneLast4: normalizedPhone }
-        setSearchKey(key)
-        refreshOrder(key, true)
-    }
+    }, [loadOrders])
 
-    const currentStep = steps.findIndex(step => step.id === order?.status)
-    const mapUrl = order?.customer_address
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`
-        : ""
+    const visibleOrders = useMemo(() => {
+        const number = filter.replace(/\D/g, "")
+        if (!number) return orders
+        return orders.filter(order => String(order.order_number).includes(number))
+    }, [filter, orders])
 
     return (
-        <main className="min-h-screen bg-[#0a0a0a] px-4 py-10 text-white">
-            <div className="mx-auto w-full max-w-xl">
-                <header className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/15 text-orange-400">
-                        <Truck size={34} />
+        <main className="min-h-screen bg-[#0a0a0a] px-4 py-8 text-white sm:px-6">
+            <div className="mx-auto w-full max-w-4xl">
+                <header className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500/15 text-orange-400">
+                            <Truck size={30} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Entregas de hoje</h1>
+                            <p className="mt-1 text-sm text-gray-400">Recibos e status atualizados conforme a cozinha.</p>
+                        </div>
                     </div>
-                    <h1 className="text-3xl font-black uppercase tracking-tight">Acompanhar entrega</h1>
-                    <p className="mt-2 text-sm text-gray-400">Consulte pedidos de hoje pelo número e telefone cadastrado.</p>
+                    <button
+                        type="button"
+                        onClick={() => loadOrders(true)}
+                        disabled={loading}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-200 transition hover:bg-white/10 disabled:opacity-60"
+                    >
+                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
+                    </button>
                 </header>
 
-                <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300">
-                        Número do pedido
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative w-full sm:max-w-xs">
+                        <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
-                            value={orderNumber}
-                            onChange={event => setOrderNumber(event.target.value.replace(/\D/g, ""))}
+                            value={filter}
+                            onChange={event => setFilter(event.target.value.replace(/\D/g, ""))}
                             inputMode="numeric"
-                            autoComplete="off"
-                            placeholder="Ex.: 123"
-                            className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-lg text-white outline-none focus:border-orange-400"
+                            placeholder="Filtrar pelo nº do recibo"
+                            aria-label="Filtrar pelo número do recibo"
+                            className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-orange-400"
                         />
-                    </label>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300">
-                        Últimos 4 dígitos do telefone do pedido
-                        <input
-                            value={phoneLast4}
-                            onChange={event => setPhoneLast4(event.target.value.replace(/\D/g, "").slice(0, 4))}
-                            inputMode="numeric"
-                            autoComplete="off"
-                            maxLength={4}
-                            placeholder="Ex.: 5678"
-                            className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-lg tracking-[0.3em] text-white outline-none focus:border-orange-400"
-                        />
-                    </label>
-                    <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-black uppercase tracking-wide text-black transition hover:bg-orange-400 disabled:opacity-60">
-                        {loading ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
-                        {loading ? "Consultando..." : "Acompanhar pedido"}
-                    </button>
-                    {error && <p role="alert" className="text-sm font-semibold text-red-300">{error}</p>}
-                </form>
+                    </div>
+                    <p className="text-xs font-semibold text-gray-500">
+                        {lastUpdated ? `Atualizado às ${lastUpdated.toLocaleTimeString("pt-BR")}` : "Atualização automática a cada 10 segundos"}
+                    </p>
+                </div>
 
-                {order && (
-                    <section className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-xl">
-                        <div className="border-b border-white/10 p-5">
-                            <p className="text-xs font-bold uppercase tracking-widest text-orange-300">Pedido #{order.order_number}</p>
-                            <h2 className="mt-1 text-2xl font-black">{statusLabels[order.status] || order.status}</h2>
-                            {lastUpdated && <p className="mt-2 text-xs text-gray-500">Atualizado às {lastUpdated.toLocaleTimeString("pt-BR")}</p>}
-                        </div>
+                {error && <p role="alert" className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-300">{error}</p>}
 
-                        <ol className="space-y-4 p-5">
-                            {steps.map((step, index) => {
-                                const done = currentStep >= index
-                                return (
-                                    <li key={step.id} className={`flex items-center gap-3 text-sm font-bold ${done ? "text-white" : "text-gray-600"}`}>
-                                        <span className={`h-3 w-3 rounded-full ${done ? "bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.6)]" : "bg-gray-700"}`} />
-                                        {step.label}
-                                    </li>
-                                )
-                            })}
-                        </ol>
-
-                        {order.customer_address && (
-                            <div className="border-t border-white/10 p-5">
-                                <div className="flex items-start gap-3">
-                                    <MapPin size={18} className="mt-0.5 shrink-0 text-orange-300" />
+                {loading && orders.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
+                        <RefreshCw size={22} className="mx-auto mb-3 animate-spin text-orange-400" />
+                        Carregando recibos de hoje...
+                    </div>
+                ) : visibleOrders.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
+                        {orders.length ? "Nenhum recibo corresponde a esse número." : "Nenhuma entrega encontrada hoje."}
+                    </div>
+                ) : (
+                    <section className="grid gap-3 sm:grid-cols-2">
+                        {visibleOrders.map((order, index) => (
+                            <article key={`${order.order_number}-${order.created_at}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg">
+                                <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Endereço de entrega</p>
-                                        <p className="mt-1 text-sm font-semibold">{order.customer_address}</p>
-                                        <a href={mapUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-orange-300 hover:text-orange-200">
-                                            <MapPin size={15} /> Abrir no mapa
-                                        </a>
+                                        <p className="text-xs font-bold uppercase tracking-widest text-orange-300">Recibo</p>
+                                        <p className="mt-1 text-4xl font-black tracking-tight">#{order.order_number}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Horário</p>
+                    <p className="mt-1 text-xl font-black">{new Date(order.created_at).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}</p>
+                                        <p className="mt-1 text-sm font-bold text-gray-300">R$ {Number(order.total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {order.customer_phone && (
-                            <div className="border-t border-white/10 px-5 py-4 text-sm text-gray-300">
-                                <Phone size={15} className="mr-2 inline text-orange-300" /> Contato: {order.customer_phone}
-                            </div>
-                        )}
-
-                        {Array.isArray(order.items) && order.items.length > 0 && (
-                            <div className="border-t border-white/10 p-5">
-                                <h3 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-400"><Package size={15} /> Itens</h3>
-                                <ul className="space-y-2 text-sm">
-                                    {order.items.map((item, index) => <li key={`${item.name}-${index}`}>{item.qty}x {item.name}</li>)}
-                                </ul>
-                            </div>
-                        )}
+                                <div className="mt-5 border-t border-white/10 pt-4">
+                                    <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusStyles[order.status] || "bg-gray-700 text-gray-200"}`}>
+                                        {statusLabels[order.status] || order.status || "Status indisponível"}
+                                    </span>
+                                </div>
+                            </article>
+                        ))}
                     </section>
                 )}
             </div>

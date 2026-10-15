@@ -100,12 +100,9 @@ export const productService = {
 // 🧾 SERVIÇO DE PEDIDOS
 // ==========================================
 export const orderService = {
-    async trackDeliveryOrder(orderNumber, phoneLast4) {
+    async getDeliveryOrdersToday() {
         try {
-            const { data, error } = await supabase.rpc('track_delivery_order', {
-                p_order_number: String(orderNumber).trim(),
-                p_phone_last4: String(phoneLast4).replace(/\D/g, '').slice(-4)
-            })
+            const { data, error } = await supabase.rpc('list_delivery_orders_today')
 
             if (error) {
                 console.error("Erro ao acompanhar entrega:", error)
