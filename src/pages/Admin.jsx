@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { MapPin, User, Receipt, Clock, Calendar, DollarSign, BarChart3, TrendingUp, Package, Users, Settings, Search, Trash2, Gift, Heart, Plus, Minus, History } from "lucide-react"
-import { productService, orderService, cashierService, configService, loyaltyService, phoneUtils } from "../services/api"
+import { productService, orderService, cashierService, deliveryDriverService, configService, loyaltyService, phoneUtils } from "../services/api"
 import { products as defaultProducts } from "../data/menu"
 
 // ==========================================
@@ -41,6 +41,10 @@ export default function Admin() {
     const [cashiers, setCashiers] = useState([])
     const [newCashierName, setNewCashierName] = useState("")
     const [newCashierPass, setNewCashierPass] = useState("")
+    const [deliveryDrivers, setDeliveryDrivers] = useState([])
+    const [newDriverName, setNewDriverName] = useState("")
+    const [newDriverUsername, setNewDriverUsername] = useState("")
+    const [newDriverPassword, setNewDriverPassword] = useState("")
 
     // Estados de Fidelidade
     const [loyaltyCustomers, setLoyaltyCustomers] = useState([])
@@ -49,14 +53,9 @@ export default function Admin() {
     const [pointsToAdd, setPointsToAdd] = useState("")
     const [loyaltyTransactions, setLoyaltyTransactions] = useState([])
     const [customerDetails, setCustomerDetails] = useState(null) // Modal de detalhes
-    const [customerOrders, setCustomerOrders] = useState([]) // Pedidos do cliente
     const [loyaltyCustomerPage, setLoyaltyCustomerPage] = useState(0) // Paginação de clientes
 
     // Configura data inicial para o PRIMEIRO dia do mês atual
-    const getFirstDayOfMonth = () => {
-        const date = new Date()
-        return new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA')
-    }
     const getToday = () => new Date().toLocaleDateString('en-CA')
 
     const [startDate, setStartDate] = useState(getToday())
@@ -80,17 +79,13 @@ export default function Admin() {
         if (isAuthenticated) {
             loadData()
             loadSettings()
-            if (activeTab === 'users') loadCashiers()
+            if (activeTab === 'users') {
+                loadCashiers()
+                loadDeliveryDrivers()
+            }
             if (activeTab === 'loyalty') loadLoyaltyData()
         }
     }, [isAuthenticated, activeTab])
-
-    // Busca relatórios quando a aba é 'reports' ou as datas mudam
-    useEffect(() => {
-        if (isAuthenticated && activeTab === 'reports') {
-            loadReports()
-        }
-    }, [isAuthenticated, activeTab, startDate, endDate])
 
     // Recalcula estatísticas quando a data ou a lista de pedidos muda
 
@@ -154,7 +149,7 @@ export default function Admin() {
             await configService.updateSetting('loyalty_earn_rate', loyaltyEarnRate)
             await configService.updateSetting('loyalty_redeem_rate', loyaltyRedeemRate)
             alert("✅ Configurações atualizadas!")
-        } catch (error) {
+        } catch {
             alert("❌ Erro ao salvar configurações.")
         }
     }
@@ -164,25 +159,47 @@ export default function Admin() {
         setProducts(data)
     }
 
-    const loadReports = async () => {
-        if (!startDate || !endDate) return;
-
-        // Construção segura da data usando componentes numéricos locais 
-        // Evita que o navegador interprete como UTC e corte pedidos noturnos
-        const [sYear, sMonth, sDay] = startDate.split('-').map(Number)
-        const startIso = new Date(sYear, sMonth - 1, sDay, 0, 0, 0).toISOString()
-
-        const [eYear, eMonth, eDay] = endDate.split('-').map(Number)
-        const endIso = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).toISOString()
-
-        const orders = await orderService.getOrders(startIso, endIso)
-        setAllOrders(orders)
-        calculateStats(orders)
-    }
-
     const loadCashiers = async () => {
         const data = await cashierService.getCashiers()
         setCashiers(data)
+    }
+
+    const loadDeliveryDrivers = async () => {
+        try {
+            setDeliveryDrivers(await deliveryDriverService.getDrivers())
+        } catch (error) {
+            console.error("Erro ao buscar entregadores:", error)
+            alert("Não foi possível carregar os entregadores. Verifique se aplicou a migração no Supabase.")
+        }
+    }
+
+    const handleAddDeliveryDriver = async (e) => {
+        e.preventDefault()
+        if (!newDriverName.trim() || !newDriverUsername.trim() || !newDriverPassword) {
+            return alert("Preencha nome, usuário e senha do entregador.")
+        }
+        try {
+            await deliveryDriverService.createDriver(newDriverName, newDriverUsername, newDriverPassword)
+            setNewDriverName("")
+            setNewDriverUsername("")
+            setNewDriverPassword("")
+            await loadDeliveryDrivers()
+            alert("Entregador cadastrado!")
+        } catch (error) {
+            console.error("Erro ao cadastrar entregador:", error)
+            alert(error.message?.includes("duplicate") ? "Esse usuário já está em uso." : "Não foi possível cadastrar o entregador.")
+        }
+    }
+
+    const handleDeleteDeliveryDriver = async (id) => {
+        if (!confirm("Remover este acesso de entregador?")) return
+        try {
+            await deliveryDriverService.deleteDriver(id)
+            await loadDeliveryDrivers()
+        } catch (error) {
+            console.error("Erro ao remover entregador:", error)
+            alert("Não foi possível remover o entregador.")
+        }
     }
 
     const handleAddCashier = async (e) => {
@@ -195,7 +212,7 @@ export default function Admin() {
             setNewCashierPass("")
             loadCashiers()
             alert("Caixa adicionado!")
-        } catch (error) {
+        } catch {
             alert("Erro ao criar caixa.")
         }
     }
@@ -212,7 +229,7 @@ export default function Admin() {
             const newValue = !cashier.can_view_reports
             await cashierService.updateCashier(cashier.id, { can_view_reports: newValue })
             loadCashiers()
-        } catch (error) {
+        } catch {
             alert("Erro ao atualizar permissão. Verifique se a coluna 'can_view_reports' existe no banco.")
         }
     }
@@ -235,7 +252,7 @@ export default function Admin() {
         }
 
         const points = parseInt(pointsToAdd)
-        const success = await loyaltyService.addBonusPoints(selectedCustomer.id, points, 'admin_bonus')
+        const success = await loyaltyService.addBonusPoints(selectedCustomer.id, points)
         
         if (success) {
             alert(`✅ ${points} pontos adicionados!`)
@@ -300,7 +317,7 @@ export default function Admin() {
         }
     }
 
-    const calculateStats = (orders) => {
+    const calculateStats = useCallback((orders) => {
         // 1. Faturamento Total (garantindo número)
         const revenue = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0)
 
@@ -355,7 +372,7 @@ export default function Admin() {
             const pgtoNorm = pgtoMethod.replace('online_', '')
             const pgto = (pgtoNorm || (isCashier ? 'outro' : isMesa ? 'mesa' : 'totem')).toLowerCase()
             
-            if (paymentBreakdown.hasOwnProperty(pgto)) {
+            if (Object.prototype.hasOwnProperty.call(paymentBreakdown, pgto)) {
                 paymentBreakdown[pgto] += val
             } else {
                 paymentBreakdown.outro += val
@@ -409,7 +426,30 @@ export default function Admin() {
             cashierBreakdown,
             paymentBreakdown
         })
-    }
+    }, [])
+
+    const loadReports = useCallback(async () => {
+        if (!startDate || !endDate) return;
+
+        // Construção segura da data usando componentes numéricos locais
+        // Evita que o navegador interprete como UTC e corte pedidos noturnos
+        const [sYear, sMonth, sDay] = startDate.split('-').map(Number)
+        const startIso = new Date(sYear, sMonth - 1, sDay, 0, 0, 0).toISOString()
+
+        const [eYear, eMonth, eDay] = endDate.split('-').map(Number)
+        const endIso = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).toISOString()
+
+        const orders = await orderService.getOrders(startIso, endIso)
+        setAllOrders(orders)
+        calculateStats(orders)
+    }, [startDate, endDate, calculateStats])
+
+    // Busca relatórios quando a aba é 'reports' ou as datas mudam
+    useEffect(() => {
+        if (isAuthenticated && activeTab === 'reports') {
+            loadReports()
+        }
+    }, [isAuthenticated, activeTab, loadReports])
 
     const handleLogin = (e) => {
         e.preventDefault()
@@ -467,7 +507,8 @@ export default function Admin() {
             alert("Iniciando restauração... aguarde.")
             for (const p of defaultProducts) {
                 // Remove o ID para o Supabase criar um novo automático
-                const { id, ...prodWithoutId } = p
+                const prodWithoutId = { ...p }
+                delete prodWithoutId.id
                 await productService.saveProduct({ ...prodWithoutId, image: "" })
             }
             loadData()
@@ -490,7 +531,7 @@ export default function Admin() {
                 await orderService.deleteOrder(order.id)
                 loadReports()
                 alert("✅ Pedido excluído com sucesso!")
-            } catch (error) {
+            } catch {
                 alert("❌ Erro ao excluir pedido.")
             }
         }
@@ -722,6 +763,7 @@ export default function Admin() {
                                 </div>
                             )}
                         </div>
+
                     </div>
 
                     <div className="flex items-center justify-between mt-4 px-2">
@@ -1223,7 +1265,7 @@ export default function Admin() {
 
                                                 return matchFilter && matchSearch;
                                             })
-                                            .map((order, idx) => (
+                                            .map(order => (
                                                 <tr key={order.id} className="hover:bg-gray-50 transition-colors text-sm">
                                                     <td className="p-3 font-mono text-gray-400 text-xs">#{order.order_number}</td>
                                                     <td className="p-3 text-gray-500 font-mono">
@@ -1249,13 +1291,11 @@ export default function Admin() {
                                                                 })() }`}>
                                                                     <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
                                                                         const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                         return isOnline ? 'bg-green-500' : 'bg-blue-500';
                                                                     })() }`}></span>
                                                                     <span className={`text-[9px] font-black uppercase tracking-tighter ${ (() => {
                                                                         const pgtoMethod = (order.payment_method || order.paymentMethod || "").toLowerCase();
-                                                                        const isMesa = order.customer_name?.toLowerCase()?.startsWith('mesa');
                                                                         const isOnline = pgtoMethod === 'whatsapp' || pgtoMethod.startsWith('online_');
                                                                         return isOnline ? 'text-green-900' : 'text-blue-900';
                                                                     })() }`}>
@@ -1402,6 +1442,39 @@ export default function Admin() {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-xl shadow-lg my-8">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">🚚 Acesso de Entregador</h2>
+                            <p className="text-sm text-gray-500 mb-6">Crie um usuário e uma senha exclusivos para acessar os pedidos do dia.</p>
+                            <form onSubmit={handleAddDeliveryDriver} className="grid gap-4 md:grid-cols-4 md:items-end">
+                                <div>
+                                    <label className="block text-gray-600 text-sm font-bold mb-2">Nome</label>
+                                    <input required className="w-full border p-3 rounded-lg" placeholder="Ex: João" value={newDriverName} onChange={e => setNewDriverName(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-600 text-sm font-bold mb-2">Usuário</label>
+                                    <input required autoComplete="off" className="w-full border p-3 rounded-lg" placeholder="Ex: joao.entrega" value={newDriverUsername} onChange={e => setNewDriverUsername(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-600 text-sm font-bold mb-2">Senha</label>
+                                    <input required minLength={6} type="password" autoComplete="new-password" className="w-full border p-3 rounded-lg" placeholder="Mínimo 6 caracteres" value={newDriverPassword} onChange={e => setNewDriverPassword(e.target.value)} />
+                                </div>
+                                <button className="bg-orange-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-700 h-[50px]">CRIAR ACESSO</button>
+                            </form>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+                            <div className="border-b p-4 font-bold text-gray-700">Entregadores cadastrados</div>
+                            <div className="divide-y divide-gray-100">
+                                {deliveryDrivers.map(driver => (
+                                    <div key={driver.id} className="flex items-center justify-between gap-4 p-4">
+                                        <div><p className="font-bold">{driver.name}</p><p className="text-sm text-gray-500">Usuário: {driver.username}</p></div>
+                                        <button type="button" onClick={() => handleDeleteDeliveryDriver(driver.id)} className="text-red-600 font-bold hover:bg-red-50 px-3 py-2 rounded">REMOVER</button>
+                                    </div>
+                                ))}
+                                {deliveryDrivers.length === 0 && <p className="p-6 text-center text-gray-400">Nenhum entregador cadastrado.</p>}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1710,7 +1783,7 @@ export default function Admin() {
                                         <h4 className="font-bold text-gray-800 mb-3">📋 Histórico de Pedidos</h4>
                                         <div className="space-y-2 max-h-48 overflow-y-auto">
                                             {customerDetails.orders.length > 0 ? (
-                                                customerDetails.orders.map((order, idx) => (
+                                                customerDetails.orders.map(order => (
                                                     <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
                                                         <div className="text-sm">
                                                             <p className="font-bold">Pedido #{order.order_number}</p>

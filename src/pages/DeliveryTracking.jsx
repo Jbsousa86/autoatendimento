@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronDown, ChevronUp, MapPin, Package, Phone, RefreshCw, Search, Truck } from "lucide-react"
-import { orderService } from "../services/api"
+import { ChevronDown, ChevronUp, LogOut, MapPin, Package, Phone, RefreshCw, Search, Truck } from "lucide-react"
+import { deliveryDriverService, orderService } from "../services/api"
 
 const statusLabels = {
     pending: "Aguardando cozinha",
@@ -19,6 +19,18 @@ const statusStyles = {
 }
 
 export default function DeliveryTracking() {
+    const [driver, setDriver] = useState(() => {
+        try {
+            return JSON.parse(sessionStorage.getItem("delivery_driver_session") || "null")
+        } catch {
+            sessionStorage.removeItem("delivery_driver_session")
+            return null
+        }
+    })
+    const [username, setUsername] = useState("")
+    const [password, setPassword] = useState("")
+    const [loginLoading, setLoginLoading] = useState(false)
+    const [loginError, setLoginError] = useState("")
     const [orders, setOrders] = useState([])
     const [expandedOrderId, setExpandedOrderId] = useState(null)
     const [orderDetails, setOrderDetails] = useState({})
@@ -30,6 +42,7 @@ export default function DeliveryTracking() {
     const [lastUpdated, setLastUpdated] = useState(null)
 
     const loadOrders = useCallback(async (showLoading = false) => {
+        if (!driver) return
         if (showLoading) setLoading(true)
         const result = await orderService.getDeliveryOrdersToday()
         if (result.error) {
@@ -40,16 +53,46 @@ export default function DeliveryTracking() {
             setLastUpdated(new Date())
         }
         if (showLoading) setLoading(false)
-    }, [])
+    }, [driver])
 
     useEffect(() => {
+        if (!driver) return undefined
         const initialLoad = window.setTimeout(() => loadOrders(true), 0)
         const interval = window.setInterval(() => loadOrders(), 10000)
         return () => {
             window.clearTimeout(initialLoad)
             window.clearInterval(interval)
         }
-    }, [loadOrders])
+    }, [driver, loadOrders])
+
+    const handleLogin = async (event) => {
+        event.preventDefault()
+        setLoginLoading(true)
+        setLoginError("")
+        try {
+            const authenticatedDriver = await deliveryDriverService.login(username, password)
+            if (!authenticatedDriver) {
+                setLoginError("Usuário ou senha inválidos.")
+                return
+            }
+            sessionStorage.setItem("delivery_driver_session", JSON.stringify(authenticatedDriver))
+            setDriver(authenticatedDriver)
+            setPassword("")
+        } catch (error) {
+            console.error("Erro ao autenticar entregador:", error)
+            setLoginError("Não foi possível entrar. Verifique a conexão e tente novamente.")
+        } finally {
+            setLoginLoading(false)
+        }
+    }
+
+    const handleLogout = () => {
+        sessionStorage.removeItem("delivery_driver_session")
+        setDriver(null)
+        setOrders([])
+        setOrderDetails({})
+        setExpandedOrderId(null)
+    }
 
     const visibleOrders = useMemo(() => {
         const number = filter.replace(/\D/g, "")
@@ -77,6 +120,30 @@ export default function DeliveryTracking() {
         setDetailsLoadingId(null)
     }
 
+    if (!driver) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-4 py-8 text-white">
+                <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/5 p-7 shadow-2xl sm:p-9">
+                    <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/15 text-orange-400"><Truck size={32} /></div>
+                    <h1 className="text-center text-2xl font-black uppercase">Área do entregador</h1>
+                    <p className="mb-7 mt-2 text-center text-sm text-gray-400">Entre com o acesso criado pelo administrador.</p>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label htmlFor="driver-username" className="mb-2 block text-sm font-bold text-gray-300">Usuário</label>
+                            <input id="driver-username" required autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-orange-400" />
+                        </div>
+                        <div>
+                            <label htmlFor="driver-password" className="mb-2 block text-sm font-bold text-gray-300">Senha</label>
+                            <input id="driver-password" required type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none focus:border-orange-400" />
+                        </div>
+                        {loginError && <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-semibold text-red-300">{loginError}</p>}
+                        <button disabled={loginLoading} className="w-full rounded-xl bg-orange-500 px-4 py-3 font-black text-black transition hover:bg-orange-400 disabled:opacity-60">{loginLoading ? "ENTRANDO..." : "ENTRAR"}</button>
+                    </form>
+                </section>
+            </main>
+        )
+    }
+
     return (
         <main className="min-h-screen bg-[#0a0a0a] px-4 py-8 text-white sm:px-6">
             <div className="mx-auto w-full max-w-4xl">
@@ -90,15 +157,15 @@ export default function DeliveryTracking() {
                             <p className="mt-1 text-sm text-gray-400">Recibos e status atualizados conforme a cozinha.</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => loadOrders(true)}
-                        disabled={loading}
-                        className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-200 transition hover:bg-white/10 disabled:opacity-60"
-                    >
-                        <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
-                    </button>
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => loadOrders(true)} disabled={loading} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-200 transition hover:bg-white/10 disabled:opacity-60">
+                            <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar
+                        </button>
+                        <button type="button" onClick={handleLogout} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-200 transition hover:bg-white/10"><LogOut size={16} /> Sair</button>
+                    </div>
                 </header>
+
+                <p className="mb-5 text-sm text-gray-400">Olá, <span className="font-bold text-white">{driver.name}</span></p>
 
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative w-full sm:max-w-xs">

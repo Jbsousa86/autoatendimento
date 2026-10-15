@@ -27,7 +27,7 @@ export const productService = {
     },
 
     async uploadImage(file, fileName) {
-        const { data, error } = await supabase.storage.from('produtos').upload(fileName, file, { cacheControl: '3600', upsert: true });
+        const { error } = await supabase.storage.from('produtos').upload(fileName, file, { cacheControl: '3600', upsert: true });
         if (error) throw error;
         const { data: publicData } = supabase.storage.from('produtos').getPublicUrl(fileName);
         return publicData.publicUrl;
@@ -235,7 +235,7 @@ export const orderService = {
       if (!isPaymentError) {
         try {
           response = await supabase.from('orders').insert([{ ...finalMinOrder, payment_method: newOrder.payment_method }]).select();
-        } catch (e) {
+        } catch {
           response = await supabase.from('orders').insert([finalMinOrder]).select();
         }
       } else {
@@ -380,6 +380,40 @@ export const cashierService = {
 }
 
 // ==========================================
+// 🚚 USUÁRIOS DE ENTREGA
+// ==========================================
+export const deliveryDriverService = {
+    async getDrivers() {
+        const { data, error } = await supabase.rpc('list_delivery_drivers')
+        if (error) throw error
+        return Array.isArray(data) ? data : []
+    },
+
+    async createDriver(name, username, password) {
+        const { error } = await supabase.rpc('create_delivery_driver', {
+            p_name: name.trim(),
+            p_username: username.trim().toLowerCase(),
+            p_password: password
+        })
+        if (error) throw error
+    },
+
+    async deleteDriver(id) {
+        const { error } = await supabase.rpc('delete_delivery_driver', { p_driver_id: id })
+        if (error) throw error
+    },
+
+    async login(username, password) {
+        const { data, error } = await supabase.rpc('login_delivery_driver', {
+            p_username: username.trim().toLowerCase(),
+            p_password: password
+        })
+        if (error) throw error
+        return data || null
+    }
+}
+
+// ==========================================
 // ⚙️ SERVIÇO DE CONFIGURAÇÕES (SETTINGS)
 // ==========================================
 export const configService = {
@@ -427,7 +461,7 @@ export const phoneUtils = {
         
         // Estratégia 1: Procura por números entre parênteses ou colchetes
         // Ex: "João Silva (11987654321)" ou "João [11987654321]"
-        const bracketMatch = cleaned.match(/[\(\[](\d{10,11})[\)\]]/);
+        const bracketMatch = cleaned.match(/(?:\(|\[)(\d{10,11})(?:\)|\])/);
         if (bracketMatch) {
             return bracketMatch[1];
         }
@@ -744,7 +778,7 @@ export const loyaltyService = {
         return true
     },
 
-    async addBonusPoints(customerId, points, reason = 'cortesia') {
+    async addBonusPoints(customerId, points) {
         try {
             // Busca pontos atuais
             const { data: customer, error: fetchError } = await supabase
