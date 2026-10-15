@@ -62,7 +62,7 @@ export default function DeliveryTracking() {
                             <Truck size={30} />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Entregas de hoje</h1>
+                            <h1 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Pedidos de hoje</h1>
                             <p className="mt-1 text-sm text-gray-400">Recibos e status atualizados conforme a cozinha.</p>
                         </div>
                     </div>
@@ -102,7 +102,7 @@ export default function DeliveryTracking() {
                     </div>
                 ) : visibleOrders.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
-                        {orders.length ? "Nenhum recibo corresponde a esse número." : "Nenhuma entrega encontrada hoje."}
+                        {orders.length ? "Nenhum recibo corresponde a esse número." : "Nenhum pedido encontrado hoje."}
                     </div>
                 ) : (
                     <section className="grid gap-3 sm:grid-cols-2">
