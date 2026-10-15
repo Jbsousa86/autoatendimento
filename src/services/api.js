@@ -115,6 +115,22 @@ export const orderService = {
         }
     },
 
+    async getTodayOrderDetails(orderId) {
+        try {
+            const { data, error } = await supabase.rpc('get_today_order_details', {
+                p_order_id: String(orderId)
+            })
+            if (error) {
+                console.error("Erro ao carregar detalhes do pedido:", error)
+                return { error }
+            }
+            return { data }
+        } catch (error) {
+            console.error("Erro ao carregar detalhes do pedido:", error)
+            return { error }
+        }
+    },
+
     async getOrders(startDate, endDate) {
         try {
             let allData = []

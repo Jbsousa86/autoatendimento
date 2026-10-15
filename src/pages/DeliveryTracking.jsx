@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { RefreshCw, Search, Truck } from "lucide-react"
+import { ChevronDown, ChevronUp, MapPin, Package, Phone, RefreshCw, Search, Truck } from "lucide-react"
 import { orderService } from "../services/api"
 
 const statusLabels = {
@@ -20,6 +20,10 @@ const statusStyles = {
 
 export default function DeliveryTracking() {
     const [orders, setOrders] = useState([])
+    const [expandedOrderId, setExpandedOrderId] = useState(null)
+    const [orderDetails, setOrderDetails] = useState({})
+    const [detailsLoadingId, setDetailsLoadingId] = useState(null)
+    const [detailsError, setDetailsError] = useState("")
     const [filter, setFilter] = useState("")
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -52,6 +56,26 @@ export default function DeliveryTracking() {
         if (!number) return orders
         return orders.filter(order => String(order.order_number).includes(number))
     }, [filter, orders])
+
+    const toggleOrderDetails = async (orderId) => {
+        if (expandedOrderId === orderId) {
+            setExpandedOrderId(null)
+            setDetailsError("")
+            return
+        }
+        setExpandedOrderId(orderId)
+        setDetailsError("")
+        if (orderDetails[orderId]) return
+
+        setDetailsLoadingId(orderId)
+        const result = await orderService.getTodayOrderDetails(orderId)
+        if (result.error || !result.data) {
+            setDetailsError("Não foi possível carregar os dados deste pedido.")
+        } else {
+            setOrderDetails(current => ({ ...current, [orderId]: result.data }))
+        }
+        setDetailsLoadingId(null)
+    }
 
     return (
         <main className="min-h-screen bg-[#0a0a0a] px-4 py-8 text-white sm:px-6">
@@ -106,26 +130,82 @@ export default function DeliveryTracking() {
                     </div>
                 ) : (
                     <section className="grid gap-3 sm:grid-cols-2">
-                        {visibleOrders.map((order, index) => (
-                            <article key={`${order.order_number}-${order.created_at}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-widest text-orange-300">Recibo</p>
-                                        <p className="mt-1 text-4xl font-black tracking-tight">#{order.order_number}</p>
+                        {visibleOrders.map((order, index) => {
+                            const isExpanded = expandedOrderId === order.id
+                            const details = orderDetails[order.id]
+                            const mapUrl = details?.customer_address
+                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(details.customer_address)}`
+                                : ""
+                            return (
+                            <article key={`${order.id || order.order_number}-${order.created_at}-${index}`} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg">
+                                <button
+                                    type="button"
+                                    onClick={() => toggleOrderDetails(order.id)}
+                                    aria-expanded={isExpanded}
+                                    className="w-full p-5 text-left transition hover:bg-white/5"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-widest text-orange-300">Recibo</p>
+                                            <p className="mt-1 text-4xl font-black tracking-tight">#{order.order_number}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Horário</p>
+                                            <p className="mt-1 text-xl font-black">{new Date(order.created_at).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}</p>
+                                            <p className="mt-1 text-sm font-bold text-gray-300">R$ {Number(order.total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Horário</p>
-                    <p className="mt-1 text-xl font-black">{new Date(order.created_at).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}</p>
-                                        <p className="mt-1 text-sm font-bold text-gray-300">R$ {Number(order.total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                                    <div className="mt-5 flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+                                        <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusStyles[order.status] || "bg-gray-700 text-gray-200"}`}>
+                                            {statusLabels[order.status] || order.status || "Status indisponível"}
+                                        </span>
+                                        <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
+                                            {isExpanded ? "Fechar detalhes" : "Ver pedido"}
+                                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                        </span>
                                     </div>
-                                </div>
-                                <div className="mt-5 border-t border-white/10 pt-4">
-                                    <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusStyles[order.status] || "bg-gray-700 text-gray-200"}`}>
-                                        {statusLabels[order.status] || order.status || "Status indisponível"}
-                                    </span>
-                                </div>
+                                </button>
+
+                                {isExpanded && (
+                                    <div className="space-y-4 border-t border-white/10 bg-black/20 p-5">
+                                        {detailsLoadingId === order.id ? (
+                                            <p className="flex items-center gap-2 text-sm text-gray-400"><RefreshCw size={16} className="animate-spin" /> Carregando detalhes...</p>
+                                        ) : detailsError ? (
+                                            <p role="alert" className="text-sm font-semibold text-red-300">{detailsError}</p>
+                                        ) : details ? (
+                                            <>
+                                                {details.customer_name && <p className="text-sm"><span className="font-bold text-gray-400">Cliente:</span> {details.customer_name}</p>}
+                                                {details.customer_address && (
+                                                    <div className="flex items-start gap-2 text-sm">
+                                                        <MapPin size={16} className="mt-0.5 shrink-0 text-orange-300" />
+                                                        <div><span className="font-bold text-gray-400">Endereço:</span> {details.customer_address}{" "}
+                                                            <a href={mapUrl} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="font-bold text-orange-300 underline">Abrir mapa</a>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {details.customer_phone && <p className="text-sm"><Phone size={15} className="mr-2 inline text-orange-300" /><span className="font-bold text-gray-400">Telefone:</span> {details.customer_phone}</p>}
+                                                {details.payment_method && <p className="text-sm"><span className="font-bold text-gray-400">Pagamento:</span> {details.payment_method.replace("online_", "")}</p>}
+                                                {details.observation && <p className="text-sm"><span className="font-bold text-gray-400">Observação:</span> {details.observation}</p>}
+                                                <div className="border-t border-white/10 pt-4">
+                                                    <h3 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-400"><Package size={15} /> Itens do pedido</h3>
+                                                    {Array.isArray(details.items) && details.items.length > 0 ? (
+                                                        <ul className="space-y-3 text-sm">
+                                                            {details.items.map((item, itemIndex) => (
+                                                                <li key={`${item.name}-${itemIndex}`} className="flex justify-between gap-3">
+                                                                    <span>{item.qty}x {item.name}{item.observation && <span className="mt-1 block text-xs text-gray-400">Obs.: {item.observation}</span>}</span>
+                                                                    <span className="shrink-0 text-gray-300">R$ {Number((item.price || 0) * (item.qty || 1)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : <p className="text-sm text-gray-500">Itens indisponíveis.</p>}
+                                                    <p className="mt-4 border-t border-white/10 pt-3 text-right font-black">Total: R$ {Number(details.total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                                                </div>
+                                            </>
+                                        ) : null}
+                                    </div>
+                                )}
                             </article>
-                        ))}
+                        )})}
                     </section>
                 )}
             </div>
