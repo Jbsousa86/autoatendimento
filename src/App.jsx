@@ -9,6 +9,7 @@ import MobileMenu from "./pages/MobileMenu"
 import MobileFinish from "./pages/MobileFinish"
 import OnlineMenu from "./pages/OnlineMenu"
 import OnlineFinish from "./pages/OnlineFinish"
+import DeliveryTracking from "./pages/DeliveryTracking"
 
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/mesa/:tableId/sucesso" element={<MobileFinish />} />
       <Route path="/cardapio" element={<OnlineMenu />} />
       <Route path="/cardapio/sucesso" element={<OnlineFinish />} />
+      <Route path="/entrega" element={<DeliveryTracking />} />
       <Route path="/finish" element={<Finish />} />
       <Route path="/kitchen" element={<Kitchen />} />
       <Route path="/admin" element={<Admin />} />
