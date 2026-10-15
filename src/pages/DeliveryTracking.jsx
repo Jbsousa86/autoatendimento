@@ -34,7 +34,7 @@ export default function DeliveryTracking() {
             setError("Não foi possível consultar agora. Verifique a conexão e tente novamente.")
         } else if (!result.data) {
             setOrder(null)
-            setError("Pedido não encontrado. Confira o número e os últimos quatro dígitos do telefone.")
+            setError("Pedido de hoje não encontrado. Confira o número e os últimos quatro dígitos do telefone.")
         } else {
             setOrder(result.data)
             setError("")
@@ -77,7 +77,7 @@ export default function DeliveryTracking() {
                         <Truck size={34} />
                     </div>
                     <h1 className="text-3xl font-black uppercase tracking-tight">Acompanhar entrega</h1>
-                    <p className="mt-2 text-sm text-gray-400">Consulte o andamento pelo número do pedido.</p>
+                    <p className="mt-2 text-sm text-gray-400">Consulte pedidos de hoje pelo número e telefone cadastrado.</p>
                 </header>
 
                 <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-xl">
