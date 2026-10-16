@@ -519,8 +519,8 @@ export default function Cashier() {
                 if (troco > 0) {
                     data = new Uint8Array([
                         ...data,
-                        ...BOLD_ON, ...txt(`PAGOU: R$ ${changeVal.toFixed(2)}`),
-                        ...txt(`TROCO: ${troco.toFixed(2)}`), ...BOLD_OFF,
+                        ...BOLD_ON, ...txt(`CLIENTE TEM: R$ ${changeVal.toFixed(2)}`),
+                        ...txt(`LEVAR: R$ ${troco.toFixed(2)} DE TROCO`), ...BOLD_OFF,
                         ...txt("--------------------------------")
                     ]);
                 }
@@ -1094,10 +1094,10 @@ export default function Cashier() {
                                 {lastFinishedOrder.changeAmount && (
                                     <div className="border-t border-black border-dashed pt-2 my-2 text-sm font-bold">
                                         <div className="flex justify-between">
-                                            <span>TROCO PARA:</span>
+                                            <span>CLIENTE TEM:</span>
                                             <span>R$ {Number(lastFinishedOrder.changeAmount).toFixed(2)}</span>                                        </div>
                                         <div className="flex justify-between text-lg">
-                                            <span>VALOR:</span>
+                                            <span>LEVAR DE TROCO:</span>
                                             <span>{(Number(lastFinishedOrder.changeAmount) - Number(lastFinishedOrder.total)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                                         </div>
                                     </div>

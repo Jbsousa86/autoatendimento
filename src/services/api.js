@@ -213,6 +213,13 @@ export const orderService = {
 
     // Fallback robusto: Se houver erro de coluna inexistente, tenta salvar o básico
     if (response.error && (response.error.code === '42703' || response.error.message?.includes("column"))) {
+      // Não confirme um pedido com troco se o banco ainda não tiver a coluna necessária.
+      // O pedido precisa ser salvo com esse valor para que a reimpressão possa calculá-lo.
+      if (newOrder.change_amount != null && (response.error.message || "").includes("change_amount")) {
+        console.error("❌ A coluna change_amount ainda não existe no banco:", response.error)
+        return { error: response.error }
+      }
+
       // Prepara um nome que já inclua o endereço e observação se as colunas falharem
       let fallbackName = newOrder.customer_name;
       if (newOrder.customer_phone) fallbackName += ` [Tel: ${newOrder.customer_phone}]`;

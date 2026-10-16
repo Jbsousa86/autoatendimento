@@ -39,6 +39,7 @@ export default function OnlineMenu() {
     const [customerAddress, setCustomerAddress] = useState("")
     const [customerPhone, setCustomerPhone] = useState("")
     const [paymentMethod, setPaymentMethod] = useState("")
+    const [changeAmount, setChangeAmount] = useState("")
     const [showConfirmModal, setShowConfirmModal] = useState(false)
     const [loyaltyDiscount, setLoyaltyDiscount] = useState(0)
     const [loyaltyPoints, setLoyaltyPoints] = useState(0)
@@ -174,12 +175,17 @@ export default function OnlineMenu() {
             alert("Por favor, selecione a forma de pagamento.")
             return
         }
+        if (paymentMethod === 'dinheiro' && changeAmount && Number(changeAmount) < getCartTotalWithDiscount()) {
+            alert("O valor informado para o troco precisa ser igual ou maior que o total do pedido.")
+            return
+        }
         setShowConfirmModal(false)
         const order = finalizeOrder(customerName, generalObservation, 'online', customerPhone, loyaltyDiscount)
         // Adiciona o endereço, telefone, desconto e identifica a origem com a forma escolhida
         order.customerAddress = customerAddress
         order.customerPhone = customerPhone
         order.paymentMethod = `online_${paymentMethod}`
+        order.changeAmount = paymentMethod === 'dinheiro' && changeAmount ? Number(changeAmount) : null
         order.loyaltyDiscount = loyaltyDiscount
         order.total = getCartTotalWithDiscount()
         order.created_at_client = Date.now()
@@ -599,13 +605,37 @@ export default function OnlineMenu() {
                                     <select
                                         className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 transition-all appearance-none cursor-pointer"
                                         value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                        onChange={(e) => {
+                                            setPaymentMethod(e.target.value)
+                                            if (e.target.value !== 'dinheiro') setChangeAmount("")
+                                        }}
                                     >
                                         <option value="" className="bg-[#121212] text-gray-400">Como você prefere pagar?</option>
                                         <option value="dinheiro" className="bg-[#121212] text-white font-bold">💵 Dinheiro</option>
                                         <option value="cartao" className="bg-[#121212] text-white font-bold">💳 Cartão na Entrega</option>
                                         <option value="pix" className="bg-[#121212] text-white font-bold">💠 PIX na Entrega</option>
                                     </select>
+                                    {paymentMethod === 'dinheiro' && (
+                                        <div className="mt-4">
+                                            <label className="block text-[10px] font-black uppercase text-orange-400 mb-2 tracking-[0.2em]">
+                                                Precisa de troco? Informe para quanto
+                                            </label>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">R$</span>
+                                                <input
+                                                    type="number"
+                                                    min={getCartTotalWithDiscount().toFixed(2)}
+                                                    step="0.01"
+                                                    inputMode="decimal"
+                                                    placeholder="Ex: 50,00 (opcional)"
+                                                    className="w-full bg-black/40 border border-white/5 rounded-xl pl-12 pr-4 py-3.5 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-orange-500/20 placeholder-gray-600 transition-all select-text"
+                                                    value={changeAmount}
+                                                    onChange={(e) => setChangeAmount(e.target.value)}
+                                                />
+                                            </div>
+                                            <p className="mt-2 text-[10px] text-gray-500">Deixe em branco se não precisar de troco.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

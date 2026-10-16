@@ -80,6 +80,12 @@ export default function OnlineFinish() {
         if (order.observation) message += `*Obs Geral:* ${order.observation}\n`;
         const paymentDisplay = (order.paymentMethod || order.payment_method || '').replace('online_', '').toUpperCase();
         if (paymentDisplay) message += `*Forma de Pagamento:* ${paymentDisplay}\n`;
+        const cashPaid = Number(order.changeAmount || order.change_amount)
+        const changeDue = cashPaid - Number(order.total)
+        if (paymentDisplay.includes('DINHEIRO') && cashPaid > 0 && changeDue > 0) {
+            message += `*CLIENTE TEM:* R$ ${cashPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+            message += `*LEVAR DE TROCO:* R$ ${changeDue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n`;
+        }
         message += `*TOTAL: R$ ${Number(order.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}*\n\n`;
         message += `_Obrigado pela preferência!_`;
 
@@ -108,6 +114,10 @@ export default function OnlineFinish() {
             </div>
         )
     }
+
+    const paymentDisplay = (order.paymentMethod || order.payment_method || '').replace('online_', '').toUpperCase()
+    const cashPaid = Number(order.changeAmount || order.change_amount)
+    const changeDue = cashPaid - Number(order.total)
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-white text-center relative overflow-hidden">
@@ -173,6 +183,27 @@ export default function OnlineFinish() {
                                 <p className="font-bold text-white text-sm line-clamp-1">{order.customerAddress}</p>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="mt-6 pt-5 border-t border-white/5 space-y-2 text-sm">
+                        {paymentDisplay && (
+                            <div className="flex justify-between gap-4 text-gray-300">
+                                <span className="text-gray-500">Pagamento</span>
+                                <span className="font-bold">{paymentDisplay}</span>
+                            </div>
+                        )}
+                        {paymentDisplay.includes('DINHEIRO') && cashPaid > 0 && changeDue > 0 && (
+                            <>
+                                <div className="flex justify-between gap-4 text-gray-300">
+                                    <span className="text-gray-500">Cliente tem</span>
+                                    <span className="font-bold">{cashPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-green-400">
+                                    <span>Levar de troco</span>
+                                    <span className="font-black">{changeDue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
