@@ -57,7 +57,7 @@ export default function Menu() {
       : [{ id: 'promocoes', name: 'Promoções do Dia 🔥' }, ...categories];
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-br from-orange-500 to-red-600 relative">
+    <div className="h-screen w-screen overflow-hidden flex bg-gradient-to-br from-orange-500 to-red-600 relative">
       {/* AVISO SELEÇÃO SEGUNDO SABOR (TOTEM) */}
       {hfPizza && (
         <div className="absolute top-0 left-0 right-0 bg-yellow-400 text-gray-900 p-6 z-50 flex justify-between items-center shadow-2xl animate-pulse">
@@ -72,17 +72,17 @@ export default function Menu() {
       )}
 
       {/* COLUNA 1 — CATEGORIAS (Scrollavel se houver muitas) */}
-      <aside className="w-1/5 h-full p-6 z-10 flex flex-col items-center overflow-y-auto scrollbar-hide space-y-4">
+      <aside className="w-[20%] xl:w-1/5 shrink-0 h-full p-2.5 xl:p-6 z-10 flex flex-col items-center overflow-y-auto overflow-x-hidden scrollbar-hide space-y-3 xl:space-y-4">
         {/* BLOCO DE INFORMAÇÕES: RELÓGIO + FUNCIONAMENTO */}
-        <div className="w-full bg-white/10 backdrop-blur-md rounded-[32px] p-6 mb-4 border border-white/10 shadow-2xl shrink-0">
-          <div className="text-white text-5xl font-black drop-shadow-lg tracking-tighter leading-none mb-2 text-center">
+        <div className="w-full bg-white/10 backdrop-blur-md rounded-[20px] xl:rounded-[32px] p-2.5 xl:p-6 mb-2 xl:mb-4 border border-white/10 shadow-2xl shrink-0 overflow-hidden">
+          <div className="text-white text-2xl lg:text-3xl xl:text-5xl font-black drop-shadow-lg tracking-tighter leading-none mb-2 text-center">
             {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </div>
-          <div className="h-[2px] w-12 bg-yellow-400 mx-auto mb-3 rounded-full"></div>
-          <div className="text-white font-bold text-[10px] uppercase tracking-[0.2em] text-center">
+          <div className="h-[2px] w-10 xl:w-12 bg-yellow-400 mx-auto mb-2 xl:mb-3 rounded-full"></div>
+          <div className="text-white font-bold text-[8px] xl:text-[10px] uppercase tracking-wider xl:tracking-[0.2em] leading-tight text-center break-words">
             Horário de Funcionamento
           </div>
-          <div className="text-green-400 text-lg font-black mt-1 text-center">
+          <div className="text-green-400 text-xs lg:text-sm xl:text-lg font-black mt-1 text-center whitespace-nowrap">
             {settingsHours}
           </div>
         </div>
@@ -90,17 +90,17 @@ export default function Menu() {
         {/* LOGO NO MENU (Clicável para Home) */}
         <div
           onClick={() => navigate("/")}
-          className="mb-6 flex justify-center opacity-60 mix-blend-overlay hover:opacity-100 hover:scale-105 transition-all duration-300 cursor-pointer shrink-0"
+          className="mb-3 xl:mb-6 flex justify-center opacity-60 mix-blend-overlay hover:opacity-100 hover:scale-105 transition-all duration-300 cursor-pointer shrink-0"
           title="Voltar para o Início"
         >
           <img
             src={Logo}
             alt="Logo Menu"
-            className="w-40 h-40 rounded-full border-4 border-white/50 shadow-2xl"
+            className="w-24 h-24 lg:w-28 lg:h-28 xl:w-40 xl:h-40 rounded-full border-4 border-white/50 shadow-2xl object-cover"
           />
         </div>
 
-        <div className="w-full space-y-4 pb-10">
+        <div className="w-full space-y-3 xl:space-y-4 pb-10 px-1">
           {displayCategories.map((cat) => (
             <CategoryButton
               key={cat.id}
@@ -113,8 +113,8 @@ export default function Menu() {
       </aside>
 
       {/* COLUNA 2 — PRODUTOS (Auto-ajustável e Inteligente) */}
-      <main className="w-3/5 h-full overflow-y-auto scrollbar-hide p-6">
-        <div className="grid grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-8 pb-40 max-w-[1800px] mx-auto">
+      <main className="flex-1 min-w-0 h-full overflow-y-auto scrollbar-hide p-3 xl:p-6">
+        <div className="grid grid-cols-2 2xl:grid-cols-3 gap-4 xl:gap-8 pb-40 max-w-[1800px] mx-auto">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}

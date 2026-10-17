@@ -4,7 +4,7 @@ export function ProductCard({ product }) {
   const { addToCart, startHalfPizza, hfPizza, hfSize } = useCart()
 
   return (
-    <div className={`bg-white/20 backdrop-blur-lg border border-white/30 rounded-3xl p-6 shadow-2xl flex flex-col h-full transition-all duration-300 relative ${product.out_of_stock ? 'grayscale opacity-60 pointer-events-none' : 'hover:bg-white/30'}`}>
+    <div className={`bg-white/20 backdrop-blur-lg border border-white/30 rounded-3xl p-4 xl:p-6 shadow-2xl flex flex-col h-full min-w-0 transition-all duration-300 relative ${product.out_of_stock ? 'grayscale opacity-60 pointer-events-none' : 'hover:bg-white/30'}`}>
       {product.out_of_stock && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-red-600 text-white px-6 py-2 rounded-xl font-black text-2xl tracking-widest shadow-2xl -rotate-12 border-4 border-red-800 flex items-center justify-center whitespace-nowrap">
           ESGOTADO
@@ -14,33 +14,33 @@ export function ProductCard({ product }) {
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-48 object-cover rounded-2xl mb-6 shadow-md"
+          className="w-full h-40 xl:h-48 object-cover rounded-2xl mb-4 xl:mb-6 shadow-md"
         />
       )}
 
-      <h3 className="text-3xl font-black mb-2 leading-none text-white drop-shadow-md">
+      <h3 className="text-xl xl:text-3xl font-black mb-2 leading-tight text-white drop-shadow-md break-words">
         {product.name}
       </h3>
 
       <div className="flex flex-col mb-2">
         {product.old_price && (
-          <span className="text-xl text-white/60 line-through leading-none mb-1 font-bold">
+          <span className="text-base xl:text-xl text-white/60 line-through leading-none mb-1 font-bold whitespace-nowrap">
             R$ {Number(product.old_price).toFixed(2)}
           </span>
         )}
-        <p className="text-4xl font-black text-yellow-300 drop-shadow-sm leading-none">
+        <p className="text-2xl xl:text-4xl font-black text-yellow-300 drop-shadow-sm leading-none whitespace-nowrap">
           R$ {Number(product.price).toFixed(2)}
         </p>
       </div>
 
-      <p className="text-white/90 text-lg mb-8 leading-snug font-medium">
+      <p className="text-white/90 text-sm xl:text-lg mb-6 xl:mb-8 leading-snug font-medium">
         {product.description}
       </p>
 
       {!['pizzas', 'pizza'].includes(product.category.toLowerCase()) ? (
         <button
           onClick={() => addToCart(product)}
-          className="mt-auto h-16 bg-white text-orange-600 text-2xl font-black rounded-2xl shadow-lg hover:bg-orange-50 hover:scale-[1.02] active:scale-95 transition-all w-full"
+          className="mt-auto h-14 xl:h-16 bg-white text-orange-600 text-lg xl:text-2xl font-black rounded-2xl shadow-lg hover:bg-orange-50 hover:scale-[1.02] active:scale-95 transition-all w-full"
         >
           ADICIONAR
         </button>
