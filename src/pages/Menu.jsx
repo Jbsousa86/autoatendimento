@@ -74,15 +74,15 @@ export default function Menu() {
       {/* COLUNA 1 — CATEGORIAS (Scrollavel se houver muitas) */}
       <aside className="w-[20%] xl:w-1/5 shrink-0 h-full p-2.5 xl:p-6 z-10 flex flex-col items-center overflow-y-auto overflow-x-hidden scrollbar-hide space-y-3 xl:space-y-4">
         {/* BLOCO DE INFORMAÇÕES: RELÓGIO + FUNCIONAMENTO */}
-        <div className="w-full bg-white/10 backdrop-blur-md rounded-[20px] xl:rounded-[32px] p-2.5 xl:p-6 mb-2 xl:mb-4 border border-white/10 shadow-2xl shrink-0 overflow-hidden">
+        <div className="w-full bg-white/10 backdrop-blur-md rounded-[20px] xl:rounded-[32px] p-2.5 xl:p-5 mb-2 xl:mb-4 border border-white/10 shadow-2xl shrink-0 overflow-hidden">
           <div className="text-white text-2xl lg:text-3xl xl:text-5xl font-black drop-shadow-lg tracking-tighter leading-none mb-2 text-center">
             {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </div>
           <div className="h-[2px] w-10 xl:w-12 bg-yellow-400 mx-auto mb-2 xl:mb-3 rounded-full"></div>
-          <div className="text-white font-bold text-[8px] xl:text-[10px] uppercase tracking-wider xl:tracking-[0.2em] leading-tight text-center break-words">
+          <div className="text-white font-bold text-[8px] xl:text-[10px] uppercase tracking-wider xl:tracking-[0.15em] leading-tight text-center break-words">
             Horário de Funcionamento
           </div>
-          <div className="text-green-400 text-xs lg:text-sm xl:text-lg font-black mt-1 text-center whitespace-nowrap">
+          <div className="text-green-400 text-[11px] lg:text-xs xl:text-base font-black mt-1 text-center leading-tight break-words whitespace-normal">
             {settingsHours}
           </div>
         </div>
