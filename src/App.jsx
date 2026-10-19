@@ -10,6 +10,7 @@ import MobileFinish from "./pages/MobileFinish"
 import OnlineMenu from "./pages/OnlineMenu"
 import OnlineFinish from "./pages/OnlineFinish"
 import DeliveryTracking from "./pages/DeliveryTracking"
+import OnlineAcaiMenu from "./pages/OnlineAcaiMenu"
 
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
       <Route path="/kitchen" element={<Kitchen />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/caixa" element={<Cashier />} />
+      <Route path="/cardapio/acai" element={<OnlineAcaiMenu />} />
     </Routes>
   )
 }
