@@ -31,8 +31,8 @@ export default function OnlineAcaiMenu() {
   const [loadingData, setLoadingData] = useState(true);
   const [zoomImage, setZoomImage] = useState(null);
 
-  // Modo principal: 'quilo' (Montar por Peso) | 'copos' (Copos Prontos / Casquinhas / Milkshakes)
-  const [modoCardapio, setModoCardapio] = useState('quilo');
+  // Modo principal: 'copos' (Copos Prontos / Casquinhas / Milkshakes) | 'quilo' (Montar por Peso)
+  const [modoCardapio, setModoCardapio] = useState('copos');
 
   // Tipo de montagem no Quilo: 'acai' | 'sorvete' | 'misto'
   const [tipoQuilo, setTipoQuilo] = useState('acai');
@@ -293,7 +293,7 @@ export default function OnlineAcaiMenu() {
 
   const voltarParaTelaPrincipal = () => {
     setCompletedOrder(null);
-    setModoCardapio('quilo');
+    setModoCardapio('copos');
     setTipoQuilo('acai');
     setGramas(minGramas);
     setPaymentMethod('');
@@ -457,19 +457,8 @@ export default function OnlineAcaiMenu() {
       </header>
 
       <main className="max-w-md mx-auto space-y-5">
-        {/* Seletor de Modo: Montar no Quilo vs Copos/Sorvetes Prontos */}
+        {/* Seletor de Modo: Copos/Sorvetes Prontos (Padrão) vs Montar no Quilo */}
         <div className="grid grid-cols-2 gap-2 bg-purple-900/60 p-1.5 rounded-2xl border border-purple-800">
-          <button
-            type="button"
-            onClick={() => setModoCardapio('quilo')}
-            className={`py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              modoCardapio === 'quilo'
-                ? 'bg-purple-600 text-white shadow-lg border border-purple-400'
-                : 'text-purple-300 hover:text-white'
-            }`}
-          >
-            <Scale size={18} /> Montar no Quilo
-          </button>
           <button
             type="button"
             onClick={() => setModoCardapio('copos')}
@@ -480,6 +469,17 @@ export default function OnlineAcaiMenu() {
             }`}
           >
             <CupSoda size={18} /> Prontos (Copos & Milkshakes)
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoCardapio('quilo')}
+            className={`py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              modoCardapio === 'quilo'
+                ? 'bg-purple-600 text-white shadow-lg border border-purple-400'
+                : 'text-purple-300 hover:text-white'
+            }`}
+          >
+            <Scale size={18} /> Montar no Quilo
           </button>
         </div>
 
