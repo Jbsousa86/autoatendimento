@@ -291,6 +291,17 @@ export default function OnlineAcaiMenu() {
     }
   };
 
+  const voltarParaTelaPrincipal = () => {
+    setCompletedOrder(null);
+    setModoCardapio('quilo');
+    setTipoQuilo('acai');
+    setGramas(minGramas);
+    setPaymentMethod('');
+    setChangeAmount('');
+    setGeneralObservation('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleEnviarWhatsApp = (pedido) => {
     if (!pedido) return;
     const waNum = (settings.whatsapp_number || '').replace(/\D/g, '') || '5563991038781';
@@ -339,6 +350,10 @@ export default function OnlineAcaiMenu() {
     msg += `*TOTAL: R$ ${Number(pedido.total).toFixed(2)}*\n`;
 
     window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank');
+
+    setTimeout(() => {
+      voltarParaTelaPrincipal();
+    }, 1000);
   };
 
   const coposFiltrados = coposProntos.filter((c) => {
@@ -391,10 +406,10 @@ export default function OnlineAcaiMenu() {
           </button>
 
           <button
-            onClick={() => setCompletedOrder(null)}
-            className="text-sm text-purple-300 hover:text-white underline cursor-pointer"
+            onClick={voltarParaTelaPrincipal}
+            className="text-sm text-purple-300 hover:text-white underline cursor-pointer font-semibold"
           >
-            Fazer novo pedido
+            ← Voltar ao Cardápio
           </button>
         </div>
       </div>
