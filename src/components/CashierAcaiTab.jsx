@@ -200,18 +200,23 @@ export default function CashierAcaiTab({ user, onPrintOrder }) {
     const itemTotal = calculateScaleTotal();
     const labelTipo = scaleType === 'sorvete' ? 'Sorvete no Quilo' : 'Açaí no Quilo';
     const flavorNames = scaleType === 'sorvete' ? selectedPosFlavors.map((f) => f.name) : [];
+    const itemTitle =
+      flavorNames.length > 0
+        ? `${labelTipo} - Balança (${gramsNumber}g) [${flavorNames.join(', ')}]`
+        : `${labelTipo} - Balança (${gramsNumber}g)`;
     const newItem = {
       id: `balanca-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       kind: 'balanca',
       product_type: scaleType,
-      title:
-        flavorNames.length > 0
-          ? `${labelTipo} - Balança (${gramsNumber}g) [${flavorNames.join(', ')}]`
-          : `${labelTipo} - Balança (${gramsNumber}g)`,
+      qty: 1,
+      name: itemTitle,
+      title: itemTitle,
+      price: itemTotal,
       grams: gramsNumber,
       price_per_kg: activePricePerKg,
       flavors: flavorNames,
       addons: [],
+      notes: '',
       observation: '',
       total: itemTotal
     };
@@ -230,20 +235,26 @@ export default function CashierAcaiTab({ user, onPrintOrder }) {
     const isSorvete = (cup.category || 'acai') === 'sorvete';
     const flavorNames = isSorvete ? selectedPosFlavors.map((f) => f.name) : [];
     const baseTitle = cup.size_ml ? `${cup.name} (${cup.size_ml}ml)` : cup.name;
+    const itemTitle = flavorNames.length > 0 ? `${baseTitle} [${flavorNames.join(', ')}]` : baseTitle;
+    const itemPrice = Number(cup.price || 0);
 
     const newItem = {
       id: `copo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       kind: 'copo_pronto',
       product_type: cup.category || 'acai',
       cup_id: cup.id,
-      title: flavorNames.length > 0 ? `${baseTitle} [${flavorNames.join(', ')}]` : baseTitle,
+      qty: 1,
+      name: itemTitle,
+      title: itemTitle,
+      price: itemPrice,
       size_ml: Number(cup.size_ml || 0),
       description: cup.description || '',
       grams: 0,
       flavors: flavorNames,
       addons: [],
+      notes: '',
       observation: '',
-      total: Number(cup.price || 0)
+      total: itemPrice
     };
 
     setAcaiCart((prev) => [...prev, newItem]);
@@ -262,21 +273,31 @@ export default function CashierAcaiTab({ user, onPrintOrder }) {
     const isOnline = !ord.cashier_name && !ord.cashierName;
     const rawPgto = ord.payment_method || ord.paymentMethod || '';
     const formattedItems = (ord.items || []).map((it) => {
-      const extraDetails = [];
-      if (Array.isArray(it.flavors) && it.flavors.length > 0) {
-        extraDetails.push(`Sabores: ${it.flavors.join(', ')}`);
+      const rawObs = it.notes !== undefined ? it.notes : it.observation || '';
+      const alreadyFormatted =
+        it.notes === undefined &&
+        (rawObs.includes('Sabores:') || rawObs.includes('Acomp:'));
+
+      let finalObs = rawObs;
+      if (!alreadyFormatted) {
+        const extraDetails = [];
+        if (Array.isArray(it.flavors) && it.flavors.length > 0) {
+          extraDetails.push(`Sabores: ${it.flavors.join(', ')}`);
+        }
+        if (Array.isArray(it.addons) && it.addons.length > 0) {
+          extraDetails.push(`Acomp: ${it.addons.map((a) => a.name || a).join(', ')}`);
+        }
+        if (rawObs) {
+          extraDetails.push(rawObs);
+        }
+        finalObs = extraDetails.join(' | ');
       }
-      if (Array.isArray(it.addons) && it.addons.length > 0) {
-        extraDetails.push(`Acomp: ${it.addons.map((a) => a.name || a).join(', ')}`);
-      }
-      if (it.observation) {
-        extraDetails.push(it.observation);
-      }
+
       return {
         qty: it.qty || 1,
         name: it.name || it.title || `Acai ${it.grams || 0}g`,
         price: Number(it.price ?? it.total ?? 0),
-        observation: extraDetails.join(' | ')
+        observation: finalObs
       };
     });
 
@@ -1379,21 +1400,34 @@ export default function CashierAcaiTab({ user, onPrintOrder }) {
                     <div className="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200 space-y-1">
                       <p>
                         <strong>Local:</strong> {ord.customer_address || 'Balcão'} |{' '}
-                        <strong>Pgto:</strong> {String(ord.payment_method || '').toUpperCase()}
+                        <strong>Pgto:</strong>{' '}
+                        {String(ord.payment_method || '')
+                          .replace(/^online_/i, '')
+                          .toUpperCase()}
                       </p>
                       <div className="border-t border-gray-200 pt-1.5 mt-1.5 space-y-1">
                         {Array.isArray(ord.items) && ord.items.length > 0 ? (
-                          ord.items.map((it, idx) => (
-                            <div key={idx}>
-                              • <strong>{it.title || `Açaí ${it.grams}g`}</strong> — R${' '}
-                              {Number(it.total || 0).toFixed(2)}
-                              {it.flavors?.length > 0 &&
-                                ` [Sabores: ${it.flavors.join(', ')}]`}
-                              {it.addons?.length > 0 &&
-                                ` (Acompanhamentos: ${it.addons.map((a) => a.name).join(', ')})`}
-                              {it.observation && ` [Obs: ${it.observation}]`}
-                            </div>
-                          ))
+                          ord.items.map((it, idx) => {
+                            const rawNote =
+                              it.notes !== undefined
+                                ? it.notes
+                                : it.observation &&
+                                  !it.observation.includes('Sabores:') &&
+                                  !it.observation.includes('Acomp:')
+                                ? it.observation
+                                : '';
+                            return (
+                              <div key={idx}>
+                                • <strong>{it.title || it.name || `Açaí ${it.grams}g`}</strong> — R${' '}
+                                {Number(it.total ?? it.price ?? 0).toFixed(2)}
+                                {it.flavors?.length > 0 &&
+                                  ` [Sabores: ${it.flavors.join(', ')}]`}
+                                {it.addons?.length > 0 &&
+                                  ` (Acompanhamentos: ${it.addons.map((a) => a.name).join(', ')})`}
+                                {rawNote && ` [Obs: ${rawNote}]`}
+                              </div>
+                            );
+                          })
                         ) : (
                           <div>
                             • <strong>Açaí {ord.grams}g</strong>

@@ -4,6 +4,7 @@ import { productService, orderService, cashierService, configService } from "../
 import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
 import CashierAcaiTab from "../components/CashierAcaiTab"
+import { acaiService } from "../services/acaiApi"
 
 const AUDIO_URL = "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
 
@@ -231,11 +232,18 @@ export default function Cashier() {
                 })
             })
 
+            const acaiSubscription = acaiService.subscribeToOrders((payload) => {
+                if (payload?.eventType === 'INSERT' && payload?.new) {
+                    processAudioForOrders([payload.new])
+                }
+            })
+
             const handleAfterPrint = () => setLastFinishedOrder(null)
             window.addEventListener('afterprint', handleAfterPrint)
 
             return () => {
                 if (subscription) subscription.unsubscribe()
+                if (acaiSubscription) acaiSubscription.unsubscribe()
                 clearInterval(polling)
                 window.removeEventListener('afterprint', handleAfterPrint)
             }

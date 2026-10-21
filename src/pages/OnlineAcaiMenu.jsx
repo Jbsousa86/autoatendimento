@@ -140,25 +140,45 @@ export default function OnlineAcaiMenu() {
   };
 
   const criarObjetoPoteQuilo = () => {
+    const title = `${getLabelTipoQuilo()} (${gramas}g)`;
+    const total = calcularTotalPoteAtual();
+    const flavorsList =
+      tipoQuilo === 'sorvete' || tipoQuilo === 'misto'
+        ? saboresSelecionados.map((s) => s.name)
+        : [];
+    const addonsList = adicionaisSelecionados.map((a) => ({
+      id: a.id,
+      name: a.name || a.nome,
+      type: a.type || a.tipo || 'incluso',
+      price: Number(a.price ?? a.preco ?? 0)
+    }));
+    const notes = observacaoPote.trim();
+    const obsParts = [];
+    if (flavorsList.length > 0) {
+      obsParts.push(`Sabores: ${flavorsList.join(', ')}`);
+    }
+    if (addonsList.length > 0) {
+      obsParts.push(`Acomp: ${addonsList.map((a) => a.name).join(', ')}`);
+    }
+    if (notes) {
+      obsParts.push(notes);
+    }
+
     return {
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       kind: 'quilo',
       product_type: tipoQuilo,
-      title: `${getLabelTipoQuilo()} (${gramas}g)`,
+      qty: 1,
+      name: title,
+      title,
+      price: total,
       grams: gramas,
       price_per_kg: precoPorKgAtual,
-      flavors:
-        tipoQuilo === 'sorvete' || tipoQuilo === 'misto'
-          ? saboresSelecionados.map((s) => s.name)
-          : [],
-      addons: adicionaisSelecionados.map((a) => ({
-        id: a.id,
-        name: a.name || a.nome,
-        type: a.type || a.tipo || 'incluso',
-        price: Number(a.price ?? a.preco ?? 0)
-      })),
-      observation: observacaoPote.trim(),
-      total: calcularTotalPoteAtual()
+      flavors: flavorsList,
+      addons: addonsList,
+      notes,
+      observation: obsParts.join(' | '),
+      total
     };
   };
 
@@ -178,20 +198,31 @@ export default function OnlineAcaiMenu() {
   const handleAdicionarCopoPronto = (copo) => {
     if (copo.out_of_stock) return;
     const isSorvete = (copo.category || 'acai') === 'sorvete';
+    const flavorsList = isSorvete ? saboresSelecionados.map((s) => s.name) : [];
+    const price = Number(copo.price || 0);
+    const obsParts = [];
+    if (flavorsList.length > 0) {
+      obsParts.push(`Sabores: ${flavorsList.join(', ')}`);
+    }
+
     const novoCopo = {
       id: `cup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       kind: 'copo_pronto',
       product_type: copo.category || 'acai',
       cup_id: copo.id,
+      qty: 1,
+      name: copo.name,
       title: copo.name,
+      price,
       size_ml: Number(copo.size_ml || 300),
       description: copo.description || '',
       image: copo.image || '',
       grams: 0,
-      flavors: isSorvete ? saboresSelecionados.map((s) => s.name) : [],
+      flavors: flavorsList,
       addons: [],
-      observation: '',
-      total: Number(copo.price || 0)
+      notes: '',
+      observation: obsParts.join(' | '),
+      total: price
     };
     setSacola((prev) => [...prev, novoCopo]);
   };
@@ -256,7 +287,7 @@ export default function OnlineAcaiMenu() {
       customerPhone: customerPhone.trim(),
       deliveryType,
       customerAddress: deliveryType === 'entrega' ? customerAddress.trim() : 'Retirada no Local',
-      paymentMethod,
+      paymentMethod: `online_${paymentMethod}`,
       changeAmount: paymentMethod === 'dinheiro' && changeAmount ? Number(changeAmount) : null,
       observation: generalObservation.trim(),
       grams: itensFinais.reduce((acc, item) => acc + Number(item.grams || 0), 0),
@@ -316,9 +347,12 @@ export default function OnlineAcaiMenu() {
     msg += `------------------------------\n`;
 
     (pedido.items || []).forEach((item, idx) => {
-      msg += `*${idx + 1}. ${item.title}* — R$ ${Number(item.total).toFixed(2)}\n`;
+      msg += `*${idx + 1}. ${item.title || item.name}* — R$ ${Number(item.total ?? item.price ?? 0).toFixed(2)}\n`;
       if (item.kind === 'copo_pronto') {
         if (item.description) msg += `   _${item.description}_\n`;
+        if (item.flavors && item.flavors.length > 0) {
+          msg += `   _Sabores de Sorvete:_ ${item.flavors.join(', ')}\n`;
+        }
       } else {
         if (item.flavors && item.flavors.length > 0) {
           msg += `   _Sabores de Sorvete:_ ${item.flavors.join(', ')}\n`;
@@ -332,8 +366,9 @@ export default function OnlineAcaiMenu() {
           msg += `   _Sem acompanhamentos_\n`;
         }
       }
-      if (item.observation) {
-        msg += `   _Obs:_ ${item.observation}\n`;
+      const rawNote = item.notes !== undefined ? item.notes : item.observation;
+      if (rawNote && !rawNote.includes('Sabores:') && !rawNote.includes('Acomp:')) {
+        msg += `   _Obs:_ ${rawNote}\n`;
       }
       msg += `\n`;
     });
@@ -342,8 +377,11 @@ export default function OnlineAcaiMenu() {
     if (pedido.observation) {
       msg += `*Observação Geral:* ${pedido.observation}\n`;
     }
-    msg += `*Pagamento:* ${String(pedido.paymentMethod || '').toUpperCase()}\n`;
-    if (pedido.paymentMethod === 'dinheiro' && pedido.changeAmount) {
+    const pgtoDisplay = String(pedido.paymentMethod || '')
+      .replace(/^online_/i, '')
+      .toUpperCase();
+    msg += `*Pagamento:* ${pgtoDisplay}\n`;
+    if (pgtoDisplay.includes('DINHEIRO') && pedido.changeAmount) {
       const troco = Number(pedido.changeAmount) - Number(pedido.total);
       msg += `*Troco para:* R$ ${Number(pedido.changeAmount).toFixed(2)} (Levar R$ ${Math.max(0, troco).toFixed(2)})\n`;
     }
