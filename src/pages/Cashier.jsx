@@ -3,6 +3,7 @@ import { MapPin, User, Receipt, Clock, ShoppingCart } from "lucide-react"
 import { productService, orderService, cashierService, configService } from "../services/api"
 import { categories } from "../data/menu"
 import logo from "../assets/herosburger.jpg"
+import CashierAcaiTab from "../components/CashierAcaiTab"
 
 const AUDIO_URL = "https://cdn.freesound.org/previews/320/320655_5260872-lq.mp3"
 
@@ -918,6 +919,14 @@ export default function Cashier() {
                         >
                             🍽️ MESAS
                         </button>
+                        {user.can_view_reports && (
+                            <button
+                            onClick={() => setActiveTab('acai')}
+                            className={`px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap ${activeTab === 'acai' ? 'bg-purple-600 text-white shadow' : 'text-purple-300 hover:text-white'}`}
+                        >
+                            💜 AÇAÍ
+                        </button>
+                        )}
                         <button
                             onClick={() => window.open("/kitchen", "_blank")}
                             className="px-3 md:px-6 py-2 rounded-md text-xs md:text-sm font-bold transition whitespace-nowrap text-gray-400 hover:text-orange-400"
@@ -1987,6 +1996,15 @@ v
                             </div>
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'acai' && user.can_view_reports && (
+                    <CashierAcaiTab user={user} onPrintOrder={(orderObj, autoPrint = false) => {
+                        setLastFinishedOrder(orderObj)
+                        if (autoPrint && (printerStatus === 'connected' || printerStatus === 'ready')) {
+                            setTimeout(() => printBluetooth(false, orderObj), 500)
+                        }
+                    }} />
                 )}
             </main>
         </div>
