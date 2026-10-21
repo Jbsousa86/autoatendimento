@@ -190,6 +190,7 @@ export function Cart({ customerPhone = "", setCustomerPhone = null }) {
           onClick={() => {
             if (!customerName.trim() || !paymentMethod) return
             const order = finalizeOrder(customerName, generalObservation, paymentMethod, customerPhone)
+            order.origin = 'totem'
             order.created_at_client = Date.now()
 
             navigate("/finish", { state: { order }, replace: true })

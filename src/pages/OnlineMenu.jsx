@@ -185,6 +185,7 @@ export default function OnlineMenu() {
         order.customerAddress = customerAddress
         order.customerPhone = customerPhone
         order.paymentMethod = `online_${paymentMethod}`
+        order.origin = 'online'
         order.changeAmount = paymentMethod === 'dinheiro' && changeAmount ? Number(changeAmount) : null
         order.loyaltyDiscount = loyaltyDiscount
         order.total = getCartTotalWithDiscount()

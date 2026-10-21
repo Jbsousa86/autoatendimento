@@ -178,6 +178,7 @@ export default function MobileMenu() {
         setShowConfirmModal(false)
         const customerName = `Mesa ${tableId || "?"}`
         const order = finalizeOrder(customerName, generalObservation, 'mesa', customerPhone)
+        order.origin = 'mesa'
         order.created_at_client = Date.now()
         navigate(`/mesa/${tableId}/sucesso`, { state: { order }, replace: true })
     }

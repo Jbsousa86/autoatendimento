@@ -193,6 +193,15 @@ export const orderService = {
     },
 
     async createOrder(orderData) {
+        const inferredOrigin = orderData.origin || (
+            String(orderData.paymentMethod || '').startsWith('online_')
+                ? 'online'
+                : orderData.paymentMethod === 'mesa' || String(orderData.customerName || '').toLowerCase().startsWith('mesa ')
+                    ? 'mesa'
+                    : !orderData.cashierName
+                        ? 'totem'
+                        : null
+        )
 
         const newOrder = {
             order_number: String(orderData.orderNumber),
@@ -201,6 +210,7 @@ export const orderService = {
             items: orderData.items,
             status: 'pending',
             cashier_name: orderData.cashierName || null,
+            origin: inferredOrigin,
       payment_method: orderData.paymentMethod || null,
       change_amount: orderData.changeAmount || null,
       observation: orderData.observation || null,
