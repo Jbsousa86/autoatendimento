@@ -234,7 +234,49 @@ export default function Cashier() {
 
             const acaiSubscription = acaiService.subscribeToOrders((payload) => {
                 if (payload?.eventType === 'INSERT' && payload?.new) {
-                    processAudioForOrders([payload.new])
+                    const newAcaiOrder = payload.new
+                    processAudioForOrders([newAcaiOrder])
+                    const isOnlineAcai = !newAcaiOrder.cashier_name && newAcaiOrder.delivery_type !== 'balcao'
+                    if (isOnlineAcai && !window.hasNativeAcaiRealtime && (window.PrintChannel || printerStatus === 'connected' || printerStatus === 'ready')) {
+                        if (window.PrintChannel) {
+                            window.PrintChannel.postMessage('PLAY_ALERT')
+                            window.PrintChannel.postMessage('NATIVE_MSG:🔔 Novo Pedido Online (Açaí) Recebido!')
+                        }
+                        const rawPgto = newAcaiOrder.payment_method || newAcaiOrder.paymentMethod || ''
+                        const formattedItems = (Array.isArray(newAcaiOrder.items) ? newAcaiOrder.items : []).map((it) => {
+                            const rawObs = it.notes !== undefined ? it.notes : (it.observation || '')
+                            const alreadyFormatted = it.notes === undefined && (rawObs.includes('Sabores:') || rawObs.includes('Acomp:'))
+                            let finalObs = rawObs
+                            if (!alreadyFormatted) {
+                                const extra = []
+                                if (Array.isArray(it.flavors) && it.flavors.length > 0) extra.push(`Sabores: ${it.flavors.join(', ')}`)
+                                if (Array.isArray(it.addons) && it.addons.length > 0) extra.push(`Acomp: ${it.addons.map((a) => a.name || a).join(', ')}`)
+                                if (rawObs) extra.push(rawObs)
+                                finalObs = extra.join(' | ')
+                            }
+                            return {
+                                qty: it.qty || 1,
+                                name: it.name || it.title || `Acai ${it.grams || 0}g`,
+                                price: Number(it.price ?? it.total ?? 0),
+                                observation: finalObs
+                            }
+                        })
+                        const addrRaw = newAcaiOrder.customer_address || newAcaiOrder.customerAddress || ''
+                        const formattedAcaiOrder = {
+                            id: newAcaiOrder.id,
+                            created_at: newAcaiOrder.created_at || new Date().toISOString(),
+                            orderNumber: newAcaiOrder.order_number || newAcaiOrder.orderNumber,
+                            cashierName: null,
+                            customerName: newAcaiOrder.customer_name || newAcaiOrder.customerName || 'Cliente',
+                            customerAddress: addrRaw === 'Venda de Balcão (Caixa)' ? '' : addrRaw,
+                            paymentMethod: rawPgto && !rawPgto.startsWith('online_') ? `online_${rawPgto}` : rawPgto,
+                            changeAmount: newAcaiOrder.change_amount ?? newAcaiOrder.changeAmount ?? null,
+                            observation: newAcaiOrder.observation || '',
+                            items: formattedItems,
+                            total: Number(newAcaiOrder.total || 0)
+                        }
+                        setTimeout(() => printBluetooth(false, formattedAcaiOrder), 500)
+                    }
                 }
             })
 
