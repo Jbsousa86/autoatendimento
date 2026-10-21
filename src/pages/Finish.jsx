@@ -33,6 +33,8 @@ export default function Finish() {
         }
         hasProcessed.current = true
         try {
+          order.origin = order.origin || 'totem'
+          order.printerTarget = order.printerTarget || 'totem_01'
           const { data: saved, error } = await orderService.createOrder(order)
 
           if (error || !saved) {

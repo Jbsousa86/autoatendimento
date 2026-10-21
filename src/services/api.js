@@ -211,6 +211,7 @@ export const orderService = {
             status: 'pending',
             cashier_name: orderData.cashierName || null,
             origin: inferredOrigin,
+            printer_target: orderData.printerTarget || orderData.printer_target || (inferredOrigin === 'totem' ? 'totem_01' : null),
       payment_method: orderData.paymentMethod || null,
       change_amount: orderData.changeAmount || null,
       observation: orderData.observation || null,

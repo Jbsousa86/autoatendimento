@@ -191,6 +191,7 @@ export function Cart({ customerPhone = "", setCustomerPhone = null }) {
             if (!customerName.trim() || !paymentMethod) return
             const order = finalizeOrder(customerName, generalObservation, paymentMethod, customerPhone)
             order.origin = 'totem'
+            order.printerTarget = 'totem_01'
             order.created_at_client = Date.now()
 
             navigate("/finish", { state: { order }, replace: true })

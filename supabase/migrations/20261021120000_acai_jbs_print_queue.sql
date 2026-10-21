@@ -12,6 +12,7 @@ create extension if not exists pgcrypto with schema extensions;
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists cashier_name text;
 alter table public.orders add column if not exists origin text;
+alter table public.orders add column if not exists printer_target text;
 
 create table if not exists public.jbs_print_agents (
     agent_id text primary key,
@@ -79,6 +80,12 @@ begin
         elsif v_cashier = '' then
             new.origin := 'totem';
         end if;
+    end if;
+
+    if lower(btrim(coalesce(new.origin, ''))) = 'totem' then
+        new.printer_target := coalesce(nullif(btrim(new.printer_target), ''), 'totem_01');
+    elsif lower(btrim(coalesce(new.printer_target, ''))) = 'totem_01' then
+        new.printer_target := null;
     end if;
 
     return new;
@@ -357,11 +364,26 @@ begin
             v_addr := btrim(coalesce(v_order->>'customer_address', ''));
 
             if left(v_payment, 7) = 'online_' or v_origin in ('online', 'cardapio_online') or (btrim(coalesce(v_order->>'cashier_name', '')) = '' and v_addr <> '') then
-                v_order := v_order || jsonb_build_object('origin', 'online');
+                v_order := (v_order - 'printer_target') || jsonb_build_object(
+                    'origin', 'online',
+                    'printer_target', case
+                        when lower(btrim(coalesce(v_order->>'printer_target', ''))) in ('', 'totem_01') then null
+                        else btrim(v_order->>'printer_target')
+                    end
+                );
             elsif v_payment = 'mesa' or v_origin = 'mesa' or left(v_name, 5) = 'mesa ' then
-                v_order := v_order || jsonb_build_object('origin', 'mesa');
+                v_order := (v_order - 'printer_target') || jsonb_build_object(
+                    'origin', 'mesa',
+                    'printer_target', case
+                        when lower(btrim(coalesce(v_order->>'printer_target', ''))) in ('', 'totem_01') then null
+                        else btrim(v_order->>'printer_target')
+                    end
+                );
             elsif btrim(coalesce(v_order->>'cashier_name', '')) = '' then
-                v_order := v_order || jsonb_build_object('origin', 'totem');
+                v_order := v_order || jsonb_build_object(
+                    'origin', 'totem',
+                    'printer_target', coalesce(nullif(btrim(v_order->>'printer_target'), ''), 'totem_01')
+                );
             end if;
         else
             select * into v_acai_order
