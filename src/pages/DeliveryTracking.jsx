@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronUp, LogOut, MapPin, Package, Phone, RefreshCw, Search, Truck } from "lucide-react"
 import { deliveryDriverService, orderService } from "../services/api"
 
@@ -17,6 +17,8 @@ const statusStyles = {
     finished: "bg-blue-400/20 text-blue-200",
     archived: "bg-gray-700 text-gray-300"
 }
+
+const preparationPriority = { ready: 0, preparing: 1, pending: 2, finished: 3, archived: 4 }
 
 export default function DeliveryTracking() {
     const [driver, setDriver] = useState(() => {
@@ -44,9 +46,12 @@ export default function DeliveryTracking() {
     const [deliveryActionError, setDeliveryActionError] = useState("")
     const [markingDeliveredId, setMarkingDeliveredId] = useState(null)
     const [filter, setFilter] = useState("")
+    const [deliveryFilter, setDeliveryFilter] = useState("pending")
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
     const [lastUpdated, setLastUpdated] = useState(null)
+    const [updateNotice, setUpdateNotice] = useState("")
+    const previousOrders = useRef(null)
 
     const loadOrders = useCallback(async (showLoading = false) => {
         if (!driver) return
@@ -60,18 +65,42 @@ export default function DeliveryTracking() {
                 sessionStorage.removeItem("delivery_driver_session")
                 setDriver(null)
                 setOrders([])
+                previousOrders.current = null
                 setError("")
                 setLoginError("Sua sessão expirou. Entre novamente.")
             } else {
                 setError("Não foi possível carregar os pedidos. Verifique a conexão e tente novamente.")
             }
         } else {
-            setOrders(Array.isArray(result.data) ? result.data : [])
+            const nextOrders = Array.isArray(result.data) ? result.data : []
+            if (previousOrders.current) {
+                const changedOrder = nextOrders.find(order => {
+                    const previousOrder = previousOrders.current.find(item => item.id === order.id)
+                    return previousOrder && (
+                        previousOrder.status !== order.status ||
+                        previousOrder.delivery_status !== order.delivery_status
+                    )
+                })
+                if (changedOrder) {
+                    const label = changedOrder.delivery_status === "delivered"
+                        ? "foi marcado como entregue"
+                        : `agora está ${statusLabels[changedOrder.status]?.toLowerCase() || "atualizado"}`
+                    setUpdateNotice(`Pedido #${changedOrder.order_number} ${label}.`)
+                }
+            }
+            previousOrders.current = nextOrders
+            setOrders(nextOrders)
             setError("")
             setLastUpdated(new Date())
         }
         if (showLoading) setLoading(false)
     }, [driver])
+
+    useEffect(() => {
+        if (!updateNotice) return undefined
+        const timeout = window.setTimeout(() => setUpdateNotice(""), 6000)
+        return () => window.clearTimeout(timeout)
+    }, [updateNotice])
 
     useEffect(() => {
         if (!driver) return undefined
@@ -109,6 +138,7 @@ export default function DeliveryTracking() {
         sessionStorage.removeItem("delivery_driver_session")
         setDriver(null)
         setOrders([])
+        previousOrders.current = null
         setOrderDetails({})
         setExpandedOrderId(null)
         if (sessionToken) {
@@ -122,9 +152,20 @@ export default function DeliveryTracking() {
 
     const visibleOrders = useMemo(() => {
         const number = filter.replace(/\D/g, "")
-        if (!number) return orders
-        return orders.filter(order => String(order.order_number).includes(number))
-    }, [filter, orders])
+        return orders
+            .filter(order => deliveryFilter === "all" ||
+                (deliveryFilter === "delivered"
+                    ? order.delivery_status === "delivered"
+                    : order.delivery_status !== "delivered"))
+            .filter(order => !number || String(order.order_number).includes(number))
+            .sort((first, second) => {
+                const firstDelivered = first.delivery_status === "delivered"
+                const secondDelivered = second.delivery_status === "delivered"
+                if (firstDelivered !== secondDelivered) return firstDelivered ? 1 : -1
+                return (preparationPriority[first.status] ?? 5) - (preparationPriority[second.status] ?? 5)
+                    || new Date(second.created_at) - new Date(first.created_at)
+            })
+    }, [deliveryFilter, filter, orders])
 
     const toggleOrderDetails = async (orderId) => {
         if (expandedOrderId === orderId) {
@@ -160,8 +201,12 @@ export default function DeliveryTracking() {
             setOrders(current => current.map(currentOrder => currentOrder.id === order.id
                 ? { ...currentOrder, ...result.data }
                 : currentOrder))
-            setLastUpdated(new Date())
-        }
+                previousOrders.current = orders.map(currentOrder => currentOrder.id === order.id
+                    ? { ...currentOrder, ...result.data }
+                    : currentOrder)
+                setUpdateNotice(`Pedido #${order.order_number} foi marcado como entregue.`)
+                setLastUpdated(new Date())
+            }
         setMarkingDeliveredId(null)
     }
 
@@ -230,6 +275,29 @@ export default function DeliveryTracking() {
                 </div>
 
                 {error && <p role="alert" className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-300">{error}</p>}
+                {updateNotice && <p role="status" className="mb-4 rounded-xl border border-green-400/20 bg-green-400/10 p-4 text-sm font-bold text-green-200">{updateNotice}</p>}
+
+                <div className="mb-5 flex flex-wrap gap-2" aria-label="Filtrar entregas">
+                    {[
+                        ["pending", "Pendentes", orders.filter(order => order.delivery_status !== "delivered").length],
+                        ["delivered", "Entregues", orders.filter(order => order.delivery_status === "delivered").length],
+                        ["all", "Todas", orders.length]
+                    ].map(([value, label, count]) => (
+                        <button
+                            key={value}
+                            type="button"
+                            onClick={() => setDeliveryFilter(value)}
+                            aria-pressed={deliveryFilter === value}
+                            className={`rounded-xl border px-4 py-2 text-sm font-bold transition ${
+                                deliveryFilter === value
+                                    ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                                    : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"
+                            }`}
+                        >
+                            {label} ({count})
+                        </button>
+                    ))}
+                </div>
 
                 {loading && orders.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
@@ -238,7 +306,13 @@ export default function DeliveryTracking() {
                     </div>
                 ) : visibleOrders.length === 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-gray-400">
-                        {orders.length ? "Nenhum recibo corresponde a esse número." : "Nenhum pedido encontrado hoje."}
+                        {filter.replace(/\D/g, "")
+                            ? "Nenhum recibo corresponde a esse número."
+                            : orders.length === 0
+                                ? "Nenhum pedido de entrega encontrado hoje."
+                                : deliveryFilter === "delivered"
+                                    ? "Nenhum pedido foi marcado como entregue hoje."
+                                    : "Nenhum pedido pendente de entrega."}
                     </div>
                 ) : (
                     <section className="grid gap-3 sm:grid-cols-2">
@@ -293,12 +367,19 @@ export default function DeliveryTracking() {
                                                 {details.customer_address && (
                                                     <div className="flex items-start gap-2 text-sm">
                                                         <MapPin size={16} className="mt-0.5 shrink-0 text-orange-300" />
-                                                        <div><span className="font-bold text-gray-400">Endereço:</span> {details.customer_address}{" "}
-                                                            <a href={mapUrl} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="font-bold text-orange-300 underline">Abrir mapa</a>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p><span className="font-bold text-gray-400">Endereço:</span> {details.customer_address}</p>
+                                                            <a href={mapUrl} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-orange-500 px-3 py-2 font-bold text-black transition hover:bg-orange-400">
+                                                                <MapPin size={15} /> Abrir rota no mapa
+                                                            </a>
                                                         </div>
                                                     </div>
                                                 )}
-                                                {details.customer_phone && <p className="text-sm"><Phone size={15} className="mr-2 inline text-orange-300" /><span className="font-bold text-gray-400">Telefone:</span> {details.customer_phone}</p>}
+                                                {details.customer_phone && (
+                                                    <a href={`tel:${details.customer_phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-gray-200 transition hover:bg-white/10">
+                                                        <Phone size={15} className="text-orange-300" /> Ligar para {details.customer_phone}
+                                                    </a>
+                                                )}
                                                 {details.payment_method && <p className="text-sm"><span className="font-bold text-gray-400">Pagamento:</span> {details.payment_method.replace("online_", "")}</p>}
                                                 {details.observation && <p className="text-sm"><span className="font-bold text-gray-400">Observação:</span> {details.observation}</p>}
                                                 <div className="border-t border-white/10 pt-4">
