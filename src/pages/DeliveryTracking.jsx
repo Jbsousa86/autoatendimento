@@ -341,6 +341,12 @@ export default function DeliveryTracking() {
                             const isExpanded = expandedOrderId === order.id
                             const details = orderDetails[order.id]
                             const deliveryDetails = details ? getDeliveryDetails(details) : null
+                            const changeAmount = Number(details?.change_amount)
+                            const changeDue = Math.max(0, changeAmount - Number(details?.total || 0))
+                            const showCashChange = Boolean(details)
+                                && String(details.payment_method || "").toLowerCase().includes("dinheiro")
+                                && Number.isFinite(changeAmount)
+                                && changeAmount > 0
                             const mapUrl = deliveryDetails?.customerAddress
                                 ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryDetails.customerAddress)}`
                                 : ""
@@ -406,6 +412,17 @@ export default function DeliveryTracking() {
                                                     </a>
                                                 )}
                                                 {details.payment_method && <p className="text-sm"><span className="font-bold text-gray-400">Pagamento:</span> {details.payment_method.replace("online_", "")}</p>}
+                                                {showCashChange && (
+                                                    <div className="rounded-xl border border-green-400/25 bg-green-400/10 p-4">
+                                                        <p className="text-xs font-black uppercase tracking-wider text-green-200">Pagamento em dinheiro</p>
+                                                        <p className="mt-2 text-sm text-gray-100">
+                                                            Troco para: <span className="font-black text-white">{changeAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                                                        </p>
+                                                        <p className="mt-1 text-sm text-gray-100">
+                                                            Levar para devolver: <span className="text-lg font-black text-green-200">{changeDue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                                                        </p>
+                                                    </div>
+                                                )}
                                                 {deliveryDetails.observation && (
                                                     <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
                                                         <p className="text-xs font-black uppercase tracking-wider text-yellow-200">Observação do pedido</p>
