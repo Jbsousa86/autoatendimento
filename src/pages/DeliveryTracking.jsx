@@ -20,6 +20,27 @@ const statusStyles = {
 
 const preparationPriority = { ready: 0, preparing: 1, pending: 2, finished: 3, archived: 4 }
 
+function getDeliveryDetails(details) {
+    let customerName = details.customer_name || ""
+    let customerAddress = details.customer_address || ""
+    let customerPhone = details.customer_phone || ""
+    let observation = details.observation || ""
+
+    const phoneMatch = customerName.match(/\[Tel:\s*([^\]]+)\]/i)
+    if (!customerPhone && phoneMatch) customerPhone = phoneMatch[1].trim()
+    customerName = customerName.replace(/\[Tel:\s*[^\]]+\]/i, "").trim()
+
+    const addressMatch = customerName.match(/\(([^)]+)\)/)
+    if (!customerAddress && addressMatch) customerAddress = addressMatch[1].trim()
+    if (addressMatch) customerName = customerName.replace(addressMatch[0], "").trim()
+
+    const observationMatch = customerName.match(/\[Obs:\s*([^\]]+)\]/i)
+    if (!observation && observationMatch) observation = observationMatch[1].trim()
+    if (observationMatch) customerName = customerName.replace(observationMatch[0], "").trim()
+
+    return { customerName, customerAddress, customerPhone, observation }
+}
+
 export default function DeliveryTracking() {
     const [driver, setDriver] = useState(() => {
         try {
@@ -319,8 +340,9 @@ export default function DeliveryTracking() {
                         {visibleOrders.map((order, index) => {
                             const isExpanded = expandedOrderId === order.id
                             const details = orderDetails[order.id]
-                            const mapUrl = details?.customer_address
-                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(details.customer_address)}`
+                            const deliveryDetails = details ? getDeliveryDetails(details) : null
+                            const mapUrl = deliveryDetails?.customerAddress
+                                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(deliveryDetails.customerAddress)}`
                                 : ""
                             return (
                             <article key={`${order.id || order.order_number}-${order.created_at}-${index}`} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg">
@@ -363,25 +385,33 @@ export default function DeliveryTracking() {
                                             <p role="alert" className="text-sm font-semibold text-red-300">{detailsError}</p>
                                         ) : details ? (
                                             <>
-                                                {details.customer_name && <p className="text-sm"><span className="font-bold text-gray-400">Cliente:</span> {details.customer_name}</p>}
-                                                {details.customer_address && (
-                                                    <div className="flex items-start gap-2 text-sm">
-                                                        <MapPin size={16} className="mt-0.5 shrink-0 text-orange-300" />
-                                                        <div className="min-w-0 flex-1">
-                                                            <p><span className="font-bold text-gray-400">Endereço:</span> {details.customer_address}</p>
+                                                {deliveryDetails.customerName && <p className="text-sm"><span className="font-bold text-gray-400">Cliente:</span> {deliveryDetails.customerName}</p>}
+                                                {deliveryDetails.customerAddress && (
+                                                    <div className="rounded-xl border border-orange-400/20 bg-orange-400/5 p-4">
+                                                        <div className="flex items-start gap-2 text-sm">
+                                                            <MapPin size={16} className="mt-0.5 shrink-0 text-orange-300" />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-xs font-black uppercase tracking-wider text-orange-200">Endereço de entrega</p>
+                                                                <p className="mt-1 whitespace-pre-line text-white">{deliveryDetails.customerAddress}</p>
                                                             <a href={mapUrl} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-orange-500 px-3 py-2 font-bold text-black transition hover:bg-orange-400">
                                                                 <MapPin size={15} /> Abrir rota no mapa
                                                             </a>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
-                                                {details.customer_phone && (
-                                                    <a href={`tel:${details.customer_phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-gray-200 transition hover:bg-white/10">
-                                                        <Phone size={15} className="text-orange-300" /> Ligar para {details.customer_phone}
+                                                {deliveryDetails.customerPhone && (
+                                                    <a href={`tel:${deliveryDetails.customerPhone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-gray-200 transition hover:bg-white/10">
+                                                        <Phone size={15} className="text-orange-300" /> Ligar para {deliveryDetails.customerPhone}
                                                     </a>
                                                 )}
                                                 {details.payment_method && <p className="text-sm"><span className="font-bold text-gray-400">Pagamento:</span> {details.payment_method.replace("online_", "")}</p>}
-                                                {details.observation && <p className="text-sm"><span className="font-bold text-gray-400">Observação:</span> {details.observation}</p>}
+                                                {deliveryDetails.observation && (
+                                                    <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+                                                        <p className="text-xs font-black uppercase tracking-wider text-yellow-200">Observação do pedido</p>
+                                                        <p className="mt-1 whitespace-pre-line text-sm text-gray-100">{deliveryDetails.observation}</p>
+                                                    </div>
+                                                )}
                                                 <div className="border-t border-white/10 pt-4">
                                                     <h3 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-gray-400"><Package size={15} /> Itens do pedido</h3>
                                                     {Array.isArray(details.items) && details.items.length > 0 ? (
