@@ -21,7 +21,12 @@ const statusStyles = {
 export default function DeliveryTracking() {
     const [driver, setDriver] = useState(() => {
         try {
-            return JSON.parse(sessionStorage.getItem("delivery_driver_session") || "null")
+            const savedDriver = JSON.parse(sessionStorage.getItem("delivery_driver_session") || "null")
+            if (!savedDriver?.session_token) {
+                sessionStorage.removeItem("delivery_driver_session")
+                return null
+            }
+            return savedDriver
         } catch {
             sessionStorage.removeItem("delivery_driver_session")
             return null
@@ -36,6 +41,8 @@ export default function DeliveryTracking() {
     const [orderDetails, setOrderDetails] = useState({})
     const [detailsLoadingId, setDetailsLoadingId] = useState(null)
     const [detailsError, setDetailsError] = useState("")
+    const [deliveryActionError, setDeliveryActionError] = useState("")
+    const [markingDeliveredId, setMarkingDeliveredId] = useState(null)
     const [filter, setFilter] = useState("")
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
@@ -44,9 +51,20 @@ export default function DeliveryTracking() {
     const loadOrders = useCallback(async (showLoading = false) => {
         if (!driver) return
         if (showLoading) setLoading(true)
-        const result = await orderService.getDeliveryOrdersToday()
+        const result = await orderService.getDeliveryOrdersToday(driver.session_token)
         if (result.error) {
-            setError("Não foi possível carregar os pedidos. Verifique a conexão e tente novamente.")
+            const errorMessage = String(result.error.message || "")
+            if (result.error.code === "PGRST202" || errorMessage.includes("Could not find the function")) {
+                setError("O banco ainda não foi atualizado para a nova tela do entregador. Aplique as migrações do Supabase e entre novamente.")
+            } else if (errorMessage.includes("Sessão de entregador inválida ou expirada")) {
+                sessionStorage.removeItem("delivery_driver_session")
+                setDriver(null)
+                setOrders([])
+                setError("")
+                setLoginError("Sua sessão expirou. Entre novamente.")
+            } else {
+                setError("Não foi possível carregar os pedidos. Verifique a conexão e tente novamente.")
+            }
         } else {
             setOrders(Array.isArray(result.data) ? result.data : [])
             setError("")
@@ -86,12 +104,20 @@ export default function DeliveryTracking() {
         }
     }
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        const sessionToken = driver?.session_token
         sessionStorage.removeItem("delivery_driver_session")
         setDriver(null)
         setOrders([])
         setOrderDetails({})
         setExpandedOrderId(null)
+        if (sessionToken) {
+            try {
+                await deliveryDriverService.logout(sessionToken)
+            } catch (error) {
+                console.error("Erro ao encerrar sessão do entregador:", error)
+            }
+        }
     }
 
     const visibleOrders = useMemo(() => {
@@ -104,20 +130,39 @@ export default function DeliveryTracking() {
         if (expandedOrderId === orderId) {
             setExpandedOrderId(null)
             setDetailsError("")
+            setDeliveryActionError("")
             return
         }
         setExpandedOrderId(orderId)
         setDetailsError("")
+        setDeliveryActionError("")
         if (orderDetails[orderId]) return
 
         setDetailsLoadingId(orderId)
-        const result = await orderService.getTodayOrderDetails(orderId)
+        const result = await orderService.getTodayOrderDetails(orderId, driver.session_token)
         if (result.error || !result.data) {
             setDetailsError("Não foi possível carregar os dados deste pedido.")
         } else {
             setOrderDetails(current => ({ ...current, [orderId]: result.data }))
         }
         setDetailsLoadingId(null)
+    }
+
+    const handleMarkDelivered = async (order) => {
+        if (!window.confirm(`Confirmar que o pedido #${order.order_number} foi entregue?`)) return
+
+        setMarkingDeliveredId(order.id)
+        setDeliveryActionError("")
+        const result = await orderService.markDeliveryOrderDelivered(order.id, driver.session_token)
+        if (result.error || !result.data) {
+            setDeliveryActionError("Não foi possível confirmar a entrega. Atualize os pedidos e tente novamente.")
+        } else {
+            setOrders(current => current.map(currentOrder => currentOrder.id === order.id
+                ? { ...currentOrder, ...result.data }
+                : currentOrder))
+            setLastUpdated(new Date())
+        }
+        setMarkingDeliveredId(null)
     }
 
     if (!driver) {
@@ -154,7 +199,7 @@ export default function DeliveryTracking() {
                         </div>
                         <div>
                             <h1 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Pedidos de hoje</h1>
-                            <p className="mt-1 text-sm text-gray-400">Recibos e status atualizados conforme a cozinha.</p>
+                            <p className="mt-1 text-sm text-gray-400">Acompanhe o preparo e confirme as entregas.</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -226,6 +271,9 @@ export default function DeliveryTracking() {
                                         <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusStyles[order.status] || "bg-gray-700 text-gray-200"}`}>
                                             {statusLabels[order.status] || order.status || "Status indisponível"}
                                         </span>
+                                        <span className={`inline-flex rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${order.delivery_status === "delivered" ? "bg-blue-400/20 text-blue-200" : "bg-orange-400/15 text-orange-200"}`}>
+                                            {order.delivery_status === "delivered" ? "Entregue" : "Aguardando entrega"}
+                                        </span>
                                         <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
                                             {isExpanded ? "Fechar detalhes" : "Ver pedido"}
                                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -269,6 +317,26 @@ export default function DeliveryTracking() {
                                                 </div>
                                             </>
                                         ) : null}
+                                        {order.delivery_status === "delivered" ? (
+                                            <p className="rounded-xl border border-blue-400/20 bg-blue-400/10 p-3 text-sm font-bold text-blue-200">
+                                                Entregue{order.delivered_by_name ? ` por ${order.delivered_by_name}` : ""}
+                                                {order.delivered_at ? ` às ${new Date(order.delivered_at).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}` : ""}.
+                                            </p>
+                                        ) : ["ready", "finished"].includes(order.status) ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMarkDelivered(order)}
+                                                disabled={markingDeliveredId === order.id}
+                                                className="w-full rounded-xl bg-green-500 px-4 py-3 font-black text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {markingDeliveredId === order.id ? "CONFIRMANDO..." : "MARCAR COMO ENTREGUE"}
+                                            </button>
+                                        ) : (
+                                            <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-gray-400">
+                                                A confirmação de entrega estará disponível quando o pedido ficar pronto.
+                                            </p>
+                                        )}
+                                        {deliveryActionError && <p role="alert" className="text-sm font-semibold text-red-300">{deliveryActionError}</p>}
                                     </div>
                                 )}
                             </article>

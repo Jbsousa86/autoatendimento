@@ -100,9 +100,11 @@ export const productService = {
 // 🧾 SERVIÇO DE PEDIDOS
 // ==========================================
 export const orderService = {
-    async getDeliveryOrdersToday() {
+    async getDeliveryOrdersToday(sessionToken) {
         try {
-            const { data, error } = await supabase.rpc('list_delivery_orders_today')
+            const { data, error } = await supabase.rpc('list_delivery_orders_today', {
+                p_session_token: sessionToken
+            })
 
             if (error) {
                 console.error("Erro ao acompanhar entrega:", error)
@@ -115,10 +117,11 @@ export const orderService = {
         }
     },
 
-    async getTodayOrderDetails(orderId) {
+    async getTodayOrderDetails(orderId, sessionToken) {
         try {
             const { data, error } = await supabase.rpc('get_today_order_details', {
-                p_order_id: String(orderId)
+                p_order_id: String(orderId),
+                p_session_token: sessionToken
             })
             if (error) {
                 console.error("Erro ao carregar detalhes do pedido:", error)
@@ -127,6 +130,23 @@ export const orderService = {
             return { data }
         } catch (error) {
             console.error("Erro ao carregar detalhes do pedido:", error)
+            return { error }
+        }
+    },
+
+    async markDeliveryOrderDelivered(orderId, sessionToken) {
+        try {
+            const { data, error } = await supabase.rpc('mark_delivery_order_delivered', {
+                p_order_id: String(orderId),
+                p_session_token: sessionToken
+            })
+            if (error) {
+                console.error("Erro ao confirmar entrega:", error)
+                return { error }
+            }
+            return { data }
+        } catch (error) {
+            console.error("Erro ao confirmar entrega:", error)
             return { error }
         }
     },
@@ -428,6 +448,13 @@ export const deliveryDriverService = {
         })
         if (error) throw error
         return data || null
+    },
+
+    async logout(sessionToken) {
+        const { error } = await supabase.rpc('logout_delivery_driver', {
+            p_session_token: sessionToken
+        })
+        if (error) throw error
     }
 }
 
