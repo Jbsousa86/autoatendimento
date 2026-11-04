@@ -58,14 +58,9 @@ export default function Finish() {
     processOrder()
     if (order?.customerName) setTempName(order.customerName)
 
-
-    const handleAfterPrint = () => handleNewOrder()
-    window.addEventListener('afterprint', handleAfterPrint)
-
     const safetyTimer = setTimeout(() => handleNewOrder(), 30000)
 
     return () => {
-      window.removeEventListener('afterprint', handleAfterPrint)
       clearTimeout(safetyTimer)
     }
   }, [order])
@@ -111,6 +106,10 @@ export default function Finish() {
         {order.orderNumber}
       </div>
 
+      <p className="text-3xl font-bold text-white text-center px-6 mb-10 screen-only">
+        Aguarde, seu recibo está sendo impresso.
+      </p>
+
     {order.observation && (
         <div className="mb-10 bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/20 screen-only">
         <p className="text-2xl italic text-white font-medium">"{order.observation}"</p>
@@ -124,19 +123,6 @@ export default function Finish() {
       </div>
 
       <div className="flex flex-col gap-16 w-full max-w-sm px-6 screen-only">
-        <button
-          onClick={() => {
-            window.print()
-          }}
-          className="w-full py-4 bg-white text-gray-800 text-xl font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 screen-only hover:bg-gray-50 active:scale-95 transition-all"
-        >
-          <span>🖨️</span>
-          IMPRIMIR RECIBO
-        </button>
-
-
-
-
         <button onClick={handleNewOrder} className="w-full py-6 mt-10 bg-white text-green-600 text-3xl font-black rounded-2xl shadow-2xl hover:scale-[1.02] transition-transform active:scale-95 screen-only">
           NOVO PEDIDO
         </button>
